@@ -1,56 +1,42 @@
-# GPTRPG
+ # GPTRPG
+ 
+GPTRPG is a simple pixel-style RPG prototype that supports a human-controlled character and an LLM-enabled AI agent that interacts with the environment. The project is built with React, Phaser, and Grid Engine, and is connected to the OpenAI API for the agent’s behavior. This repo includes: a dynamic game world rendered in Phaser, a controllable human character, an AI agent connected via WebSocket, NPC dialog and scene transitions, and support for OpenAI-based decision-making logic.
 
-![map of the game](map.png)
+## 🛠️ Getting Started
 
-This repo contains two things:
+1. Clone the project  
+   `git clone https://github.com/Carolzhangzz/Food-Tracking.git && cd Food-Tracking`  
+2. Install dependencies  
+   `npm install`  
+3. Set up OpenAI API key  
+   Rename `agent/env.example.json` to `env.json`:  
+   `mv agent/env.example.json agent/env.json`  
+   Then open `agent/env.json` and fill in your API key like this:  
+   `{ "OPENAI_API_KEY": "your-api-key-here" }`  
+4. Start the AI Agent server  
+   `cd agent && node ServerAgent.js`  
+5. Start the game frontend (in a new terminal tab)  
+   `npm start`  
+6. Open your browser and visit `http://localhost:3000`
 
-* A simple RPG-like environment for an LLM-enabled AI Agent to exist in
-* A simple AI Agent connected to the OpenAI API to exist in that environment
+✅ This project has been tested on Node.js v16.19.0
 
-It is intended as a proof of concept.
+## 🎮 Game Overview
 
-## Running
+The game opens with a cinematic dialog scene accompanied by background music, followed by the main village map.
 
-GPTRPG is intended to be run locally. To run:
+### Environment
 
-1. Make sure you have updated the `agent/env.json` file with your OpenAI API key.  
-2. Only tested with node 16.19.0 
-2. In the `gptrpg` directory run `npm install` to install dependencies for all projects.
-3. Then run `npm start` in the root directory.  This will start the agent and the front-end.  The front-end will be available at `http://localhost:3000`.
+The environment is built using Tiled (map files in `ui-admin/src/assets`), rendered using Phaser and Grid Engine. The player character is controlled using arrow or WASD keys. Use `SPACE` to talk to NPCs, `S` to plant, and `D` to harvest. The frontend lives in the `ui-admin` directory and is a standard React app.
 
-## The Environment
-Code for the environment lives in the `ui-admin` directory. It is a React project.
+### AI Agent
 
-The environment was made with [Tiled](https://www.mapeditor.org/) map editor.  The files live in `ui-admin/src/assets`.
+The AI agent lives in the `agent` directory and connects via WebSocket to the frontend. It uses the OpenAI GPT-3.5-turbo API to decide on its actions, which are based on its surroundings and its internal state (currently only sleepiness). Communication happens through JSON messages.
 
-The environment is rendered with [Phaser](https://phaser.io/) and the [Grid Engine Plugin](https://annoraaq.github.io/grid-engine/)
+## 📦 Upcoming Features
 
-The environment consists of:
+Multi-agent support, inventory and goal system, emotional/memory tracking, expanded action list (eat, drink, rest, write, etc.), human-agent dialogue system, UI/UX improvements, and web deployment support.
 
-* The character (agent)
-* Impassable tiles
-* A plant layer with "plantable" tiles, and plants (not currently in use by agent).  Player can plant food on plantable tiles with S key and harvest food with D key.
+## ⚠️ Note
 
-## The Agent
-Code for the agent lives in the `agent` directory.
-
-The agent is a simple AI agent that uses the OpenAI API to make decisions.  It communicates with the front-end via a websocket.
-
-The agent is provided with a list of possible actions, the state of its surroundings, and its internal state (currently only sleepiness is measured).
-
-## Upcoming features
-
-* Multi agent support
-* More agent actions (drink, eat, plant food, harvest food, write poetry, etc.)
-* More agent states (hunger, thirst, etc.)
-* Agent memory
-* Agent goals
-* Agent inventory
-* Deployment to web
-* Human controlled character
-* UI enhancements (agent state, human interactions, etc.)
-
-## Notes
-
-Currently, GPTRPG runs with the `gpt-3.5-turbo` API.
-
+Do not commit your OpenAI key. The `env.json` file is ignored by Git to protect credentials.
