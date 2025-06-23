@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from "react";
-import Phaser from 'phaser';
-import './App.css';
+import Phaser from "phaser";
+import "./App.css";
 import GridEngine from "grid-engine";
-
-import preload from './preload';
-import create from './create';
-import update from './update';
+import DialogScene from "./DialogScene";
+import preload from "./preload";
+import create from "./create";
+import update from "./update";
 
 function App() {
   const gameRef = useRef(null);
@@ -13,7 +13,7 @@ function App() {
   useEffect(() => {
     if (gameRef.current === null) {
       gameRef.current = new Phaser.Game({
-        title: "GPTRPG",
+        title: "Food Tracking",
         render: {
           antialias: false,
         },
@@ -30,11 +30,15 @@ function App() {
             },
           ],
         },
-        scene: {
-          preload,
-          create,
-          update,
-        },
+        scene: [
+          DialogScene, // ⬅️ 加入对话场景
+          {
+            key: "MainScene", // ⬅️ 添加你的主场景
+            preload,
+            create,
+            update,
+          },
+        ],
         scale: {
           width: window.innerWidth,
           height: window.innerHeight,

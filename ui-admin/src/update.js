@@ -1,59 +1,25 @@
 import Phaser from "phaser";
 
+
 export default function update(time, delta) {
 
-  if(this.randomDestinationKey.isDown) {
-    this.gridEngine.moveTo("player", { x: 15, y: 18 });
-  }
 
+  // 如果是玩家视角
   if (this.playerView) {
-    if (this.addPlantKey.isDown) {
-      const playerPosition = this.gridEngine.getPosition("player");
-      const tileX = playerPosition.x;
-      const tileY = playerPosition.y;
-  
-      // Get the grass layer
-      const grassLayer = this.fieldMapTileMap.layers[0].tilemapLayer;
-  
-      // Check if there's a grass tile at the character's position and it has the property 'plantable'
-      const grassTile = grassLayer.getTileAt(tileX, tileY);
-  
-      if (grassTile && grassTile.properties.plantable) {
-        // Check if there's no tile at the character's position in other layers
-        const noOtherTile = this.fieldMapTileMap.layers.every((layer, index) => {
-          if (index === 0) return true; // Skip the grass layer
-          return !layer.tilemapLayer.hasTileAt(tileX, tileY);
-        });
-  
-        if (noOtherTile) {
-          const { x: worldX, y: worldY } = this.fieldMapTileMap.tileToWorldXY(tileX, tileY);
-  
-          const plant = this.add.sprite(worldX, worldY, "plant");
-  
-          plant.setFrame(446);
-          plant.setOrigin(0, 0);
-          plant.scale = 3;
-          this.plantLayer.add(plant);
-        }
-      }
+    const playerPos = this.gridEngine.getPosition("player");
+    const npcPos = this.gridEngine.getPosition("npc1");
+
+    // 判断是否邻近 NPC
+    const isNextToNPC =
+      Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) === 1;
+
+    // 玩家按下空格键（对话键）
+    if (isNextToNPC && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.showDialog("你好，我是NPC，有什么我可以帮忙的吗？");
+      this.gridEngine.turnTowards("npc1", "player");
     }
-  
-    if (this.removePlantKey.isDown) {
-      const playerPosition = this.gridEngine.getPosition("player");
-      const { x: worldX, y: worldY } = this.fieldMapTileMap.tileToWorldXY(playerPosition.x, playerPosition.y);
-  
-      // Find all overlapping plants
-      const plantsToRemove = this.plantLayer.list.filter((plant) => {
-        const distance = Phaser.Math.Distance.Between(plant.x, plant.y, worldX, worldY);
-        return distance < (16 * 3) / 2;
-      });
-  
-      // Remove all the overlapping plants
-      plantsToRemove.forEach((plant) => {
-        plant.destroy();
-      });
-    }
-    
+
+    // 玩家移动
     if (this.cursors.left.isDown) {
       this.agent.moveAndCheckCollision("left", this.fieldMapTileMap);
     } else if (this.cursors.right.isDown) {
@@ -63,9 +29,9 @@ export default function update(time, delta) {
     } else if (this.cursors.down.isDown) {
       this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
     }
-  }
-  else if (!this.playerView) {
+  } 
+  // 如果是 overview 模式
+  else {
     this.controls.update(delta);
   }
-  
-};
+}
