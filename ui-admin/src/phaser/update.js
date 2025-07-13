@@ -3,7 +3,6 @@ import Phaser from "phaser";
 
 export default function update(time, delta) {
 
-
   // 如果是玩家视角
   if (this.playerView) {
     const playerPos = this.gridEngine.getPosition("player");

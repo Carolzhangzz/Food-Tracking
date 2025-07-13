@@ -1,7 +1,7 @@
-import mapJson from "./assets/GPTRPGMap.json"
-import tileset from "./assets/v2.png"
-import characters from "./assets/characters.png"
-import npc from "./assets/npc.png"
+import mapJson from "../assets/GPTRPGMap.json"
+import tileset from "..//assets/v2.png"
+import characters from "../assets/characters.png"
+import npc from "../assets/npc.png"
 
 export default function preload() {
   this.load.image("tiles", tileset, {

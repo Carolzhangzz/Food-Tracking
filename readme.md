@@ -16,7 +16,7 @@ GPTRPG is a simple pixel-style RPG prototype that supports a human-controlled ch
 4. Start the AI Agent server  
    `cd agent && node ServerAgent.js`  
 5. Start the game frontend (in a new terminal tab)  
-   `npm start`  
+   `cd gptrpg npm start`  
 6. Open your browser and visit `http://localhost:3000`
 
 ✅ This project has been tested on Node.js v16.19.0

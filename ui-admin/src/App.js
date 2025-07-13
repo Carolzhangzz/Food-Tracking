@@ -1,56 +1,34 @@
-import React, { useEffect, useRef } from "react";
-import Phaser from "phaser";
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginPage from "./components/LoginPage";
+import MainMenu from "./components/MainMenu";
+import GameScreen from "./components/GameScreen";
+import CutScenePlayer from "./components/CutScenePlayer";
+import { PlayerProvider } from "./context/PlayerContext";
+import { LanguageProvider } from "./context/LanguageContext";
+import { AudioProvider } from "./context/AudioContext";
 import "./App.css";
-import GridEngine from "grid-engine";
-import DialogScene from "./DialogScene";
-import preload from "./preload";
-import create from "./create";
-import update from "./update";
+
+
+import "./App.css";
 
 function App() {
-  const gameRef = useRef(null);
-
-  useEffect(() => {
-    if (gameRef.current === null) {
-      gameRef.current = new Phaser.Game({
-        title: "Food Tracking",
-        render: {
-          antialias: false,
-        },
-        type: Phaser.AUTO,
-        physics: {
-          default: "arcade",
-        },
-        plugins: {
-          scene: [
-            {
-              key: "gridEngine",
-              plugin: GridEngine,
-              mapping: "gridEngine",
-            },
-          ],
-        },
-        scene: [
-          DialogScene, // ⬅️ 加入对话场景
-          {
-            key: "MainScene", // ⬅️ 添加你的主场景
-            preload,
-            create,
-            update,
-          },
-        ],
-        scale: {
-          width: window.innerWidth,
-          height: window.innerHeight,
-          autoCenter: Phaser.Scale.CENTER_BOTH,
-        },
-        parent: "game",
-        backgroundColor: "#48C4F8",
-      });
-    }
-  }, []);
-
-  return <div id="game"></div>;
+  return (
+    <PlayerProvider> 
+      <LanguageProvider>
+        <AudioProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
+              <Route path="/menu" element={<MainMenu />} />
+              <Route path="/intro" element={<CutScenePlayer />} />
+              <Route path="/game" element={<GameScreen />} />
+            </Routes>  
+          </BrowserRouter>
+        </AudioProvider>
+      </LanguageProvider>
+    </PlayerProvider>
+  );
 }
 
 export default App;

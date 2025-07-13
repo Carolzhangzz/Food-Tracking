@@ -1,15 +1,7 @@
 {
-  "name": "gptrpg",
-  "version": "1.0.0",
-  "description": "This repo contains two things:",
-  "main": "index.js",
-  "scripts": {
-    "start": "concurrently \"npm:start --prefix agent\" \"npm:start --prefix ui-admin\"",
-    "install": "cd agent && npm install && cd ../ui-admin && npm install"
-  },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "concurrently": "^8.0.1"
+    "pg": "^8.16.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.7"
   }
 }
