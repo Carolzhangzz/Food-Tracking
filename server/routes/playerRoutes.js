@@ -5,27 +5,37 @@ const Player = require('../models/Player');
 const AllowedId = require('../models/AllowedId');
 
 // 登录接口
+// 客户端 POST /api/login 带 playerId
+// 后端查数据库：有就返回成功，没就404
+
 router.post('/login', async (req, res) => {
   const { playerId } = req.body;
-  if (!playerId) return res.status(400).send('Player ID is required');
 
- // Step 1: Check whitelist
-  const allowed = await AllowedId.findById(playerId);
-  if (!allowed) {
-    return res.status(403).send('This Player ID is not valid. Please check your ID.');
+  try {
+    const record = await AllowedId.findOne({ where: { player_id: playerId } });
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Player ID not found in database',
+      });
+    }
+
+    // 可选：标记这个ID已被使用
+    await record.update({ used: true });
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      playerId,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
   }
-
-  let player = await Player.findById(playerId);
-  if (!player) {
-    // 创建新玩家
-    player = new Player({ _id: playerId });
-    await player.save();
-    // 标记ID为已用
-    allowed.used = true;
-    await allowed.save();
-  }
-
-  res.json(player);
 });
 
 // 获取存档

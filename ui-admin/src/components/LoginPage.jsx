@@ -3,31 +3,55 @@ import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlayerContext } from '../context/PlayerContext';
 
+const baseUrl = process.env.REACT_APP_API_URL;
+
 function LoginPage() {
   const [playerIdInput, setPlayerIdInput] = useState('');
   const { setPlayerId } = useContext(PlayerContext);
   const navigate = useNavigate();
 
+  // 登录处理函数
   const handleLogin = async () => {
     if (!playerIdInput.trim()) {
       alert('Please enter your Player ID!');
       return;
     }
 
-    try {
-      // TODO: Call real backend API here to validate playerId
-      console.log('Logging in with ID:', playerIdInput);
-      
-      // Example: simulate validation
-      // await api.login(playerIdInput);
+  try {
+    // 为了便于生产环境
+    // 修改一下这里的 URL 
+    // 这里后端服务运行在本地3001端口
+    // 如果部署在其他地方，请修改为实际的后端地址
+    // 例如：'https://your-backend-domain.com/api/login'
+    // 修改这个url为可替换的字段
+    // 例如：process.env.REACT_APP_API_URL || 'http://localhost:3000/api/login'
+    
+    // 怎么打印 login 的标记
+  
+    const response = await fetch(`${baseUrl}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: playerIdInput })
+    });
 
-      setPlayerId(playerIdInput);
-      navigate('/menu');
-    } catch (error) {
-      console.error('Login failed:', error);
-      alert('Invalid Player ID. Please try again.');
+    const data = await response.json();
+
+    if (!response.ok) {
+      // 这里统一处理后端的错误信息
+      alert(data.message || 'Login failed');
+      return;
     }
-  };
+
+    // 成功
+    console.log('Logged in:', data);
+    setPlayerId(playerIdInput);
+    navigate('/menu');
+  } catch (error) {
+    console.error('Login failed:', error);
+    alert('Network error or server not responding');
+  }
+};
+
 
   return (
     <div style={styles.container}>

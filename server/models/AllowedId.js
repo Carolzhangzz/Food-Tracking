@@ -1,9 +1,20 @@
-// const mongoose = require('mongoose');
+// server/models/AllowedId.js
+// _id（主键，存登录ID）
+// used（true/false）
 
-// const AllowedIdSchema = new mongoose.Schema({
-//   _id: String,
-//   used: { type: Boolean, default: false },
-// });
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-// module.exports = mongoose.model('AllowedId', AllowedIdSchema);
-// 用 postgresql@14 
+const AllowedId = sequelize.define('AllowedId', {
+  _id: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    primaryKey: true,
+  },
+  used: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  }
+});
+
+module.exports = AllowedId;
