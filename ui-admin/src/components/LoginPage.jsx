@@ -3,11 +3,11 @@ import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlayerContext } from "../context/PlayerContext";
 import {updateUserContext} from "../utils/update";
-const baseUrl = process.env.REACT_APP_API_URL;
+// const baseUrl = process.env.REACT_APP_API_URL;
 
 function LoginPage() {
   const [playerIdInput, setPlayerIdInput] = useState("");
-  const { playerId, setPlayerId, playerData, setPlayerData } =
+  const { setPlayerId, playerData, setPlayerData } =
     useContext(PlayerContext);
   const navigate = useNavigate();
 
@@ -29,7 +29,7 @@ function LoginPage() {
 
       // 怎么打印 login 的标记
 
-      const response = await fetch(`http://127.0.0.1:8000/api/login`, {
+      const response = await fetch(`https://twilight-king-cf43.1442334619.workers.dev/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: playerIdInput }),

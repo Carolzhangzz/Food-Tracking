@@ -219,7 +219,7 @@ export default class MainScene extends Phaser.Scene {
         // collect user input
         const userInput = this.inputBox ? this.inputBox.value.trim() : "";
         try {
-            result = await (await fetch("http://127.0.0.1:8000/api/nextDialog", {
+            result = await (await fetch("https://twilight-king-cf43.1442334619.workers.dev/api/nextDialog", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

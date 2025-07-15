@@ -2,10 +2,6 @@
 import React, { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import GridEngine from "grid-engine";
-import DialogScene from "../phaser/DialogScene";
-import preload from "../phaser/preload";
-import create from "../phaser/create";
-import update from "../phaser/update";
 import MainScene from "../phaser/MainScene";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
@@ -29,17 +25,6 @@ function GameScreen() {
       console.log("Player Data:", playerData);
     }
   }, [playerId, playerData, navigate]);
-
-  const _srcWidth = parseInt(
-    window.innerWidth ||
-      document.documentElement.clientWidth ||
-      document.body.clientWidth
-  );
-  const _srcHeight = parseInt(
-    window.innerHeight ||
-      document.documentElement.clientHeight ||
-      document.body.clientHeight
-  );
 
   useEffect(() => {
     if (gameRef.current === null) {
@@ -69,11 +54,19 @@ function GameScreen() {
           //   create,
           //   update,
           // },
-          MainScene,  
+          MainScene,
         ],
         scale: {
-          width: _srcWidth,
-          height: _srcHeight,
+          width: parseInt(
+            window.innerWidth ||
+              document.documentElement.clientWidth ||
+              document.body.clientWidth
+          ),
+          height: parseInt(
+            window.innerHeight ||
+              document.documentElement.clientHeight ||
+              document.body.clientHeight
+          ),
           autoCenter: Phaser.Scale.CENTER_BOTH,
         },
         parent: "game",

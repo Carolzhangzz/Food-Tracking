@@ -43,7 +43,7 @@ export default class DialogScene extends Phaser.Scene {
     dialogBox.strokeRoundedRect(32, boxY + 2, width - 64, boxHeight - 4, 6);
 
     // 说话人名字
-    const speakerName = this.add.text(50, boxY + 15, "Uncle Bo", {
+    this.add.text(50, boxY + 15, "Uncle Bo", {
       fontSize: '16px',
       fontFamily: 'monospace',
       fill: '#ffd700',

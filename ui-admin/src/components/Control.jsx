@@ -1,14 +1,12 @@
 import React from "react";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
-import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
 import Button from "./Button"; // Assuming you have a Button component
 
 function Control() {
   const { playerId, playerData, setPlayerData } = useContext(PlayerContext);
   const [showClueModal, setShowClueModal] = React.useState(false);
-  const navigate = useNavigate();
 
   return (
     <>

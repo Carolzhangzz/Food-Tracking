@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import Control from "./Control";
 
 function CutScenePlayer() {
-  const { playerId, setPlayerId, playerData, setPlayerData } = useContext(PlayerContext);
+  const { playerId, playerData } = useContext(PlayerContext);
   const [currentLine, setCurrentLine] = useState(0);
   const [showStartButton, setShowStartButton] = useState(false);
   const navigate = useNavigate();
