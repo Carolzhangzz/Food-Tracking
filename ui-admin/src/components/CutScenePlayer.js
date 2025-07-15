@@ -47,7 +47,7 @@ function CutScenePlayer() {
       "Now you're back.",
       "No one knows what happened.",
       "But the people here remember your master well.",
-      "They love talking about food—every flavor, every moment.",
+      "They love talking about food—every flavor, every moment. ",
       "If you want to find the truth, follow in his footsteps. Pay attention. Every detail matters."
     ];
 
