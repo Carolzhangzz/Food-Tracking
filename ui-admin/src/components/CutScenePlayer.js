@@ -2,7 +2,7 @@ import React, { useState, useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import Button from "./Button";
 import { useNavigate } from "react-router-dom";
-
+import Control from "./Control";
 
 function CutScenePlayer() {
   const { playerId, setPlayerId, playerData, setPlayerData } = useContext(PlayerContext);
@@ -26,7 +26,7 @@ function CutScenePlayer() {
   }, [playerId, playerData, navigate]);
 
 
-  const storyLines = playerData.language === "zh" ? [
+  const storyLines = playerData?.language === "zh" ? [
     "你离开这个村庄已经很多年了。",
     "在城市里，你一直在努力建立自己的名声——一菜一饭。",
     "最近，你给老师写信，希望能回去学习更多的东西。",
@@ -74,60 +74,66 @@ function CutScenePlayer() {
     navigate("/game");
   };
 
-  return (
-    <div className="cutscene-player" style={{
-      background: '#000',
-      color: '#d4d4d4ff',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      padding: '20px 20px'
-    }}>
-      <div style={{ textAlign: 'center', maxWidth: '600px', width: '100%', marginBottom: '-20px' }}>
-        <p style={{
-          fontSize: '1.5rem',
-          color: '#d4d4d4ff',
-          marginTop: '0px',
-          textAlign: 'center'
-        }}>
-          {playerData.language === 'zh' ? `欢迎回来，玩家 ${playerData.firstName}` :
-            `Welcome back, Player ${playerData.firstName}`}
-        </p>
-        {storyLines.slice(0, currentLine).map((line, index) => (
-          <p
-            key={index}
-            style={{
-              fontSize: '1rem',
-              margin: '15px 0',
-              opacity: 0,
-              animation: `fadeIn 0.5s ease-in-out ${index * 1}s forwards`
-            }}
-          >
-            {line}
-          </p>
-        ))}
-      </div>
+  return (<>
+    {playerData === null ? (<></>) :
+      (
+        <>
+          <Control />
+          <div className="cutscene-player" style={{
+            background: '#000',
+            color: '#d4d4d4ff',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            alignItems: 'center',
+            padding: '60px 20px'
+          }}>
+            <div style={{ textAlign: 'center', maxWidth: '600px', width: '100%', marginBottom: '-20px' }}>
+              <p style={{
+                fontSize: '1.5rem',
+                color: '#d4d4d4ff',
+                marginTop: '0px',
+                textAlign: 'center'
+              }}>
+                {playerData.language === 'zh' ? `欢迎回来，玩家 ${playerData.firstName}` :
+                  `Welcome back, Player ${playerData.firstName}`}
+              </p>
+              {storyLines.slice(0, currentLine).map((line, index) => (
+                <p
+                  key={index}
+                  style={{
+                    fontSize: '1rem',
+                    margin: '15px 0',
+                    opacity: 0,
+                    animation: `fadeIn 0.5s ease-in-out ${index * 1}s forwards`
+                  }}
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
 
-      {showStartButton && currentLine >= storyLines.length && (
-        <Button
-          onClick={(e) => handleStartGame(e)}
-          animation="fadeIn 0.5s ease-in-out forwards"
-        >
-          {playerData.language === "zh" ? "开始游戏" : "Start Game"}
-        </Button>
-      )}
+            {showStartButton && currentLine >= storyLines.length && (
+              <Button
+                onClick={(e) => handleStartGame(e)}
+                animation="fadeIn 0.5s ease-in-out forwards"
+              >
+                {playerData.language === "zh" ? "开始游戏" : "Start Game"}
+              </Button>
+            )}
 
-      <style jsx>{`
+            <style jsx>{`
         @keyframes fadeIn {
           to {
             opacity: 1;
           }
         }
       `}</style>
-    </div>
-  );
+          </div>
+        </>
+      )}
+  </>)
 }
 
 

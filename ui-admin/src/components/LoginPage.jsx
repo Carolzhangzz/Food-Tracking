@@ -2,7 +2,7 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlayerContext } from "../context/PlayerContext";
-
+import {updateUserContext} from "../utils/update";
 const baseUrl = process.env.REACT_APP_API_URL;
 
 function LoginPage() {
@@ -114,19 +114,10 @@ function LoginPage() {
             ...prevData,
             language: selectedLang,
           }));
-          let result = await (
-            await fetch(`http://127.0.0.1:8000/api/updateuser`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                playerId: playerId,
-                playerData: {
-                  ...playerData,
-                  language: selectedLang,
-                },
-              }),
-            })
-          ).json();
+          let result = await updateUserContext(playerIdInput, {
+            ...playerData,
+            "language": selectedLang,
+          }); 
           console.log("Language updated:", result);
           document.body.removeChild(languageBox);
           navigate("/intro");

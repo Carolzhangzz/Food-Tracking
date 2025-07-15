@@ -9,6 +9,7 @@ import update from "../phaser/update";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
+import Control from "./Control";
 
 function GameScreen() {
   const { playerId, playerData } = useContext(PlayerContext);
@@ -17,7 +18,7 @@ function GameScreen() {
 
   useEffect(() => {
     if (!playerId) {
-      alert("Please log in first!");
+      // alert("Please log in first!");
       navigate("/");
     } else if (!playerData.first) {
       navigate("/intro");
@@ -70,67 +71,16 @@ function GameScreen() {
   }, []);
 
   return (
-    <div className="game-container" style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-      <div id="game" style={{ width: '100%', height: '100%' }}></div>
-      
-      {/* Top right controls */}
-      <div style={{ 
-        position: 'absolute', 
-        top: '20px', 
-        right: '20px', 
-        display: 'flex', 
-        gap: '10px',
-        zIndex: 1000 
-      }}>
-        {/* Language toggle */}
-        <button style={{
-          padding: '8px 12px',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}>
-          EN/中
-        </button>
-        
-        {/* Music toggle */}
-        <button style={{
-          padding: '8px 12px',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}>
-          🎵
-        </button>
-        
-        {/* Voice toggle */}
-        <button style={{
-          padding: '8px 12px',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}>
-          🔊
-        </button>
-        
-        {/* Clue notebook */}
-        <button style={{
-          padding: '8px 12px',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}>
-          📝
-        </button>
-      </div>
-    </div>
+    <>
+      {playerData === null ? (
+        <></>
+      ) : (
+        <>
+          <Control />
+          <div id="game"></div>
+        </>
+      )}{" "}
+    </>
   );
 }
 
