@@ -14,8 +14,8 @@ export default function update(time, delta) {
 
     // 玩家按下空格键（对话键）
     if (isNextToNPC && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-      this.showDialog("你好，我是NPC，有什么我可以帮忙的吗？");
-      this.gridEngine.turnTowards("npc1", "player");
+      // this.showDialog("你好，我是NPC，有什么我可以帮忙的吗？");
+      // this.gridEngine.turnTowards("npc1", "player");
     }
 
     // 玩家移动
@@ -28,7 +28,7 @@ export default function update(time, delta) {
     } else if (this.cursors.down.isDown) {
       this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
     }
-  } 
+  }
   // 如果是 overview 模式
   else {
     this.controls.update(delta);

@@ -6,6 +6,7 @@ import DialogScene from "../phaser/DialogScene";
 import preload from "../phaser/preload";
 import create from "../phaser/create";
 import update from "../phaser/update";
+import MainScene from "../phaser/MainScene";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +22,6 @@ function GameScreen() {
       // alert("Please log in first!");
       navigate("/");
     } else if (!playerData.first) {
-      navigate("/intro");
       console.log("Player ID:", playerId);
       console.log("Player Data:", playerData);
     } else {
@@ -29,6 +29,17 @@ function GameScreen() {
       console.log("Player Data:", playerData);
     }
   }, [playerId, playerData, navigate]);
+
+  const _srcWidth = parseInt(
+    window.innerWidth ||
+      document.documentElement.clientWidth ||
+      document.body.clientWidth
+  );
+  const _srcHeight = parseInt(
+    window.innerHeight ||
+      document.documentElement.clientHeight ||
+      document.body.clientHeight
+  );
 
   useEffect(() => {
     if (gameRef.current === null) {
@@ -51,17 +62,18 @@ function GameScreen() {
           ],
         },
         scene: [
-          DialogScene,
-          {
-            key: "MainScene",
-            preload,
-            create,
-            update,
-          },
+          // DialogScene,
+          // {
+          //   key: "MainScene",
+          //   preload,
+          //   create,
+          //   update,
+          // },
+          MainScene,  
         ],
         scale: {
-          width: window.innerWidth,
-          height: window.innerHeight,
+          width: _srcWidth,
+          height: _srcHeight,
           autoCenter: Phaser.Scale.CENTER_BOTH,
         },
         parent: "game",

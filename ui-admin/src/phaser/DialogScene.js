@@ -18,11 +18,11 @@ export default class DialogScene extends Phaser.Scene {
     
     const dialogLines = [
       "Three days ago, he left the village without a word.",
-      "The fire in his kitchen was still warm—but he was gone.",
-      "You know as well as I do… he was never the kind to vanish without a reason.",
-      "You were once his apprentice. If anyone can find out what happened to him… it's you.",
-      "He always brought a notebook when he met someone. Maybe that's the key.",
-      "I believe those records hold the answer.",
+      // "The fire in his kitchen was still warm—but he was gone.",
+      // "You know as well as I do… he was never the kind to vanish without a reason.",
+      // "You were once his apprentice. If anyone can find out what happened to him… it's you.",
+      // "He always brought a notebook when he met someone. Maybe that's the key.",
+      // "I believe those records hold the answer.",
     ];
 
     // 创建对话框背景

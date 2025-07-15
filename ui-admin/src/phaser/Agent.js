@@ -9,12 +9,12 @@ class Agent {
     const socket = new WebSocket('ws://localhost:8080');
     this.socket = socket;
 
-    this.socket.addEventListener('open', () => {
-      this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
-    });
+    // this.socket.addEventListener('open', () => {
+    //   this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));
+    // });
     
-    this.initializeServerListener();    
-    this.initializeMovementStoppedListener();
+    // this.initializeServerListener();    
+    // this.initializeMovementStoppedListener();
   }
   
   initializeServerListener() {

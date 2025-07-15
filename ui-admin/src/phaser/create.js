@@ -9,7 +9,7 @@ export default function create() {
 
   // 2️⃣ 加载地图和图块集
   this.fieldMapTileMap = this.make.tilemap({ key: "field-map" });
-  this.fieldMapTileMap.addTilesetImage("GPTRPG", "tiles");
+  this.fieldMapTileMap.addTilesetImage("tiles", "tiles");
 
   // ✅ 第二步：读取尺寸和设置相机
   const mapWidth = this.fieldMapTileMap.width;
@@ -30,19 +30,9 @@ export default function create() {
 
   // 3️⃣ 创建每一层的 tile 图层，并放大
   this.fieldMapTileMap.layers.forEach((_, i) => {
-    const layer = this.fieldMapTileMap.createLayer(i, "GPTRPG", 0, 0);
+    const layer = this.fieldMapTileMap.createLayer(i, "tiles", 0, 0);
     layer.scale = 3;
   });
-
-  // 4️⃣ 创建植物图层，用于种植功能（目前你可能不需要）
-  this.plantLayer = this.fieldMapTileMap.createBlankLayer(
-    "plants",
-    "GPTRPG",
-    0,
-    0
-  );
-  this.plantLayer.scale = 3;
-  this.plantLayer = this.add.container(); // 用 container 可以容纳任意对象
 
   // 5️⃣ 加载玩家角色并添加键盘控制键
   const playerSprite = this.add.sprite(0, 0, "player");
@@ -65,7 +55,7 @@ export default function create() {
         id: agentId,
         sprite: playerSprite,
         walkingAnimationMapping: 6,
-        startPosition: { x: 7, y: 6 },
+        startPosition: { x: 3, y: 6 },
       },
     ],
   };
@@ -88,7 +78,7 @@ export default function create() {
     id: "npc1",
     sprite: npcSprite,
     walkingAnimationMapping: 6,
-    startPosition: { x: 10, y: 6 },
+    startPosition: { x: 1, y: 7 },
   });
 
   // 9️⃣ 设置桥梁（可选逻辑）
