@@ -7,14 +7,25 @@ import create from "./create";
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
+        console.log("MainScene constructor called");
         super({ key: "MainScene" });
+    }
+
+    init(data) {
+        this.playerId = data.playerId;
+        this.playerData = data.playerData;
+        this.updatePlayerdata = data.updatePlayerdata;
+        console.log("MainScene init with playerId:", this.playerId);
+        console.log("MainScene init with playerId:", this.playerData);
         this.dialogActive = false;
         this.npc = null; // NPC 对象
+        console.log("Player initial location:", data.playerData.playLoc);
+        this.playerLoc = { x: data.playerData.playLoc[0], y: data.playerData.playLoc[1]}; // NPC 初始位置
+        console.log("Player initial location:", this.playerLoc);
         this.nextLineavailable = true; // 控制下一行是否可用
     }
 
     preload() {
-
         this.load.image("tiles", tileset, {
             frameWidth: 16,
             frameHeight: 9,
@@ -239,18 +250,23 @@ export default class MainScene extends Phaser.Scene {
             this.typeText(result.response);
             this.currentLine++;
         } else {
-            this.cameras.main.fadeOut(800, 15, 15, 35);
-            this.cameras.main.once('camerafadeoutcomplete', () => {
-                this.nextLineavailable = true;
-                this.dialogBox.destroy();
-                this.speakerName.destroy();
-                this.textObject.destroy();
-                this.continueHint.destroy();
-                this.hint.destroy();
-                this.destroyInputBox();
-                this.dialogActive = false;
-                this.currentLine = 0;
-                this.scene.start("MainScene");
+            this.nextLineavailable = true;
+            this.dialogBox.destroy();
+            this.speakerName.destroy();
+            this.textObject.destroy();
+            this.continueHint.destroy();
+            this.hint.destroy();
+            this.destroyInputBox();
+            this.dialogActive = false;
+            this.currentLine = 0;
+            
+            // 更新玩家位置数据，但不重启场景
+            const playerPos = this.gridEngine.getPosition("player");
+            this.playerData.playLoc = [playerPos.x, playerPos.y];
+            console.log("Player location updated:", playerPos);
+            
+            this.updatePlayerdata({
+                playLoc: [playerPos.x, playerPos.y]
             });
         }
     }

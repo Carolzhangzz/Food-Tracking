@@ -6,12 +6,13 @@ import MainScene from "../phaser/MainScene";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
+import { updateUserContext } from "../utils/update";
 import Control from "./Control";
 
 function GameScreen() {
-  const { playerId, playerData } = useContext(PlayerContext);
+  const { playerId, playerData, setPlayerData, gameRef } =
+    useContext(PlayerContext);
   const navigate = useNavigate();
-  const gameRef = useRef(null);
 
   useEffect(() => {
     if (!playerId) {
@@ -25,6 +26,16 @@ function GameScreen() {
       console.log("Player Data:", playerData);
     }
   }, [playerId, playerData, navigate]);
+
+  const updatePlayerdata = React.useCallback(
+    (data) => {
+      // Do something in React, e.g., update state, show modal, etc.
+      console.log("Player data updated:", data);
+      setPlayerData((prevData) => ({ ...prevData, ...data }));
+      updateUserContext(playerId, data);
+    },
+    [playerId, setPlayerData]
+  );
 
   useEffect(() => {
     if (gameRef.current === null) {
@@ -47,14 +58,7 @@ function GameScreen() {
           ],
         },
         scene: [
-          // DialogScene,
-          // {
-          //   key: "MainScene",
-          //   preload,
-          //   create,
-          //   update,
-          // },
-          MainScene,
+          MainScene
         ],
         scale: {
           width: parseInt(
@@ -72,8 +76,22 @@ function GameScreen() {
         parent: "game",
         backgroundColor: "#48C4F8",
       });
+      
+      // Start the scene with data to pass to init(data)
+      gameRef.current.scene.start("MainScene", { 
+        playerId, 
+        playerData, 
+        updatePlayerdata 
+      });
     }
-  }, []);
+
+    return () => {
+      if (gameRef.current) {
+        gameRef.current.destroy(true);
+        gameRef.current = null;
+      }
+    };
+  }, [gameRef]);
 
   return (
     <>

@@ -5,7 +5,8 @@ import { updateUserContext } from "../utils/update";
 import Button from "./Button"; // Assuming you have a Button component
 
 function Control() {
-  const { playerId, playerData, setPlayerData } = useContext(PlayerContext);
+  const { playerId, playerData, setPlayerData, gameRef } =
+    useContext(PlayerContext);
   const [showClueModal, setShowClueModal] = React.useState(false);
 
   return (
@@ -41,6 +42,15 @@ function Control() {
                 language: selectedLang,
               }));
               console.log("Language updated to:", selectedLang);
+              if (gameRef.current) {
+                // After game is created
+                const mainScene = gameRef.current.scene.keys.MainScene;
+                mainScene.playerId = playerId;
+                mainScene.playerData = {
+                  ...playerData,
+                  language: selectedLang,
+                };
+              }
             }}
           >
             EN/中
@@ -60,6 +70,15 @@ function Control() {
                 ...prevData,
                 music: !originalMusic,
               }));
+              if (gameRef.current) {
+                // After game is created
+                const mainScene = gameRef.current.scene.keys.MainScene;
+                mainScene.playerId = playerId;
+                mainScene.playerData = {
+                  ...playerData,
+                  music: !originalMusic,
+                };
+              }
             }}
           >
             {playerData.music ? "🎵" : "🔇"}
@@ -80,6 +99,15 @@ function Control() {
                 ...prevData,
                 voice: !originalVoice,
               }));
+              if (gameRef.current) {
+                // After game is created
+                const mainScene = gameRef.current.scene.keys.MainScene;
+                mainScene.playerId = playerId;
+                mainScene.playerData = {
+                  ...playerData,
+                  voice: !originalVoice,
+                };
+              }
             }}
           >
             {playerData.voice ? "🔊" : "🔇"}

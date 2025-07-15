@@ -55,7 +55,7 @@ export default function create() {
         id: agentId,
         sprite: playerSprite,
         walkingAnimationMapping: 6,
-        startPosition: { x: 3, y: 6 },
+        startPosition: this.playerLoc,
       },
     ],
   };
