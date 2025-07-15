@@ -65,9 +65,12 @@ export default class MainScene extends Phaser.Scene {
         this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
         this.input.on("pointerdown", this.nextLine, this);
 
-        if (!this.bgmPlayed) {
+        if (this.playerData.music) {
             this.sound.play("bgm", { loop: true, volume: 0.4 });
             this.bgmPlayed = true;
+        } else if (this.bgmPlayed) {
+            this.sound.stopByKey("bgm");
+            this.bgmPlayed = false;
         }
     }
 
@@ -264,9 +267,10 @@ export default class MainScene extends Phaser.Scene {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    playerId: 123, // 示例数据
+                    playerId: this.playerId, // 示例数据
                     npcId: this.npc,
-                    userInput: userInput // 传递用户输入
+                    userInput: userInput,
+                    language: this.playerData.language // 传递语言设置
                 })
             })).json();
         } catch (error) {
