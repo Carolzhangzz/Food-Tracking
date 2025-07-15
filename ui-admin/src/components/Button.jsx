@@ -13,6 +13,7 @@ const defaultStyle = {
     boxShadow: '3px 3px 0px #2F1B14',
     textShadow: '1px 1px 0px #000',
     opacity: 0,
+    zIndex: 1500,
     transition: 'none'
 };
 

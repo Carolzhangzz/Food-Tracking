@@ -45,11 +45,12 @@ function Control() {
               if (gameRef.current) {
                 // After game is created
                 const mainScene = gameRef.current.scene.keys.MainScene;
-                mainScene.playerId = playerId;
-                mainScene.playerData = {
-                  ...playerData,
-                  language: selectedLang,
-                };
+                if (mainScene.setPlayerData) {
+                  mainScene.setPlayerData({
+                    ...playerData,
+                    language: selectedLang,
+                  });
+                }
               }
             }}
           >
@@ -73,11 +74,12 @@ function Control() {
               if (gameRef.current) {
                 // After game is created
                 const mainScene = gameRef.current.scene.keys.MainScene;
-                mainScene.playerId = playerId;
-                mainScene.playerData = {
-                  ...playerData,
-                  music: !originalMusic,
-                };
+                if (mainScene.setPlayerData) {
+                  mainScene.setPlayerData({
+                    ...playerData,
+                    music: !originalMusic,
+                  });
+                }
               }
             }}
           >
@@ -102,11 +104,12 @@ function Control() {
               if (gameRef.current) {
                 // After game is created
                 const mainScene = gameRef.current.scene.keys.MainScene;
-                mainScene.playerId = playerId;
-                mainScene.playerData = {
-                  ...playerData,
-                  voice: !originalVoice,
-                };
+                if (mainScene.setPlayerData) {
+                  mainScene.setPlayerData({
+                    ...playerData,
+                    voice: !originalVoice,
+                  });
+                }
               }
             }}
           >
@@ -152,7 +155,35 @@ function Control() {
               <p>{clue}</p>
             </div>
           ))}
-          <Button onClick={(e) => setShowClueModal(false)}>close</Button>
+          <button 
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#4a4a4a",
+            color: "#d4d4d4",
+            border: "2px solid #6a6a6a",
+            borderRadius: "0",
+            cursor: "pointer",
+            fontFamily: "'Courier New', monospace",
+            fontSize: "12px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            imageRendering: "pixelated",
+            boxShadow: "2px 2px 0px #000",
+            transition: "none"
+          }}
+          onMouseDown={(e) => {
+            e.target.style.boxShadow = "1px 1px 0px #000";
+            e.target.style.transform = "translate(1px, 1px)";
+          }}
+          onMouseUp={(e) => {
+            e.target.style.boxShadow = "2px 2px 0px #000";
+            e.target.style.transform = "translate(0px, 0px)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.boxShadow = "2px 2px 0px #000";
+            e.target.style.transform = "translate(0px, 0px)";
+          }}
+          onClick={(e) => setShowClueModal(false)}>close</button>
         </div>
       )}
     </>

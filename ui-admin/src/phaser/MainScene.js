@@ -8,6 +8,7 @@ import create from "./create";
 export default class MainScene extends Phaser.Scene {
     constructor() {
         console.log("MainScene constructor called");
+        let bgmPlayed = false;
         super({ key: "MainScene" });
     }
 
@@ -20,12 +21,13 @@ export default class MainScene extends Phaser.Scene {
         this.dialogActive = false;
         this.npc = null; // NPC 对象
         console.log("Player initial location:", data.playerData.playLoc);
-        this.playerLoc = { x: data.playerData.playLoc[0], y: data.playerData.playLoc[1]}; // NPC 初始位置
+        this.playerLoc = { x: data.playerData.playLoc[0], y: data.playerData.playLoc[1] }; // NPC 初始位置
         console.log("Player initial location:", this.playerLoc);
         this.nextLineavailable = true; // 控制下一行是否可用
     }
 
     preload() {
+        this.load.audio("bgm", "assets/bgm.mp3");
         this.load.image("tiles", tileset, {
             frameWidth: 16,
             frameHeight: 9,
@@ -62,6 +64,11 @@ export default class MainScene extends Phaser.Scene {
         // 监听对话事件
         this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
         this.input.on("pointerdown", this.nextLine, this);
+
+        if (!this.bgmPlayed) {
+            this.sound.play("bgm", { loop: true, volume: 0.4 });
+            this.bgmPlayed = true;
+        }
     }
 
     showDialognew() {
@@ -138,7 +145,11 @@ export default class MainScene extends Phaser.Scene {
             // 创建 input 框
             this.inputBox = document.createElement("input");
             this.inputBox.type = "text";
-            this.inputBox.placeholder = "请输入内容...";
+            if (this.playerData.language === 'zh') {
+                this.inputBox.placeholder = "请输入内容...";
+            } else {
+                this.inputBox.placeholder = "Type your response...";
+            }
             this.inputBox.style.position = "absolute";
             this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
             this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
@@ -147,7 +158,11 @@ export default class MainScene extends Phaser.Scene {
 
             // 创建发送按钮
             this.sendBtn = document.createElement("button");
-            this.sendBtn.innerText = "发送";
+            if (this.playerData.language === 'zh') {
+                this.sendBtn.innerText = "发送";
+            } else {
+                this.sendBtn.innerText = "Send";
+            }
             this.sendBtn.style.position = "absolute";
             this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
             this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
@@ -208,6 +223,19 @@ export default class MainScene extends Phaser.Scene {
         }
     }
 
+    setPlayerData(newPlayerData) {
+        this.playerData = newPlayerData;
+        if (this.playerData.music) {
+            if (!this.bgmPlayed) {
+                this.sound.play("bgm", { loop: true, volume: 0.4 });
+                this.bgmPlayed = true;
+            }
+        } else {
+            this.sound.stopByKey("bgm");
+            this.bgmPlayed = false;
+        }
+    }
+
 
     destroyInputBox() {
         if (this.inputBox) {
@@ -259,12 +287,12 @@ export default class MainScene extends Phaser.Scene {
             this.destroyInputBox();
             this.dialogActive = false;
             this.currentLine = 0;
-            
+
             // 更新玩家位置数据，但不重启场景
             const playerPos = this.gridEngine.getPosition("player");
             this.playerData.playLoc = [playerPos.x, playerPos.y];
             console.log("Player location updated:", playerPos);
-            
+
             this.updatePlayerdata({
                 playLoc: [playerPos.x, playerPos.y]
             });
@@ -273,7 +301,6 @@ export default class MainScene extends Phaser.Scene {
 
     update(time, delta) {
         // 这里只做玩家和NPC距离检测，触发对话
-
         if (this.playerView) {
             const playerPos = this.gridEngine.getPosition("player");
             const npcPos = this.gridEngine.getPosition("npc1");
