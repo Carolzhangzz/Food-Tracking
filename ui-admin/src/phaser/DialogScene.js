@@ -26,7 +26,7 @@ export default class DialogScene extends Phaser.Scene {
     ];
 
     // 创建对话框背景
-    const dialogBox = this.add.graphics();
+    const dialogBox = this.add.graphics(); 
     const boxHeight = 160;
     const boxY = height - boxHeight - 30;
     
