@@ -8,21 +8,25 @@ import create from "./create";
 export default class MainScene extends Phaser.Scene {
     constructor() {
         console.log("MainScene constructor called");
-        let bgmPlayed = false;
         super({ key: "MainScene" });
+        this.bgmPlayed = false;
     }
 
     init(data) {
         this.playerId = data.playerId;
         this.playerData = data.playerData;
+        this.curText = ""
         this.updatePlayerdata = data.updatePlayerdata;
         console.log("MainScene init with playerId:", this.playerId);
-        console.log("MainScene init with playerId:", this.playerData);
         this.dialogActive = false;
         this.npc = null; // NPC 对象
-        console.log("Player initial location:", data.playerData.playLoc);
-        this.playerLoc = { x: data.playerData.playLoc[0], y: data.playerData.playLoc[1] }; // NPC 初始位置
-        console.log("Player initial location:", this.playerLoc);
+        try {
+            this.playerLoc = { x: data.playerData?.playLoc[0], y: data.playerData?.playLoc[1] }; // NPC 初始位置
+        } catch (error) {
+            this.playerLoc = { x: 0, y: 0 }; // 默认位置
+            console.error("Error initializing player location:", error);
+        }
+
         this.nextLineavailable = true; // 控制下一行是否可用
     }
 
@@ -144,54 +148,6 @@ export default class MainScene extends Phaser.Scene {
             this.nextLine();
         });
 
-        if (this.nextLineavailable) {
-            // 创建 input 框
-            this.inputBox = document.createElement("input");
-            this.inputBox.type = "text";
-            if (this.playerData.language === 'zh') {
-                this.inputBox.placeholder = "请输入内容...";
-            } else {
-                this.inputBox.placeholder = "Type your response...";
-            }
-            this.inputBox.style.position = "absolute";
-            this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
-            this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-            this.inputBox.style.zIndex = 1000;
-            document.body.appendChild(this.inputBox);
-
-            // 创建发送按钮
-            this.sendBtn = document.createElement("button");
-            if (this.playerData.language === 'zh') {
-                this.sendBtn.innerText = "发送";
-            } else {
-                this.sendBtn.innerText = "Send";
-            }
-            this.sendBtn.style.position = "absolute";
-            this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
-            this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-            this.sendBtn.style.zIndex = 1000;
-            document.body.appendChild(this.sendBtn);
-
-            // 监听发送
-            this.sendBtn.onclick = async () => {
-                this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-                this.input.on("pointerdown", this.nextLine, this);
-                this.inputBox.value = "";
-                this.nextLine()
-            };
-
-            // 支持回车发送
-            this.inputBox.onkeydown = (e) => {
-                e.stopPropagation();
-                if (e.key === "Enter") this.sendBtn.onclick();
-            };
-
-            // restrict listen of keydown and pointerdown
-            this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
-            this.input.off("pointerdown", this.nextLine, this);
-
-
-        }
     }
 
     typeText(text, callback) {
@@ -200,6 +156,7 @@ export default class MainScene extends Phaser.Scene {
         this.continueHint.setVisible(false);
         let currentChar = 0;
         const totalChars = text.length;
+        this.curText = text; // 保存当前文本以便后续使用
         this.typewriterTween = this.tweens.add({
             targets: { value: 0 },
             value: totalChars,
@@ -222,6 +179,8 @@ export default class MainScene extends Phaser.Scene {
 
     skipTyping() {
         if (this.isTyping && this.typewriterTween) {
+            this.typewriterTween.stop();
+            this.textObject.setText(this.curText);
             this.typewriterTween.complete();
         }
     }
@@ -279,7 +238,55 @@ export default class MainScene extends Phaser.Scene {
         }
         if (this.nextLineavailable) {
             this.nextLineavailable = result.next
-            this.typeText(result.response);
+            this.typeText(result.response, () => {
+                if (this.nextLineavailable) {
+                    // 创建 input 框
+                    this.inputBox = document.createElement("input");
+                    this.inputBox.type = "text";
+                    if (this.playerData.language === 'zh') {
+                        this.inputBox.placeholder = "请输入内容...";
+                    } else {
+                        this.inputBox.placeholder = "Type your response...";
+                    }
+                    this.inputBox.style.position = "absolute";
+                    this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
+                    this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
+                    this.inputBox.style.zIndex = 1000;
+                    document.body.appendChild(this.inputBox);
+
+                    // 创建发送按钮
+                    this.sendBtn = document.createElement("button");
+                    if (this.playerData.language === 'zh') {
+                        this.sendBtn.innerText = "发送";
+                    } else {
+                        this.sendBtn.innerText = "Send";
+                    }
+                    this.sendBtn.style.position = "absolute";
+                    this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
+                    this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
+                    this.sendBtn.style.zIndex = 1000;
+                    document.body.appendChild(this.sendBtn);
+
+                    // 监听发送
+                    this.sendBtn.onclick = async () => {
+                        this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
+                        this.input.on("pointerdown", this.nextLine, this);
+                        this.inputBox.value = "";
+                        this.destroyInputBox();
+                        this.nextLine()
+                    };
+
+                    // 支持回车发送
+                    this.inputBox.onkeydown = (e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") this.sendBtn.onclick();
+                    };
+
+                    // restrict listen of keydown and pointerdown
+                    this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
+                    this.input.off("pointerdown", this.nextLine, this);
+                }
+            });
             this.currentLine++;
         } else {
             this.nextLineavailable = true;
@@ -288,7 +295,6 @@ export default class MainScene extends Phaser.Scene {
             this.textObject.destroy();
             this.continueHint.destroy();
             this.hint.destroy();
-            this.destroyInputBox();
             this.dialogActive = false;
             this.currentLine = 0;
 
