@@ -15,15 +15,37 @@ export default class MainScene extends Phaser.Scene {
     init(data) {
         this.playerId = data.playerId;
         this.playerData = data.playerData;
-        this.curText = ""
+        this.curText = "";
+        this.nextButton = [];
+        this.selectedButton = null;
         this.updatePlayerdata = data.updatePlayerdata;
         console.log("MainScene init with playerId:", this.playerId);
         this.dialogActive = false;
         this.npc = null; // NPC 对象
+
+        // UI/input related instance variables
+        this.inputBox = null;
+        this.sendBtn = null;
+        this.inputText = null;
+        this.inputCursor = null;
+        this.inputComponents = [];
+        this.inputKeyHandler = null;
+        this.enterKeyHandler = null;
+        this.placeholderDisplay = null;
+        this.currentInput = "";
+        this.textObject = null;
+        this.dialogBox = null;
+        this.speakerName = null;
+        this.continueHint = null;
+        this.hint = null;
+        this.typewriterTween = null;
+        this.bgmPlayed = this.bgmPlayed || false;
+
+        // Other state
         try {
-            this.playerLoc = { x: data.playerData?.playLoc[0], y: data.playerData?.playLoc[1] }; // NPC 初始位置
+            this.playerLoc = { x: data.playerData?.playLoc[0], y: data.playerData?.playLoc[1] };
         } catch (error) {
-            this.playerLoc = { x: 0, y: 0 }; // 默认位置
+            this.playerLoc = { x: 0, y: 0 };
             console.error("Error initializing player location:", error);
         }
 
@@ -152,6 +174,9 @@ export default class MainScene extends Phaser.Scene {
 
     typeText(text, callback) {
         this.isTyping = true;
+        console.log("Typing text:", this.textObject);
+        if (this.textObject == null)
+            return;
         this.textObject.setText('');
         this.continueHint.setVisible(false);
         let currentChar = 0;
@@ -219,6 +244,8 @@ export default class MainScene extends Phaser.Scene {
         let result;
         // collect user input
         const userInput = this.inputBox ? this.inputBox.value.trim() : "";
+        this.inputBox = null; // 清除输入框引用
+        console.log("User input collected:", userInput);
         try {
             result = await (await fetch("https://twilight-king-cf43.1442334619.workers.dev/api/nextDialog", {
                 method: "POST",
@@ -238,53 +265,131 @@ export default class MainScene extends Phaser.Scene {
         }
         if (this.nextLineavailable) {
             this.nextLineavailable = result.next
+            this.nextButton = result.button
+            console.log("Next line available:", this.nextLineavailable);
             this.typeText(result.response, () => {
                 if (this.nextLineavailable) {
                     // 创建 input 框
-                    this.inputBox = document.createElement("input");
-                    this.inputBox.type = "text";
-                    if (this.playerData.language === 'zh') {
-                        this.inputBox.placeholder = "请输入内容...";
-                    } else {
-                        this.inputBox.placeholder = "Type your response...";
+                    if (this.nextButton.length === 0) {
+                        // Create input box background
+                        this.inputBox = document.createElement("input");
+                        this.inputBox.type = "text";
+                        if (this.playerData.language === 'zh') {
+                            this.inputBox.placeholder = "请输入内容...";
+                        } else {
+                            this.inputBox.placeholder = "Type your response...";
+                        }
+                        this.inputBox.style.position = "absolute";
+                        this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
+                        this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
+                        this.inputBox.style.zIndex = 1000;
+                        document.body.appendChild(this.inputBox);
+
+                        // 创建发送按钮
+                        this.sendBtn = document.createElement("button");
+                        if (this.playerData.language === 'zh') {
+                            this.sendBtn.innerText = "发送";
+                        } else {
+                            this.sendBtn.innerText = "Send";
+                        }
+                        this.sendBtn.style.position = "absolute";
+                        this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
+                        this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
+                        this.sendBtn.style.zIndex = 1000;
+                        document.body.appendChild(this.sendBtn);
+
+                        // 监听发送
+                        this.sendBtn.onclick = async () => {
+                            this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
+                            this.input.on("pointerdown", this.nextLine, this);
+                            this.inputBox.value = "";
+                            this.destroyInputBox();
+                            this.nextLine()
+                        };
+
+                        // 支持回车发送
+                        this.inputBox.onkeydown = (e) => {
+                            e.stopPropagation();
+                            if (e.key === "Enter") this.sendBtn.onclick();
+                        };
+
+                        // restrict listen of keydown and pointerdown
+                        this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
+                        this.input.off("pointerdown", this.nextLine, this);
                     }
-                    this.inputBox.style.position = "absolute";
-                    this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
-                    this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-                    this.inputBox.style.zIndex = 1000;
-                    document.body.appendChild(this.inputBox);
+                    else {
+                        // show a list of button inputs
+                        // Create button container
+                        const buttonContainer = this.add.container(0, 0);
+                        const buttonY = this.game.config.height - 100;
+                        const buttonSpacing = 150;
+                        const startX = 50;
 
-                    // 创建发送按钮
-                    this.sendBtn = document.createElement("button");
-                    if (this.playerData.language === 'zh') {
-                        this.sendBtn.innerText = "发送";
-                    } else {
-                        this.sendBtn.innerText = "Send";
+
+                        // restrict listen of keydown and pointerdown
+                        this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
+                        this.input.off("pointerdown", this.nextLine, this);
+                        this.buttons = []
+
+                        this.nextButton.forEach((buttonText, index) => {
+                            // Create button background
+                            const buttonBg = this.add.graphics();
+                            buttonBg.fillStyle(0x4a5568, 0.9);
+                            buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
+                            buttonBg.lineStyle(2, 0x718096);
+                            buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
+
+                            // Create button text
+                            const buttonTextObj = this.add.text(70, 17.5, buttonText, {
+                                fontSize: '14px',
+                                fontFamily: 'monospace',
+                                fill: '#e2e8f0',
+                                align: 'center'
+                            });
+                            buttonTextObj.setOrigin(0.5);
+
+                            // Create interactive button group
+                            const button = this.add.container(startX + (index * buttonSpacing), buttonY, [buttonBg, buttonTextObj]);
+                            button.setSize(140, 35);
+                            button.setInteractive({ useHandCursor: true });
+
+                            // Button hover effects
+                            button.on('pointerover', () => {
+                                buttonBg.clear();
+                                buttonBg.fillStyle(0x718096, 0.9);
+                                buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
+                                buttonBg.lineStyle(2, 0xffd700);
+                                buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
+                            });
+
+                            button.on('pointerout', () => {
+                                buttonBg.clear();
+                                buttonBg.fillStyle(0x4a5568, 0.9);
+                                buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
+                                buttonBg.lineStyle(2, 0x718096);
+                                buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
+                            });
+
+                            button.on('pointerdown', () => {
+                                // Store selected button text for API call
+                                this.inputBox = { value: buttonText };
+                                this.buttons.forEach(btn => btn.destroy());
+                                this.buttons = [];
+                                buttonContainer.destroy();
+                                // Clean up input components
+                                // this.nextLine();
+                                this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
+                                this.input.on("pointerdown", this.nextLine, this);
+                            });
+
+                            // Add button to container
+                            this.buttons.push(button)
+                            this.buttons.push(buttonBg);
+                            this.buttons.push(buttonTextObj);
+
+                            buttonContainer.add(button);
+                        });
                     }
-                    this.sendBtn.style.position = "absolute";
-                    this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
-                    this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-                    this.sendBtn.style.zIndex = 1000;
-                    document.body.appendChild(this.sendBtn);
-
-                    // 监听发送
-                    this.sendBtn.onclick = async () => {
-                        this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-                        this.input.on("pointerdown", this.nextLine, this);
-                        this.inputBox.value = "";
-                        this.destroyInputBox();
-                        this.nextLine()
-                    };
-
-                    // 支持回车发送
-                    this.inputBox.onkeydown = (e) => {
-                        e.stopPropagation();
-                        if (e.key === "Enter") this.sendBtn.onclick();
-                    };
-
-                    // restrict listen of keydown and pointerdown
-                    this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
-                    this.input.off("pointerdown", this.nextLine, this);
                 }
             });
             this.currentLine++;
@@ -298,7 +403,6 @@ export default class MainScene extends Phaser.Scene {
             this.dialogActive = false;
             this.currentLine = 0;
 
-            // 更新玩家位置数据，但不重启场景
             const playerPos = this.gridEngine.getPosition("player");
             this.playerData.playLoc = [playerPos.x, playerPos.y];
             console.log("Player location updated:", playerPos);

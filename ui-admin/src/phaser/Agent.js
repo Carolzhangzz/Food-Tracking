@@ -6,8 +6,8 @@ class Agent {
     this.sleepiness = 0;
     this.bedPosition = bedPosition;
     
-    const socket = new WebSocket('ws://localhost:8080');
-    this.socket = socket;
+    // const socket = new WebSocket('ws://localhost:8080');
+    // this.socket = socket;
 
     // this.socket.addEventListener('open', () => {
     //   this.socket.send(JSON.stringify({ type: 'create_agent', agent_id }));

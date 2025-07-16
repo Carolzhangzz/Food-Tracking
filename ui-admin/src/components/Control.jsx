@@ -2,7 +2,6 @@ import React from "react";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import { updateUserContext } from "../utils/update";
-import Button from "./Button"; // Assuming you have a Button component
 
 function Control() {
   const { playerId, playerData, setPlayerData, gameRef } =

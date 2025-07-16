@@ -1,5 +1,5 @@
 // src/components/GameScreen.jsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import Phaser from "phaser";
 import GridEngine from "grid-engine";
 import MainScene from "../phaser/MainScene";
@@ -57,9 +57,7 @@ function GameScreen() {
             },
           ],
         },
-        scene: [
-          MainScene
-        ],
+        scene: [MainScene],
         scale: {
           width: parseInt(
             window.innerWidth ||
@@ -76,12 +74,12 @@ function GameScreen() {
         parent: "game",
         backgroundColor: "#48C4F8",
       });
-      
+
       // Start the scene with data to pass to init(data)
-      gameRef.current.scene.start("MainScene", { 
-        playerId, 
-        playerData, 
-        updatePlayerdata 
+      gameRef.current.scene.start("MainScene", {
+        playerId,
+        playerData,
+        updatePlayerdata,
       });
     }
 
