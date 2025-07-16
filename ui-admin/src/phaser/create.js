@@ -29,10 +29,8 @@ export default function create() {
   );
 
   // 3️⃣ 创建每一层的 tile 图层，并放大
-  this.fieldMapTileMap.layers.forEach((_, i) => {
-    const layer = this.fieldMapTileMap.createLayer(i, "tiles", 0, 0);
-    layer.scale = 3;
-  });
+  const mainLayer = this.fieldMapTileMap.createLayer('layer', 'tiles', 0, 0);
+  mainLayer.scale = 3;
 
   // 5️⃣ 加载玩家角色并添加键盘控制键
   const playerSprite = this.add.sprite(0, 0, "player");
@@ -48,6 +46,11 @@ export default function create() {
   this.cKey.on("down", togglePlayerView, this); // 绑定切换函数
 
   // 6️⃣ 初始化 GridEngine，配置玩家初始位置
+  const mainLayerObj = this.fieldMapTileMap.getLayer('layer');
+  if (mainLayerObj) {
+    const flatData = mainLayerObj.data.flat().map(tile => tile.index);
+    console.log('主图层 tile id 分布:', flatData);
+  }
   const agentId = "player";
   const gridEngineConfig = {
     characters: [
@@ -58,9 +61,15 @@ export default function create() {
         startPosition: this.playerLoc,
       },
     ],
+    collision: {
+      blockedTiles: [4, 5, 6, 25, 26, 27, 28, 29, 30, 32, 33, 34, 42, 44, 60, 62]
+    }
   };
   this.gridEngine.create(this.fieldMapTileMap, gridEngineConfig);
 
+  // 示例：阻止玩家走到 (3, 5)
+  // this.gridEngine.setTileBlocked({ x: 3, y: 5 }, true);
+  // 如需取消阻挡：this.gridEngine.setTileBlocked({ x: 3, y: 5 }, false);
   // 7️⃣ 创建 Agent 类的实例（可选逻辑）
   this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {
     x: 6,
