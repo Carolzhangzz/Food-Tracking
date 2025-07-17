@@ -1,444 +1,496 @@
+// MainScene.js - 修复音频加载问题
 import Phaser from "phaser";
 import mapJson from "../assets/tiled.json"
-import tileset from "..//assets/tiles.png"
+import tileset from "../assets/tiles.png"
 import characters from "../assets/characters.png"
 import npc from "../assets/npc.png"
-import create from "./create";
+import Agent from "./Agent";
+import bgmMp3 from "../assets/bgm.mp3";
+import DialogSystem from "./DialogSystem.js";
+import NPCManager from "./NPCManager.js";
+import UIManager from "./UIManager.js";
 
 export default class MainScene extends Phaser.Scene {
     constructor() {
-        console.log("MainScene constructor called");
         super({ key: "MainScene" });
         this.bgmPlayed = false;
+        this.audioLoaded = false; // 添加音频加载状态跟踪
+        console.log("MainScene constructor called");
     }
 
     init(data) {
+        console.log("MainScene init() called with data:", data);
         this.playerId = data.playerId;
         this.playerData = data.playerData;
-        this.curText = "";
-        this.nextButton = [];
-        this.selectedButton = null;
         this.updatePlayerdata = data.updatePlayerdata;
-        console.log("MainScene init with playerId:", this.playerId);
-        this.dialogActive = false;
-        this.npc = null; // NPC 对象
-
-        // UI/input related instance variables
-        this.inputBox = null;
-        this.sendBtn = null;
-        this.inputText = null;
-        this.inputCursor = null;
-        this.inputComponents = [];
-        this.inputKeyHandler = null;
-        this.enterKeyHandler = null;
-        this.placeholderDisplay = null;
-        this.currentInput = "";
-        this.textObject = null;
-        this.dialogBox = null;
-        this.speakerName = null;
-        this.continueHint = null;
-        this.hint = null;
-        this.typewriterTween = null;
-        this.bgmPlayed = this.bgmPlayed || false;
-
-        // Other state
+        
+        // 初始化玩家位置
         try {
-            this.playerLoc = { x: data.playerData?.playLoc[0], y: data.playerData?.playLoc[1] };
+            this.playerLoc = { 
+                x: data.playerData?.playLoc[0] || 5, 
+                y: data.playerData?.playLoc[1] || 5 
+            };
         } catch (error) {
-            this.playerLoc = { x: 0, y: 0 };
-            console.error("Error initializing player location:", error);
+            console.warn("Error setting player location:", error);
+            this.playerLoc = { x: 5, y: 5 };
         }
 
-        this.nextLineavailable = true; // 控制下一行是否可用
+        console.log("MainScene initialized with player at:", this.playerLoc);
     }
 
     preload() {
-        this.load.audio("bgm", "assets/bgm.mp3");
-        this.load.image("tiles", tileset, {
-            frameWidth: 16,
-            frameHeight: 9,
+        console.log("MainScene preload() started");
+        
+        // 添加加载监听器
+        this.load.on('progress', (progress) => {
+            console.log('Loading progress:', Math.round(progress * 100) + '%');
         });
 
-        this.load.tilemapTiledJSON("field-map", mapJson);
-        this.load.spritesheet("player", characters, {
-            frameWidth: 26,
-            frameHeight: 36,
+        this.load.on('complete', () => {
+            console.log('All assets loaded successfully');
+            // 检查音频是否成功加载
+            this.audioLoaded = this.sound.get('bgm') !== null;
+            console.log('Audio loaded:', this.audioLoaded);
         });
 
-        // // npc不是精灵图
-        this.load.image("npc", npc, {
-            frameWidth: 16,
-            frameHeight: 9,
+        this.load.on('loaderror', (file) => {
+            console.error('Failed to load file:', file.src, file.key);
         });
 
-        // this.load.spritesheet("plant", tileset, {
-        //   frameWidth: 16,
-        //   frameHeight: 9,
-        // });
+        // 预加载所有资源
+        try {
+            // 音频加载 - 添加错误处理
+            if (bgmMp3) {
+                this.load.audio('bgm', bgmMp3);
+                console.log("Audio file scheduled for loading:", bgmMp3);
+            } else {
+                console.warn("BGM file not found, audio will be disabled");
+            }
+            
+            this.load.image("tiles", tileset);
+            this.load.tilemapTiledJSON("field-map", mapJson);
+            this.load.spritesheet("player", characters, {
+                frameWidth: 26,
+                frameHeight: 36,
+            });
+            this.load.image("npc", npc);
+        } catch (error) {
+            console.error("Error in preload:", error);
+        }
+
+        // 添加音频加载失败的处理
+        this.load.on('filecomplete-audio-bgm', () => {
+            console.log('BGM audio loaded successfully');
+            this.audioLoaded = true;
+        });
+
+        this.load.on('loaderror-audio-bgm', () => {
+            console.warn('BGM audio failed to load, music will be disabled');
+            this.audioLoaded = false;
+        });
     }
 
     create() {
-        create.call(this);
-        // 对话内容
-        this.dialogLines = [
-            "Three days ago, he left the village without a word.",
-        ];
-        this.currentLine = 0;
-        this.isTyping = false;
-        this.typewriterTween = null;
+        console.log("MainScene create() started");
 
-        // 监听对话事件
-        this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-        this.input.on("pointerdown", this.nextLine, this);
+        try {
+            // 1. 创建地图系统
+            this.setupMap();
+            
+            // 2. 创建玩家
+            this.setupPlayer();
+            
+            // 3. 初始化游戏系统
+            this.setupGameSystems();
+            
+            // 4. 设置相机和控制
+            this.setupCamera();
+            
+            // 5. 设置音乐
+            this.setupAudio();
 
-        if (this.playerData.music) {
-            this.sound.play("bgm", { loop: true, volume: 0.4 });
-            this.bgmPlayed = true;
-        } else if (this.bgmPlayed) {
-            this.sound.stopByKey("bgm");
-            this.bgmPlayed = false;
+            console.log("MainScene create() completed successfully");
+        } catch (error) {
+            console.error("Error in MainScene create():", error);
+            // 创建错误提示
+            this.add.text(100, 100, "Error loading game. Check console.", {
+                fontSize: '20px',
+                fill: '#ff0000'
+            });
         }
     }
 
-    showDialognew() {
-        const { width, height } = this.game.config;
-        const boxHeight = 160;
-        const boxY = height - boxHeight;
-
-        // 创建对话框背景
-        this.dialogBox = this.add.graphics();
-        this.dialogBox.fillStyle(0x1a1a2e, 0.9);
-        this.dialogBox.fillRoundedRect(30, boxY, width, boxHeight, 8);
-        this.dialogBox.lineStyle(2, 0x4a5568);
-        this.dialogBox.strokeRoundedRect(30, boxY, width, boxHeight, 8);
-        this.dialogBox.lineStyle(1, 0x2d3748);
-        this.dialogBox.strokeRoundedRect(32, boxY + 2, width - 4, boxHeight - 4, 6);
-
-        // 说话人名字
-        this.speakerName = this.add.text(50, boxY + 15, "Uncle Bo", {
-            fontSize: '16px',
-            fontFamily: 'monospace',
-            fill: '#ffd700',
-            fontStyle: 'bold'
-        });
-
-        // 主要文本
-        this.textObject = this.add.text(50, boxY + 45, "", {
-            fontSize: '18px',
-            fontFamily: 'monospace',
-            fill: '#e2e8f0',
-            wordWrap: { width: width - 120 },
-            lineSpacing: 6
-        });
-
-        // 继续提示符
-        this.continueHint = this.add.text(width - 70, boxY + boxHeight - 25, "▼", {
-            fontSize: '14px',
-            fontFamily: 'monospace',
-            fill: '#ffd700'
-        });
-        this.tweens.add({
-            targets: this.continueHint,
-            alpha: { from: 1, to: 0.3 },
-            duration: 1000,
-            yoyo: true,
-            repeat: -1
-        });
-
-        // 底部提示文字
-        this.hint = this.add.text(width / 2, height - 20,
-            "Press SPACE or Click to continue", {
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            fill: '#718096',
-            align: 'center'
-        });
-        this.hint.setOrigin(0.5);
-        this.hint.setAlpha(0);
-        this.tweens.add({
-            targets: this.hint,
-            alpha: 0.8,
-            duration: 2000,
-            delay: 1000
-        });
-
-        // 场景淡入
-        this.cameras.main.fadeIn(1000, 15, 15, 35);
-
-        // 延迟开始第一行
-        this.time.delayedCall(1200, () => {
-            this.nextLine();
-        });
-
-    }
-
-    typeText(text, callback) {
-        this.isTyping = true;
-        console.log("Typing text:", this.textObject);
-        if (this.textObject == null)
-            return;
-        this.textObject.setText('');
-        this.continueHint.setVisible(false);
-        let currentChar = 0;
-        const totalChars = text.length;
-        this.curText = text; // 保存当前文本以便后续使用
-        this.typewriterTween = this.tweens.add({
-            targets: { value: 0 },
-            value: totalChars,
-            duration: totalChars * 35,
-            ease: 'none',
-            onUpdate: (tween) => {
-                const progress = Math.floor(tween.getValue());
-                if (progress > currentChar) {
-                    currentChar = progress;
-                    this.textObject.setText(text.substring(0, currentChar));
-                }
-            },
-            onComplete: () => {
-                this.isTyping = false;
-                this.continueHint.setVisible(true);
-                if (callback) callback();
+    setupMap() {
+        console.log("Setting up map...");
+        try {
+            // 创建地图
+            this.fieldMapTileMap = this.make.tilemap({ key: "field-map" });
+            console.log("Tilemap created:", this.fieldMapTileMap);
+            
+            this.fieldMapTileMap.addTilesetImage("tiles", "tiles");
+            console.log("Tileset added");
+            
+            // 创建地图层
+            const mainLayer = this.fieldMapTileMap.createLayer('layer', 'tiles', 0, 0);
+            console.log("Main layer created:", mainLayer);
+            
+            if (!mainLayer) {
+                throw new Error("Failed to create main layer");
             }
-        });
-    }
-
-    skipTyping() {
-        if (this.isTyping && this.typewriterTween) {
-            this.typewriterTween.stop();
-            this.textObject.setText(this.curText);
-            this.typewriterTween.complete();
+            
+            // 获取屏幕和地图尺寸
+            const gameWidth = this.scale.width;
+            const gameHeight = this.scale.height;
+            const mapWidth = this.fieldMapTileMap.widthInPixels;
+            const mapHeight = this.fieldMapTileMap.heightInPixels;
+            
+            console.log(`Screen: ${gameWidth}x${gameHeight}, Map: ${mapWidth}x${mapHeight}`);
+            
+            // 计算拉伸缩放 - 分别计算X和Y轴缩放，允许变形以填满屏幕
+            const scaleX = gameWidth / mapWidth;
+            const scaleY = gameHeight / mapHeight;
+            
+            // 使用分别的缩放，让地图完全填满屏幕（可能会有轻微变形）
+            mainLayer.setScale(scaleX, scaleY);
+            
+            // 保存缩放信息
+            this.mapScaleX = scaleX;
+            this.mapScaleY = scaleY;
+            this.mapScale = Math.min(scaleX, scaleY); // 用于其他元素的统一缩放
+            
+            console.log(`Map scaled to X:${scaleX}, Y:${scaleY}`);
+            
+            // 确保地图居中
+            mainLayer.setPosition(0, 0);
+            
+        } catch (error) {
+            console.error("Error setting up map:", error);
+            // 创建备用地图
+            this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x228B22);
+            this.add.text(100, 50, "Map loading failed - using backup", {
+                fontSize: '16px',
+                fill: '#ffffff'
+            });
+            this.mapScale = 1;
+            this.mapScaleX = 1;
+            this.mapScaleY = 1;
         }
     }
 
+    setupPlayer() {
+        console.log("Setting up player...");
+        try {
+            // 计算玩家精灵的世界位置（考虑地图缩放）
+            const playerWorldX = this.playerLoc.x * this.fieldMapTileMap.tileWidth * this.mapScaleX;
+            const playerWorldY = this.playerLoc.y * this.fieldMapTileMap.tileHeight * this.mapScaleY;
+            
+            // 创建玩家精灵
+            this.playerSprite = this.add.sprite(playerWorldX, playerWorldY, "player");
+            console.log("Player sprite created at:", playerWorldX, playerWorldY);
+            
+            // 使用适中的缩放，让玩家在各种屏幕上都合适
+            const playerScale = Math.min(this.mapScaleX, this.mapScaleY) * 1.5;
+            this.playerSprite.setScale(playerScale);
+            this.playerSprite.setDepth(10);
+            
+            // 设置输入
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            
+            // 检查 GridEngine 是否可用
+            if (!this.gridEngine) {
+                console.error("GridEngine not available!");
+                return;
+            }
+
+            // 初始化GridEngine
+            const gridEngineConfig = {
+                characters: [{
+                    id: "player",
+                    sprite: this.playerSprite,
+                    walkingAnimationMapping: 6,
+                    startPosition: this.playerLoc,
+                }],
+            };
+
+            // 只有在地图存在时才添加碰撞
+            if (this.fieldMapTileMap) {
+                gridEngineConfig.collision = {
+                    blockedTiles: [4, 5, 6, 25, 26, 27, 28, 29, 30, 32, 33, 34, 42, 44, 60, 62]
+                };
+                this.gridEngine.create(this.fieldMapTileMap, gridEngineConfig);
+            } else {
+                console.warn("No tilemap available, GridEngine not initialized");
+            }
+            
+            // 创建Agent用于移动
+            this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, "player");
+            console.log("Player setup completed");
+        } catch (error) {
+            console.error("Error setting up player:", error);
+        }
+    }
+
+    setupGameSystems() {
+        console.log("Setting up game systems...");
+        try {
+            // 初始化各个系统
+            this.dialogSystem = new DialogSystem(this);
+            this.npcManager = new NPCManager(this, this.mapScale || 1);
+            this.uiManager = new UIManager(this);
+            
+            // 设置系统间的连接
+            this.dialogSystem.setNPCManager(this.npcManager);
+            this.npcManager.setDialogSystem(this.dialogSystem);
+            
+            console.log("Game systems setup completed");
+        } catch (error) {
+            console.error("Error setting up game systems:", error);
+        }
+    }
+
+    setupCamera() {
+        console.log("Setting up camera...");
+        try {
+            if (this.fieldMapTileMap && this.mapScaleX && this.mapScaleY) {
+                // 设置相机边界 - 使用缩放后的地图尺寸
+                const scaledMapWidth = this.fieldMapTileMap.widthInPixels * this.mapScaleX;
+                const scaledMapHeight = this.fieldMapTileMap.heightInPixels * this.mapScaleY;
+                
+                this.cameras.main.setBounds(0, 0, scaledMapWidth, scaledMapHeight);
+                
+                // 设置相机跟随玩家
+                if (this.playerSprite) {
+                    this.cameras.main.startFollow(this.playerSprite, true);
+                    // 调整跟随偏移，让玩家始终在屏幕中心
+                    this.cameras.main.setFollowOffset(0, 0);
+                }
+            }
+            
+            this.cameras.main.setZoom(1);
+            
+            // 处理窗口大小变化
+            this.scale.on('resize', this.handleResize, this);
+            
+            console.log("Camera setup completed");
+        } catch (error) {
+            console.error("Error setting up camera:", error);
+        }
+    }
+
+    setupAudio() {
+        console.log("Setting up audio...");
+        try {
+            // 检查音频是否加载成功并且玩家启用了音乐
+            if (this.audioLoaded && this.playerData && this.playerData.music && !this.bgmPlayed) {
+                console.log("Attempting to play background music...");
+                try {
+                    this.sound.play("bgm", { loop: true, volume: 0.4 });
+                    this.bgmPlayed = true;
+                    console.log("Background music started successfully");
+                } catch (audioError) {
+                    console.error("Error playing background music:", audioError);
+                    this.audioLoaded = false; // 标记音频不可用
+                }
+            } else {
+                console.log("Audio setup skipped:", {
+                    audioLoaded: this.audioLoaded,
+                    musicEnabled: this.playerData?.music,
+                    alreadyPlaying: this.bgmPlayed
+                });
+            }
+        } catch (error) {
+            console.error("Error setting up audio:", error);
+        }
+    }
+
+    handleResize(gameSize) {
+        console.log("Handling resize:", gameSize);
+        try {
+            const width = gameSize.width;
+            const height = gameSize.height;
+            
+            if (this.fieldMapTileMap) {
+                const mapWidth = this.fieldMapTileMap.widthInPixels;
+                const mapHeight = this.fieldMapTileMap.heightInPixels;
+                
+                // 重新计算拉伸缩放
+                const newScaleX = width / mapWidth;
+                const newScaleY = height / mapHeight;
+                
+                // 更新地图缩放
+                const mainLayer = this.fieldMapTileMap.getLayer('layer');
+                if (mainLayer && mainLayer.tilemapLayer) {
+                    mainLayer.tilemapLayer.setScale(newScaleX, newScaleY);
+                }
+                
+                // 更新玩家缩放和位置
+                if (this.playerSprite && this.gridEngine) {
+                    const playerPos = this.gridEngine.getPosition("player");
+                    if (playerPos) {
+                        // 重新计算玩家世界位置
+                        const playerWorldX = playerPos.x * this.fieldMapTileMap.tileWidth * newScaleX;
+                        const playerWorldY = playerPos.y * this.fieldMapTileMap.tileHeight * newScaleY;
+                        
+                        this.playerSprite.setPosition(playerWorldX, playerWorldY);
+                        
+                        // 调整玩家缩放
+                        const playerScale = Math.min(newScaleX, newScaleY) * 1.5;
+                        this.playerSprite.setScale(playerScale);
+                    }
+                }
+                
+                // 更新NPC缩放
+                if (this.npcManager) {
+                    this.npcManager.updateScale(Math.min(newScaleX, newScaleY));
+                }
+                
+                // 更新相机边界
+                this.cameras.main.setBounds(0, 0, mapWidth * newScaleX, mapHeight * newScaleY);
+                
+                // 保存新的缩放值
+                this.mapScaleX = newScaleX;
+                this.mapScaleY = newScaleY;
+                this.mapScale = Math.min(newScaleX, newScaleY);
+                
+                console.log(`Resized to X:${newScaleX}, Y:${newScaleY}`);
+            }
+        } catch (error) {
+            console.error("Error handling resize:", error);
+        }
+    }
+
+    // 公共方法供其他系统调用
+    showNotification(message) {
+        if (this.uiManager) {
+            this.uiManager.showNotification(message);
+        }
+    }
+
+    // 修复音频控制方法
     setPlayerData(newPlayerData) {
+        console.log("Setting player data:", newPlayerData);
         this.playerData = newPlayerData;
-        if (this.playerData.music) {
+        
+        // 安全的音频控制
+        if (this.audioLoaded && newPlayerData.music) {
+            if (!this.bgmPlayed) {
+                try {
+                    console.log("Starting background music...");
+                    this.sound.play("bgm", { loop: true, volume: 0.4 });
+                    this.bgmPlayed = true;
+                } catch (error) {
+                    console.error("Error starting background music:", error);
+                    this.showNotification("音频播放失败 / Audio playback failed");
+                }
+            }
+        } else if (this.bgmPlayed) {
+            try {
+                console.log("Stopping background music...");
+                this.sound.stopByKey("bgm");
+                this.bgmPlayed = false;
+            } catch (error) {
+                console.error("Error stopping background music:", error);
+                // 尝试停止所有音频
+                try {
+                    this.sound.stopAll();
+                    this.bgmPlayed = false;
+                } catch (stopAllError) {
+                    console.error("Error stopping all audio:", stopAllError);
+                }
+            }
+        }
+    }
+
+    // 添加音频状态检查方法
+    isAudioAvailable() {
+        return this.audioLoaded && this.sound.get('bgm') !== null;
+    }
+
+    // 安全的音频播放方法
+    playBackgroundMusic() {
+        if (!this.isAudioAvailable()) {
+            console.warn("Audio not available");
+            return false;
+        }
+
+        try {
             if (!this.bgmPlayed) {
                 this.sound.play("bgm", { loop: true, volume: 0.4 });
                 this.bgmPlayed = true;
+                return true;
             }
-        } else {
-            this.sound.stopByKey("bgm");
-            this.bgmPlayed = false;
-        }
-    }
-
-
-    destroyInputBox() {
-        if (this.inputBox) {
-            document.body.removeChild(this.inputBox);
-            this.inputBox = null;
-        }
-        if (this.sendBtn) {
-            document.body.removeChild(this.sendBtn);
-            this.sendBtn = null;
-        }
-    }
-
-    async nextLine() {
-        if (!this.dialogActive) return;
-        if (this.isTyping) {
-            this.skipTyping();
-            return;
-        }
-        let result;
-        // collect user input
-        const userInput = this.inputBox ? this.inputBox.value.trim() : "";
-        this.inputBox = null; // 清除输入框引用
-        console.log("User input collected:", userInput);
-        try {
-            result = await (await fetch("https://twilight-king-cf43.1442334619.workers.dev/api/nextDialog", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    playerId: this.playerId, // 示例数据
-                    npcId: this.npc,
-                    userInput: userInput,
-                    language: this.playerData.language // 传递语言设置
-                })
-            })).json();
         } catch (error) {
-            console.error("Error fetching next dialog:", error);
-            return;
+            console.error("Error playing background music:", error);
+            return false;
         }
-        if (this.nextLineavailable) {
-            this.nextLineavailable = result.next
-            this.nextButton = result.button
-            console.log("Next line available:", this.nextLineavailable);
-            this.typeText(result.response, () => {
-                if (this.nextLineavailable) {
-                    // 创建 input 框
-                    if (this.nextButton.length === 0) {
-                        // Create input box background
-                        this.inputBox = document.createElement("input");
-                        this.inputBox.type = "text";
-                        if (this.playerData.language === 'zh') {
-                            this.inputBox.placeholder = "请输入内容...";
-                        } else {
-                            this.inputBox.placeholder = "Type your response...";
-                        }
-                        this.inputBox.style.position = "absolute";
-                        this.inputBox.style.left = (this.game.canvas.offsetLeft + 60) + "px";
-                        this.inputBox.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-                        this.inputBox.style.zIndex = 1000;
-                        document.body.appendChild(this.inputBox);
+        return false;
+    }
 
-                        // 创建发送按钮
-                        this.sendBtn = document.createElement("button");
-                        if (this.playerData.language === 'zh') {
-                            this.sendBtn.innerText = "发送";
-                        } else {
-                            this.sendBtn.innerText = "Send";
-                        }
-                        this.sendBtn.style.position = "absolute";
-                        this.sendBtn.style.left = (this.game.canvas.offsetLeft + 260) + "px";
-                        this.sendBtn.style.top = (this.game.canvas.offsetTop + this.game.config.height - 60) + "px";
-                        this.sendBtn.style.zIndex = 1000;
-                        document.body.appendChild(this.sendBtn);
-
-                        // 监听发送
-                        this.sendBtn.onclick = async () => {
-                            this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-                            this.input.on("pointerdown", this.nextLine, this);
-                            this.inputBox.value = "";
-                            this.destroyInputBox();
-                            this.nextLine()
-                        };
-
-                        // 支持回车发送
-                        this.inputBox.onkeydown = (e) => {
-                            e.stopPropagation();
-                            if (e.key === "Enter") this.sendBtn.onclick();
-                        };
-
-                        // restrict listen of keydown and pointerdown
-                        this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
-                        this.input.off("pointerdown", this.nextLine, this);
-                    }
-                    else {
-                        // show a list of button inputs
-                        // Create button container
-                        const buttonContainer = this.add.container(0, 0);
-                        const buttonY = this.game.config.height - 100;
-                        const buttonSpacing = 150;
-                        const startX = 50;
-
-
-                        // restrict listen of keydown and pointerdown
-                        this.input.keyboard.off("keydown-SPACE", this.nextLine, this);
-                        this.input.off("pointerdown", this.nextLine, this);
-                        this.buttons = []
-
-                        this.nextButton.forEach((buttonText, index) => {
-                            // Create button background
-                            const buttonBg = this.add.graphics();
-                            buttonBg.fillStyle(0x4a5568, 0.9);
-                            buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
-                            buttonBg.lineStyle(2, 0x718096);
-                            buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
-
-                            // Create button text
-                            const buttonTextObj = this.add.text(70, 17.5, buttonText, {
-                                fontSize: '14px',
-                                fontFamily: 'monospace',
-                                fill: '#e2e8f0',
-                                align: 'center'
-                            });
-                            buttonTextObj.setOrigin(0.5);
-
-                            // Create interactive button group
-                            const button = this.add.container(startX + (index * buttonSpacing), buttonY, [buttonBg, buttonTextObj]);
-                            button.setSize(140, 35);
-                            button.setInteractive({ useHandCursor: true });
-
-                            // Button hover effects
-                            button.on('pointerover', () => {
-                                buttonBg.clear();
-                                buttonBg.fillStyle(0x718096, 0.9);
-                                buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
-                                buttonBg.lineStyle(2, 0xffd700);
-                                buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
-                            });
-
-                            button.on('pointerout', () => {
-                                buttonBg.clear();
-                                buttonBg.fillStyle(0x4a5568, 0.9);
-                                buttonBg.fillRoundedRect(0, 0, 140, 35, 5);
-                                buttonBg.lineStyle(2, 0x718096);
-                                buttonBg.strokeRoundedRect(0, 0, 140, 35, 5);
-                            });
-
-                            button.on('pointerdown', () => {
-                                // Store selected button text for API call
-                                this.inputBox = { value: buttonText };
-                                this.buttons.forEach(btn => btn.destroy());
-                                this.buttons = [];
-                                buttonContainer.destroy();
-                                // Clean up input components
-                                // this.nextLine();
-                                this.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-                                this.input.on("pointerdown", this.nextLine, this);
-                            });
-
-                            // Add button to container
-                            this.buttons.push(button)
-                            this.buttons.push(buttonBg);
-                            this.buttons.push(buttonTextObj);
-
-                            buttonContainer.add(button);
-                        });
-                    }
-                }
-            });
-            this.currentLine++;
-        } else {
-            this.nextLineavailable = true;
-            this.dialogBox.destroy();
-            this.speakerName.destroy();
-            this.textObject.destroy();
-            this.continueHint.destroy();
-            this.hint.destroy();
-            this.dialogActive = false;
-            this.currentLine = 0;
-
-            const playerPos = this.gridEngine.getPosition("player");
-            this.playerData.playLoc = [playerPos.x, playerPos.y];
-            console.log("Player location updated:", playerPos);
-
-            this.updatePlayerdata({
-                playLoc: [playerPos.x, playerPos.y]
-            });
+    // 安全的音频停止方法
+    stopBackgroundMusic() {
+        try {
+            if (this.bgmPlayed) {
+                this.sound.stopByKey("bgm");
+                this.bgmPlayed = false;
+                return true;
+            }
+        } catch (error) {
+            console.error("Error stopping background music:", error);
+            try {
+                this.sound.stopAll();
+                this.bgmPlayed = false;
+                return true;
+            } catch (stopAllError) {
+                console.error("Error stopping all audio:", stopAllError);
+                return false;
+            }
         }
+        return false;
     }
 
     update(time, delta) {
-        // 这里只做玩家和NPC距离检测，触发对话
-        if (this.playerView) {
-            const playerPos = this.gridEngine.getPosition("player");
-            const npcPos = this.gridEngine.getPosition("npc1");
-            const isNextToNPC =
-                Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) === 1;
-            if (isNextToNPC && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-                if (!this.dialogActive) {
-                    this.npc = "npc1"; // 设置当前对话的 NPC ID
-                    this.dialogActive = true;
-                    this.showDialognew();
+        try {
+            // 检查NPC交互
+            if (this.npcManager) {
+                this.npcManager.checkInteractions();
+            }
+            
+            // 处理玩家移动
+            if (!this.dialogSystem || !this.dialogSystem.isDialogActive()) {
+                if (this.cursors && this.agent) {
+                    if (this.cursors.left.isDown) {
+                        this.agent.moveAndCheckCollision("left", this.fieldMapTileMap);
+                    } else if (this.cursors.right.isDown) {
+                        this.agent.moveAndCheckCollision("right", this.fieldMapTileMap);
+                    } else if (this.cursors.up.isDown) {
+                        this.agent.moveAndCheckCollision("up", this.fieldMapTileMap);
+                    } else if (this.cursors.down.isDown) {
+                        this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
+                    }
                 }
             }
-            // 玩家移动
-            if (this.cursors.left.isDown) {
-                this.agent.moveAndCheckCollision("left", this.fieldMapTileMap);
-            } else if (this.cursors.right.isDown) {
-                this.agent.moveAndCheckCollision("right", this.fieldMapTileMap);
-            } else if (this.cursors.up.isDown) {
-                this.agent.moveAndCheckCollision("up", this.fieldMapTileMap);
-            } else if (this.cursors.down.isDown) {
-                this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
+            
+            // 更新玩家位置数据
+            if (this.gridEngine && this.playerData) {
+                try {
+                    const playerPos = this.gridEngine.getPosition("player");
+                    if (playerPos) {
+                        this.playerData.playLoc = [playerPos.x, playerPos.y];
+                        
+                        // 更新玩家精灵的世界坐标（考虑地图缩放）
+                        if (this.playerSprite && this.fieldMapTileMap) {
+                            const worldX = playerPos.x * this.fieldMapTileMap.tileWidth * this.mapScaleX;
+                            const worldY = playerPos.y * this.fieldMapTileMap.tileHeight * this.mapScaleY;
+                            this.playerSprite.setPosition(worldX, worldY);
+                        }
+                    }
+                } catch (error) {
+                    // 忽略GridEngine错误
+                }
             }
-        } else {
-            this.controls.update(delta);
+        } catch (error) {
+            console.error("Error in update loop:", error);
         }
     }
 }

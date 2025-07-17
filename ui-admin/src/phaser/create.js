@@ -33,9 +33,9 @@ export default function create() {
   mainLayer.scale = 3;
 
   // 5️⃣ 加载玩家角色并添加键盘控制键
-  const playerSprite = this.add.sprite(0, 0, "player");
-  playerSprite.scale = 3;
-  playerSprite.setDepth(6); // 保证在最上层显示
+  this.playerSprite = this.add.sprite(0, 0, "player");
+  this.playerSprite.scale = 3;
+  this.playerSprite.setDepth(10); // 保证在最上层显示
   this.cursors = this.input.keyboard.createCursorKeys(); // 方向键
   this.interactKey = this.input.keyboard.addKey(
     Phaser.Input.Keyboard.KeyCodes.SPACE
@@ -46,17 +46,12 @@ export default function create() {
   this.cKey.on("down", togglePlayerView, this); // 绑定切换函数
 
   // 6️⃣ 初始化 GridEngine，配置玩家初始位置
-  const mainLayerObj = this.fieldMapTileMap.getLayer('layer');
-  if (mainLayerObj) {
-    const flatData = mainLayerObj.data.flat().map(tile => tile.index);
-    console.log('主图层 tile id 分布:', flatData);
-  }
   const agentId = "player";
   const gridEngineConfig = {
     characters: [
       {
         id: agentId,
-        sprite: playerSprite,
+        sprite: this.playerSprite,
         walkingAnimationMapping: 6,
         startPosition: this.playerLoc,
       },
@@ -67,28 +62,14 @@ export default function create() {
   };
   this.gridEngine.create(this.fieldMapTileMap, gridEngineConfig);
 
-  // 示例：阻止玩家走到 (3, 5)
-  // this.gridEngine.setTileBlocked({ x: 3, y: 5 }, true);
-  // 如需取消阻挡：this.gridEngine.setTileBlocked({ x: 3, y: 5 }, false);
   // 7️⃣ 创建 Agent 类的实例（可选逻辑）
   this.agent = new Agent(this.gridEngine, this.fieldMapTileMap, agentId, {
     x: 6,
     y: 5,
   });
 
-  // 8️⃣ 添加 NPC
-  const npcSprite = this.add.sprite(0, 0, "npc"); // 假设你加载了 npc 图像资源
-  npcSprite.scale = 2;
-  npcSprite.setScale(0.15); // 缩小到原来的 50%
-  // npcSprite.setDisplaySize(16, 32); // 或者你想要的任意大小
-  npcSprite.setDepth(5);
-
-  this.gridEngine.addCharacter({
-    id: "npc1",
-    sprite: npcSprite,
-    walkingAnimationMapping: 6,
-    startPosition: { x: 1, y: 7 },
-  });
+  // 8️⃣ 添加 NPC - 现在由 NPCManager 管理，这里只是示例
+  // NPC将在MainScene中通过NPCManager创建
 
   // 9️⃣ 设置桥梁（可选逻辑）
   this.gridEngine.setTransition({ x: 10, y: 26 }, "ground", "bridge");
@@ -106,12 +87,13 @@ export default function create() {
     this.playerView = !this.playerView;
 
     if (this.playerView) {
-      this.cameras.main.startFollow(playerSprite, true);
+      this.cameras.main.startFollow(this.playerSprite, true);
       this.cameras.main.setFollowOffset(
-        -playerSprite.width,
-        -playerSprite.height
+        -this.playerSprite.width,
+        -this.playerSprite.height
       );
     } else {
+      this.cameras.main.stopFollow();
       this.cameras.main.zoom = 0.85;
 
       const controlConfig = {
@@ -132,4 +114,7 @@ export default function create() {
       );
     }
   }
+
+  // 默认启用跟随玩家视角
+  togglePlayerView.call(this);
 }

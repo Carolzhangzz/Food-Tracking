@@ -33,18 +33,19 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.get('/api/intro', async (req, res) => {
-  try {
-    const script = await IntroScript.findOne();
-    if (!script) {
-      return res.status(404).json({ success: false, message: 'No intro script found.' });
-    }
-    res.json({ success: true, content: script.content });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error.' });
-  }
-});
+// // 获取开场白
+// app.get('/api/intro', async (req, res) => {
+//   try {
+//     const script = await IntroScript.findOne();
+//     if (!script) {
+//       return res.status(404).json({ success: false, message: 'No intro script found.' });
+//     }
+//     res.json({ success: true, content: script.content });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: 'Server error.' });
+//   }
+// });
 
 // 增加id
 app.post('/api/admin/add-id', async (req, res) => {
