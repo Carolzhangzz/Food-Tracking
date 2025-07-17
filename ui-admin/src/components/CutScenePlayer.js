@@ -49,12 +49,12 @@ function CutScenePlayer() {
     if (currentLine < storyLines.length) {
       const timer = setTimeout(() => {
         setCurrentLine(currentLine + 1);
-      }, 2500); // 稍微慢一点让用户能读完
+      }, 200); // 稍微慢一点让用户能读完
       return () => clearTimeout(timer);
     } else {
       const buttonTimer = setTimeout(() => {
         setShowStartButton(true);
-      }, 100);
+      }, 3000); 
       return () => clearTimeout(buttonTimer);
     }
   }, [currentLine, storyLines.length]);
