@@ -1,10 +1,26 @@
 {
+  "name": "food-tracking",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": "https://carolzhangzz.github.io/Food-Tracking/",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "grid-engine": "^2.48.0",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
+    "react-scripts": "^5.0.1",
     "sequelize": "^6.37.7"
+  },
+  "devDependencies": {
+    "gh-pages": "^5.0.0"
   }
 }

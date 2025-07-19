@@ -1,4 +1,4 @@
-// DialogSystem.js - 响应式对话系统
+// DialogSystem.js - 更新后的对话系统，支持食物记录功能
 export default class DialogSystem {
     constructor(scene) {
         this.scene = scene;
@@ -8,6 +8,9 @@ export default class DialogSystem {
         this.buttons = [];
         this.inputBox = null;
         this.sendBtn = null;
+        this.questionIndex = 0;
+        this.currentMeal = null;
+        this.mealResponses = {};
         
         // UI元素
         this.dialogBox = null;
@@ -17,6 +20,28 @@ export default class DialogSystem {
         this.hint = null;
         this.typewriterTween = null;
         this.curText = "";
+        
+        // 食物记录问题序列
+        this.foodQuestions = {
+            'zh': [
+                "今天是第几餐？", // Q1 - 餐次确认
+                "你今天已经吃了几顿饭？", // Q2 - 总餐数
+                "请描述这顿饭的详细内容 - 都吃了什么？怎么做的？", // Q3/Q4 - 食物内容和做法
+                "你为什么在这个时间吃饭？", // Q5 - 时间选择
+                "你为什么选择这些食物？", // Q6 - 食物选择原因
+                "你是什么时候决定吃这顿饭的？", // Q7 - 决策时间
+                "你吃了多少？为什么是这个分量？" // Q8 - 分量和原因
+            ],
+            'en': [
+                "Which meal of the day is this?", // Q1
+                "How many meals have you had today?", // Q2  
+                "Please describe this meal in detail - what did you eat and how was it prepared?", // Q3/Q4
+                "Why did you eat at this particular time?", // Q5
+                "Why did you choose these foods?", // Q6
+                "When did you decide to have this meal?", // Q7
+                "How much did you eat and why that amount?" // Q8
+            ]
+        };
     }
 
     setNPCManager(npcManager) {
@@ -32,6 +57,8 @@ export default class DialogSystem {
         
         this.currentNPC = npcId;
         this.isActive = true;
+        this.questionIndex = 0;
+        this.mealResponses = {};
         this.createDialogUI();
         
         // 开始对话
@@ -44,7 +71,7 @@ export default class DialogSystem {
         const { width, height } = this.scene.scale;
         
         // 响应式计算对话框尺寸
-        const boxHeight = Math.min(Math.max(height * 0.25, 120), 200);
+        const boxHeight = Math.min(Math.max(height * 0.3, 150), 250);
         const boxY = height - boxHeight - 10;
         const margin = Math.min(width * 0.05, 30);
         const boxWidth = width - (margin * 2);
@@ -131,6 +158,11 @@ export default class DialogSystem {
         const userInput = this.inputBox ? this.inputBox.value.trim() : "";
         this.destroyInputElements();
         
+        // 如果有输入，保存到响应中
+        if (userInput && this.questionIndex > 0) {
+            this.mealResponses[`q${this.questionIndex}`] = userInput;
+        }
+        
         // 处理NPC对话
         const result = await this.npcManager.handleNPCDialog(this.currentNPC, userInput);
 
@@ -138,8 +170,13 @@ export default class DialogSystem {
             this.typeText(result.response, () => {
                 if (result.buttons && result.buttons.length > 0) {
                     this.createButtonOptions(result.buttons);
-                } else {
+                } else if (result.requireInput) {
                     this.createTextInput();
+                } else {
+                    // 自动继续到下一个问题
+                    this.scene.time.delayedCall(1000, () => {
+                        this.nextLine();
+                    });
                 }
             });
         } else {
@@ -195,24 +232,24 @@ export default class DialogSystem {
         const { width, height } = this.scene.scale;
         
         // 响应式输入框尺寸
-        const inputWidth = Math.min(Math.max(width * 0.6, 200), 400);
-        const inputHeight = Math.max(height * 0.05, 35);
+        const inputWidth = Math.min(Math.max(width * 0.7, 250), 500);
+        const inputHeight = Math.max(height * 0.08, 40);
         const fontSize = Math.min(Math.max(width * 0.02, 12), 16);
         
-        this.inputBox = document.createElement("input");
-        this.inputBox.type = "text";
+        // 创建多行文本框
+        this.inputBox = document.createElement("textarea");
         this.inputBox.placeholder = this.scene.playerData.language === 'zh' ? 
-            "请输入内容..." : "Type your response...";
+            "请详细描述你的食物记录..." : "Please describe your food record in detail...";
         this.inputBox.style.cssText = `
             position: fixed;
             left: 50%;
-            bottom: ${Math.max(height * 0.12, 80)}px;
+            bottom: ${Math.max(height * 0.15, 120)}px;
             transform: translateX(-50%);
             z-index: 1000;
             width: ${inputWidth}px;
             height: ${inputHeight}px;
             font-size: ${fontSize}px;
-            padding: ${Math.max(height * 0.01, 5)}px ${Math.max(width * 0.02, 10)}px;
+            padding: ${Math.max(height * 0.015, 8)}px ${Math.max(width * 0.02, 12)}px;
             border: 2px solid #4a5568;
             border-radius: 8px;
             background: #2a2a2a;
@@ -220,6 +257,9 @@ export default class DialogSystem {
             outline: none;
             transition: all 0.3s ease;
             box-sizing: border-box;
+            resize: vertical;
+            min-height: ${inputHeight}px;
+            max-height: ${Math.min(height * 0.3, 200)}px;
         `;
         document.body.appendChild(this.inputBox);
 
@@ -228,18 +268,19 @@ export default class DialogSystem {
         this.sendBtn.style.cssText = `
             position: fixed;
             left: 50%;
-            bottom: ${Math.max(height * 0.06, 35)}px;
+            bottom: ${Math.max(height * 0.08, 60)}px;
             transform: translateX(-50%);
             z-index: 1000;
-            padding: ${Math.max(height * 0.01, 8)}px ${Math.max(width * 0.03, 20)}px;
+            padding: ${Math.max(height * 0.015, 10)}px ${Math.max(width * 0.04, 25)}px;
             font-size: ${fontSize}px;
             border: none;
             border-radius: 8px;
-            background: #4a5568;
+            background: #667eea;
             color: #e2e8f0;
             cursor: pointer;
             transition: all 0.3s ease;
             font-family: monospace;
+            font-weight: bold;
         `;
         document.body.appendChild(this.sendBtn);
 
@@ -255,12 +296,12 @@ export default class DialogSystem {
         });
 
         this.sendBtn.addEventListener('mouseenter', () => {
-            this.sendBtn.style.background = '#667eea';
+            this.sendBtn.style.background = '#818cf8';
             this.sendBtn.style.transform = 'translateX(-50%) translateY(-2px)';
         });
         
         this.sendBtn.addEventListener('mouseleave', () => {
-            this.sendBtn.style.background = '#4a5568';
+            this.sendBtn.style.background = '#667eea';
             this.sendBtn.style.transform = 'translateX(-50%) translateY(0)';
         });
 
@@ -273,7 +314,9 @@ export default class DialogSystem {
 
         this.inputBox.onkeydown = (e) => {
             e.stopPropagation();
-            if (e.key === "Enter") this.sendBtn.onclick();
+            if (e.key === "Enter" && e.ctrlKey) {
+                this.sendBtn.onclick();
+            }
         };
 
         // 暂时禁用场景输入
@@ -287,9 +330,9 @@ export default class DialogSystem {
         const { width, height } = this.scene.scale;
         
         // 响应式按钮布局
-        const buttonY = height - Math.max(height * 0.15, 100);
-        const buttonWidth = Math.min(Math.max(width * 0.25, 120), 180);
-        const buttonHeight = Math.max(height * 0.05, 35);
+        const buttonY = height - Math.max(height * 0.18, 120);
+        const buttonWidth = Math.min(Math.max(width * 0.25, 120), 200);
+        const buttonHeight = Math.max(height * 0.06, 40);
         const fontSize = Math.min(Math.max(width * 0.018, 12), 16);
         
         // 计算按钮间距和起始位置
@@ -391,6 +434,8 @@ export default class DialogSystem {
         // 重置状态
         this.isActive = false;
         this.currentNPC = null;
+        this.questionIndex = 0;
+        this.mealResponses = {};
 
         // 移除事件监听
         this.scene.input.keyboard.off("keydown-SPACE", this.nextLine, this);
@@ -409,5 +454,15 @@ export default class DialogSystem {
                 console.warn("Error updating player position:", error);
             }
         }
+    }
+
+    // 获取当前对话进度
+    getDialogProgress() {
+        return {
+            currentNPC: this.currentNPC,
+            questionIndex: this.questionIndex,
+            currentMeal: this.currentMeal,
+            responses: this.mealResponses
+        };
     }
 }

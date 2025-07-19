@@ -1,5 +1,5 @@
 class Agent {
-  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3, y: 3 }) {
+  constructor(gridEngine, fieldMapTileMap, agent_id, bedPosition = { x: 3 , y: 3}) {
     this.gridEngine = gridEngine;
     this.fieldMapTileMap = fieldMapTileMap;
     this.agent_id = agent_id;

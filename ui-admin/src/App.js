@@ -5,7 +5,7 @@ import { PlayerProvider } from './context/PlayerContext';
 import LoginPage from './components/LoginPage';
 import CutScenePlayer from './components/CutScenePlayer';
 import GameScreen from './components/GameScreen';
-import TestGameScreen from './components/TestGameScreen'; // 保留测试页面
+
 
 function App() {
   return (
@@ -29,7 +29,6 @@ function App() {
             <Route path="/" element={<LoginPage />} />
             <Route path="/intro" element={<CutScenePlayer />} />
             <Route path="/game" element={<GameScreen />} />
-            <Route path="/test" element={<TestGameScreen />} />
           </Routes>
         </div>
       </PlayerProvider>
