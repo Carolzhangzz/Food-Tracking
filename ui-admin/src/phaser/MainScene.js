@@ -51,6 +51,8 @@ export default class MainScene extends Phaser.Scene {
     this.setupAudio();
     this.showWelcomeMessage();
     this.handleResize(this.scale.gameSize);
+    // this.dialogSystem = new DialogSystem(this); // 👈 传入 this.scene
+    // this.dialogSystem.createDialogUI();
     this.gameStarted = true;
   }
 

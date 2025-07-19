@@ -312,13 +312,228 @@ export default class UIManager {
     });
   }
 
+  //   showClueJournal() {
+  //     const { width, height } = this.scene.scale;
+
+  //     // 检查是否已经有线索本打开
+  //     if (this.scene.children.list.some((child) => child.depth === 200)) {
+  //       return;
+  //     }
+
+  //     // 创建背景遮罩
+  //     const overlay = this.scene.add.graphics();
+  //     overlay.fillStyle(0x000000, 0.7);
+  //     overlay.fillRect(0, 0, width, height);
+  //     overlay.setScrollFactor(0);
+  //     overlay.setDepth(199);
+  //     overlay.setInteractive();
+
+  //     // 创建线索本背景
+  //     const journalWidth = Math.min(width * 0.9, 600);
+  //     const journalHeight = Math.min(height * 0.8, 500);
+  //     const journalX = (width - journalWidth) / 2;
+  //     const journalY = (height - journalHeight) / 2;
+
+  //     const journalBg = this.scene.add.graphics();
+  //     journalBg.fillStyle(0x1a1a2e, 0.98);
+  //     journalBg.fillRoundedRect(
+  //       journalX,
+  //       journalY,
+  //       journalWidth,
+  //       journalHeight,
+  //       12
+  //     );
+  //     journalBg.lineStyle(3, 0x4a5568);
+  //     journalBg.strokeRoundedRect(
+  //       journalX,
+  //       journalY,
+  //       journalWidth,
+  //       journalHeight,
+  //       12
+  //     );
+  //     journalBg.setScrollFactor(0);
+  //     journalBg.setDepth(200);
+
+  //     // 标题
+  //     const title = this.scene.add.text(
+  //       width / 2,
+  //       journalY + 40,
+  //       this.scene.playerData.language === "zh"
+  //         ? "🍳 线索记录本"
+  //         : "🍳 Clue Journal",
+  //       {
+  //         fontSize: Math.min(width * 0.04, 28) + "px",
+  //         fontFamily: "monospace",
+  //         fill: "#ffd700",
+  //         fontStyle: "bold",
+  //         align: "center",
+  //       }
+  //     );
+  //     title.setOrigin(0.5);
+  //     title.setScrollFactor(0);
+  //     title.setDepth(200);
+
+  //     // 当前进度显示
+  //     const progress = this.scene.npcManager
+  //       ? this.scene.npcManager.getDailyProgress()
+  //       : { currentDay: 1 };
+  //     const progressText = this.scene.add.text(
+  //       width / 2,
+  //       journalY + 75,
+  //       this.scene.playerData.language === "zh"
+  //         ? `当前进度: 第${progress.currentDay}天`
+  //         : `Current Progress: Day ${progress.currentDay}`,
+  //       {
+  //         fontSize: Math.min(width * 0.025, 16) + "px",
+  //         fontFamily: "monospace",
+  //         fill: "#94a3b8",
+  //         align: "center",
+  //       }
+  //     );
+  //     progressText.setOrigin(0.5);
+  //     progressText.setScrollFactor(0);
+  //     progressText.setDepth(200);
+
+  //     // 线索列表容器
+  //     const contentY = journalY + 110;
+  //     const contentHeight = journalHeight - 160;
+
+  //     if (this.clues.length === 0) {
+  //       const noCluesText = this.scene.add.text(
+  //         width / 2,
+  //         journalY + journalHeight / 2,
+  //         this.scene.playerData.language === "zh"
+  //           ? "暂无线索\n开始与NPC对话来收集线索！"
+  //           : "No clues yet\nStart talking to NPCs to collect clues!",
+  //         {
+  //           fontSize: Math.min(width * 0.03, 18) + "px",
+  //           fontFamily: "monospace",
+  //           fill: "#718096",
+  //           align: "center",
+  //           lineSpacing: 8,
+  //         }
+  //       );
+  //       noCluesText.setOrigin(0.5);
+  //       noCluesText.setScrollFactor(0);
+  //       noCluesText.setDepth(200);
+  //     } else {
+  //       // 显示线索
+  //       let yOffset = contentY;
+  //       this.clues.forEach((clue, index) => {
+  //         // 天数标签
+  //         const dayLabel = this.scene.add.text(
+  //           journalX + 20,
+  //           yOffset,
+  //           this.scene.playerData.language === "zh"
+  //             ? `第${clue.day}天`
+  //             : `Day ${clue.day}`,
+  //           {
+  //             fontSize: Math.min(width * 0.02, 14) + "px",
+  //             fontFamily: "monospace",
+  //             fill: "#fbbf24",
+  //             fontStyle: "bold",
+  //             backgroundColor: "#374151",
+  //             padding: { x: 8, y: 4 },
+  //           }
+  //         );
+  //         dayLabel.setScrollFactor(0);
+  //         dayLabel.setDepth(200);
+  //         yOffset += 25;
+
+  //         // NPC名称
+  //         const npcName = this.scene.add.text(
+  //           journalX + 20,
+  //           yOffset,
+  //           `${clue.npcName}:`,
+  //           {
+  //             fontSize: Math.min(width * 0.025, 16) + "px",
+  //             fontFamily: "monospace",
+  //             fill: "#ffd700",
+  //             fontStyle: "bold",
+  //           }
+  //         );
+  //         npcName.setScrollFactor(0);
+  //         npcName.setDepth(200);
+  //         yOffset += 25;
+
+  //         // 线索内容
+  //         const clueText = this.scene.add.text(
+  //           journalX + 40,
+  //           yOffset,
+  //           clue.clue,
+  //           {
+  //             fontSize: Math.min(width * 0.022, 14) + "px",
+  //             fontFamily: "monospace",
+  //             fill: "#e2e8f0",
+  //             wordWrap: { width: journalWidth - 80 },
+  //             lineSpacing: 4,
+  //           }
+  //         );
+  //         clueText.setScrollFactor(0);
+  //         clueText.setDepth(200);
+  //         yOffset += clueText.height + 20;
+
+  //         // 分隔线
+  //         if (index < this.clues.length - 1) {
+  //           const separator = this.scene.add.graphics();
+  //           separator.lineStyle(1, 0x4a5568, 0.5);
+  //           separator.lineBetween(
+  //             journalX + 20,
+  //             yOffset,
+  //             journalX + journalWidth - 20,
+  //             yOffset
+  //           );
+  //           separator.setScrollFactor(0);
+  //           separator.setDepth(200);
+  //           yOffset += 15;
+  //         }
+  //       });
+  //     }
+
+  //     // 关闭按钮
+  //     const closeButton = this.scene.add.text(
+  //       journalX + journalWidth - 40,
+  //       journalY + 20,
+  //       "✕",
+  //       {
+  //         fontSize: Math.min(width * 0.035, 24) + "px",
+  //         fontFamily: "monospace",
+  //         fill: "#ef4444",
+  //         fontStyle: "bold",
+  //       }
+  //     );
+  //     closeButton.setOrigin(0.5);
+  //     closeButton.setScrollFactor(0);
+  //     closeButton.setDepth(200);
+  //     closeButton.setInteractive({ useHandCursor: true });
+  //     closeButton.on("pointerdown", () => {
+  //       this.closeClueJournal();
+  //     });
+  //     closeButton.on("pointerover", () => {
+  //       closeButton.setScale(1.2);
+  //       closeButton.setTint(0xff6b6b);
+  //     });
+  //     closeButton.on("pointerout", () => {
+  //       closeButton.setScale(1);
+  //       closeButton.clearTint();
+  //     });
+
+  //     // 点击背景关闭
+  //     overlay.on("pointerdown", () => {
+  //       this.closeClueJournal();
+  //     });
+  //   }
+
   showClueJournal() {
     const { width, height } = this.scene.scale;
 
     // 检查是否已经有线索本打开
-    if (this.scene.children.list.some((child) => child.depth === 200)) {
+    if (this.clueJournalElements) {
       return;
     }
+
+    // 创建元素容器
+    this.clueJournalElements = [];
 
     // 创建背景遮罩
     const overlay = this.scene.add.graphics();
@@ -327,6 +542,7 @@ export default class UIManager {
     overlay.setScrollFactor(0);
     overlay.setDepth(199);
     overlay.setInteractive();
+    this.clueJournalElements.push(overlay);
 
     // 创建线索本背景
     const journalWidth = Math.min(width * 0.9, 600);
@@ -353,6 +569,7 @@ export default class UIManager {
     );
     journalBg.setScrollFactor(0);
     journalBg.setDepth(200);
+    this.clueJournalElements.push(journalBg);
 
     // 标题
     const title = this.scene.add.text(
@@ -372,6 +589,7 @@ export default class UIManager {
     title.setOrigin(0.5);
     title.setScrollFactor(0);
     title.setDepth(200);
+    this.clueJournalElements.push(title);
 
     // 当前进度显示
     const progress = this.scene.npcManager
@@ -393,6 +611,7 @@ export default class UIManager {
     progressText.setOrigin(0.5);
     progressText.setScrollFactor(0);
     progressText.setDepth(200);
+    this.clueJournalElements.push(progressText);
 
     // 线索列表容器
     const contentY = journalY + 110;
@@ -416,6 +635,7 @@ export default class UIManager {
       noCluesText.setOrigin(0.5);
       noCluesText.setScrollFactor(0);
       noCluesText.setDepth(200);
+      this.clueJournalElements.push(noCluesText);
     } else {
       // 显示线索
       let yOffset = contentY;
@@ -438,6 +658,7 @@ export default class UIManager {
         );
         dayLabel.setScrollFactor(0);
         dayLabel.setDepth(200);
+        this.clueJournalElements.push(dayLabel);
         yOffset += 25;
 
         // NPC名称
@@ -454,6 +675,7 @@ export default class UIManager {
         );
         npcName.setScrollFactor(0);
         npcName.setDepth(200);
+        this.clueJournalElements.push(npcName);
         yOffset += 25;
 
         // 线索内容
@@ -471,6 +693,7 @@ export default class UIManager {
         );
         clueText.setScrollFactor(0);
         clueText.setDepth(200);
+        this.clueJournalElements.push(clueText);
         yOffset += clueText.height + 20;
 
         // 分隔线
@@ -485,6 +708,7 @@ export default class UIManager {
           );
           separator.setScrollFactor(0);
           separator.setDepth(200);
+          this.clueJournalElements.push(separator);
           yOffset += 15;
         }
       });
@@ -506,6 +730,8 @@ export default class UIManager {
     closeButton.setScrollFactor(0);
     closeButton.setDepth(200);
     closeButton.setInteractive({ useHandCursor: true });
+    this.clueJournalElements.push(closeButton);
+
     closeButton.on("pointerdown", () => {
       this.closeClueJournal();
     });
@@ -526,11 +752,14 @@ export default class UIManager {
 
   closeClueJournal() {
     // 销毁所有journal相关元素
-    this.scene.children.list.forEach((child) => {
-      if (child.depth >= 199 && child.depth <= 200) {
-        child.destroy();
-      }
-    });
+    if (this.clueJournalElements) {
+      this.clueJournalElements.forEach((element) => {
+        if (element && element.destroy) {
+          element.destroy();
+        }
+      });
+      this.clueJournalElements = null;
+    }
   }
 
   // 最后的食谱

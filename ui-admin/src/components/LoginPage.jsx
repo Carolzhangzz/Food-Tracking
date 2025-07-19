@@ -211,7 +211,6 @@ function LoginPage() {
     </div>
   );
 }
-
 const styles = {
   container: {
     minHeight: "100vh",
@@ -220,7 +219,16 @@ const styles = {
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
+    background: "#1a1a2e",
+    backgroundImage: `
+      repeating-linear-gradient(
+        0deg,
+        #1a1a2e,
+        #1a1a2e 2px,
+        #16213e 2px,
+        #16213e 4px
+      )
+    `,
     padding: "clamp(15px, 5vw, 30px)",
     boxSizing: "border-box",
     position: "fixed",
@@ -229,37 +237,39 @@ const styles = {
     overflow: "auto"
   },
   loginBox: {
-    background: "rgba(255, 255, 255, 0.95)",
-    borderRadius: "clamp(10px, 3vw, 20px)",
+    background: "#2a2a2a",
+    borderRadius: "0",
     padding: "clamp(20px, 6vw, 50px)",
-    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.2)",
+    boxShadow: "8px 8px 0px #000",
     textAlign: "center",
     maxWidth: "min(450px, 90vw)",
     width: "100%",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.2)"
+    border: "4px solid #4a5568",
+    position: "relative"
   },
   title: {
     fontSize: "clamp(1.8rem, 6vw, 3rem)",
     margin: "0 0 clamp(5px, 2vw, 15px) 0",
-    background: "linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    backgroundClip: "text",
+    color: "#ffd700",
     fontWeight: "bold",
-    textShadow: "2px 2px 4px rgba(0,0,0,0.1)"
+    textShadow: "3px 3px 0px #000",
+    fontFamily: "'Courier New', monospace",
+    letterSpacing: "2px"
   },
   subtitle: {
     fontSize: "clamp(1.2rem, 4vw, 2rem)",
     margin: "0 0 clamp(5px, 2vw, 15px) 0",
-    color: "#2c3e50",
+    color: "#e2e8f0",
     fontWeight: "600",
+    fontFamily: "'Courier New', monospace",
+    textShadow: "2px 2px 0px #000"
   },
   description: {
     fontSize: "clamp(0.9rem, 2.5vw, 1.1rem)",
-    color: "#7f8c8d",
+    color: "#94a3b8",
     marginBottom: "clamp(20px, 5vw, 35px)",
-    lineHeight: "1.5",
+    lineSpacing: "1.5",
+    fontFamily: "'Courier New', monospace"
   },
   inputContainer: {
     display: "flex",
@@ -270,37 +280,45 @@ const styles = {
   input: {
     padding: "clamp(12px, 3vw, 18px) clamp(15px, 4vw, 25px)",
     fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
-    border: "2px solid #e1e8ed",
-    borderRadius: "clamp(8px, 2vw, 12px)",
+    border: "3px solid #4a5568",
+    borderRadius: "0",
     outline: "none",
-    transition: "all 0.3s ease",
-    fontFamily: "inherit",
+    fontFamily: "'Courier New', monospace",
     width: "100%",
-    boxSizing: "border-box"
+    boxSizing: "border-box",
+    background: "#1a1a2e",
+    color: "#e2e8f0",
+    boxShadow: "inset 2px 2px 0px #000"
   },
   button: {
     padding: "clamp(12px, 3vw, 18px) clamp(20px, 5vw, 30px)",
     fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
-    background: "linear-gradient(45deg, #667eea, #764ba2)",
-    color: "#fff",
-    border: "none",
-    borderRadius: "clamp(8px, 2vw, 12px)",
+    background: "#4a5568",
+    color: "#ffd700",
+    border: "3px solid #2F1B14",
+    borderRadius: "0",
     cursor: "pointer",
-    transition: "all 0.3s ease",
-    fontWeight: "600",
-    fontFamily: "inherit",
+    fontWeight: "bold",
+    fontFamily: "'Courier New', monospace",
     width: "100%",
-    boxSizing: "border-box"
+    boxSizing: "border-box",
+    boxShadow: "4px 4px 0px #000",
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    position: "relative",
+    transition: "all 0.1s ease"
   },
   hint: {
-    background: "rgba(52, 152, 219, 0.1)",
-    border: "1px solid #3498db",
-    borderRadius: "clamp(6px, 2vw, 10px)",
+    background: "#1a1a2e",
+    border: "2px solid #667eea",
+    borderRadius: "0",
     padding: "clamp(10px, 3vw, 20px)",
     fontSize: "clamp(0.8rem, 2vw, 1rem)",
-    color: "#2980b9",
+    color: "#94a3b8",
     marginTop: "clamp(15px, 4vw, 25px)",
-    lineHeight: "1.4"
+    lineHeight: "1.4",
+    fontFamily: "'Courier New', monospace",
+    boxShadow: "3px 3px 0px #000"
   },
 };
 
