@@ -11,7 +11,7 @@ export default function create() {
   this.fieldMapTileMap = this.make.tilemap({ key: "field-map" });
   this.fieldMapTileMap.addTilesetImage("tiles", "tiles");
 
-  // ✅ 第二步：读取尺寸和设置相机
+  // 4️⃣ 设置地图的初始位置和缩放
   const mapWidth = this.fieldMapTileMap.width;
   const mapHeight = this.fieldMapTileMap.height;
   const center = this.fieldMapTileMap.tileToWorldXY(

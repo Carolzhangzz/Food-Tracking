@@ -150,7 +150,7 @@ function Control() {
           {playerData.music ? "🎵" : "🔇"}
         </button>
 
-        {/* Voice toggle */}
+        {/* Voice toggle
         <button
           style={styles.button}
           onClick={() => {
@@ -181,9 +181,9 @@ function Control() {
           }}
         >
           {playerData.voice ? "🔊" : "🔇"}
-        </button>
+        </button> */}
 
-        {/* Audio debug info (只在开发环境显示) */}
+        {/* Audio debug info (只在开发环境显示)
         {process.env.NODE_ENV === 'development' && (
           <button
             style={{
@@ -205,8 +205,8 @@ function Control() {
             title="Audio Debug Info"
           >
             🔧
-          </button>
-        )}
+          </button> */}
+        {/* )} */}
       </div>
 
       {/* Bottom left clue button */}

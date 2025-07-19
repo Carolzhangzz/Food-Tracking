@@ -496,7 +496,7 @@ export default class UIManager {
         const buttonSize = Math.min(width * 0.12, 60);
         const buttonGap = 10;
         const rightMargin = 20;
-        const bottomMargin = 460;
+        const bottomMargin = 400;
 
         // 创建虚拟方向键
         const directions = [

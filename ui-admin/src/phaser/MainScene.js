@@ -111,6 +111,12 @@ export default class MainScene extends Phaser.Scene {
             // 6. 显示开场提示
             this.showWelcomeMessage();
 
+            // 7. 在每次进入游戏地图的时候更新resize游戏界面
+            this.handleResize({ 
+                width: this.scale.gameSize.width, 
+                height: this.scale.gameSize.height 
+            });
+
             this.gameStarted = true;
             console.log("MainScene create() completed successfully");
         } catch (error) {
@@ -170,6 +176,9 @@ export default class MainScene extends Phaser.Scene {
         }
     }
 
+    // 设置玩家 
+    // 这里的 playerLoc 是一个对象，包含 x 和 y 属性
+    
     setupPlayer() {
         console.log("Setting up player...");
         try {
@@ -336,8 +345,7 @@ export default class MainScene extends Phaser.Scene {
                 }
                 
                 if (this.npcManager) {
-
-                    this.npcManager.updateScale(mapScale * 0.0003);
+                    this.npcManager.updateScale(mapScale * 0.55);
                     // this.npcManager.updateScale(Math.min(newScaleX, newScaleY));
                 }
                 

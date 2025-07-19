@@ -556,7 +556,7 @@ export default class NPCManager {
         this.mapScale = newScale;
         this.npcs.forEach(npc => {
             if (npc.sprite) {
-                npc.sprite.setScale(newScale * 0.0001);
+                npc.sprite.setScale(newScale * 0.1);
             }
         });
     }

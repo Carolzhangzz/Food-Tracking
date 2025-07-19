@@ -195,7 +195,21 @@ function GameScreen() {
       };
     }
 
-    return () => {
+  //   return () => {
+  //     if (gameRef.current) {
+  //       console.log("Cleaning up Phaser game instance");
+  //       try {
+  //         gameRef.current.destroy(true);
+  //       } catch (error) {
+  //         console.error("Error destroying game:", error);
+  //       }
+  //       gameRef.current = null;
+  //     }
+  //   };
+  // }, [gameRef, playerId, playerData, updatePlayerdata]);
+  
+
+  return () => {
       if (gameRef.current) {
         console.log("Cleaning up Phaser game instance");
         try {
@@ -203,10 +217,11 @@ function GameScreen() {
         } catch (error) {
           console.error("Error destroying game:", error);
         }
-        gameRef.current = null;
+        gameRef.current =  null;
       }
     };
-  }, [gameRef, playerId, playerData, updatePlayerdata]);
+  }, [gameRef]);
+   
 
   if (!playerData || !playerId) {
     return (
@@ -216,7 +231,7 @@ function GameScreen() {
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center',
+        alignItems: 'cent er',
         color: '#fff',
         fontFamily: 'monospace',
         position: 'fixed',
@@ -246,7 +261,7 @@ function GameScreen() {
   }
 
   return (
-    <div style={{ 
+    <div style={{  
       width: '100vw', 
       height: '100vh', 
       overflow: 'hidden',
@@ -257,7 +272,7 @@ function GameScreen() {
     }}>
       <Control />
       
-      {/* 调试信息（仅在开发环境显示） */}
+      {/*   */}
       {process.env.NODE_ENV === 'development' && (
         <div style={{
           position: 'fixed',
@@ -279,7 +294,7 @@ function GameScreen() {
       <div 
         id="game" 
         style={{ 
-          width: '100%', 
+          width: '100%',  
           height: '100%',
           display: 'block',
           position: 'absolute',
