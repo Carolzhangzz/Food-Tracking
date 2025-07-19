@@ -27,6 +27,7 @@ function App() {
         }}>
           <Routes>
             <Route path="/" element={<LoginPage />} />
+              <Route path="/Food-Tracking" element={<LoginPage />} />
             <Route path="/intro" element={<CutScenePlayer />} />
             <Route path="/game" element={<GameScreen />} />
           </Routes>

@@ -3,12 +3,16 @@ import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlayerContext } from "../context/PlayerContext";
 import { updateUserContext } from "../utils/update";
+const API_URL = process.env.REACT_APP_API_URL;
 
 function LoginPage() {
   const [playerIdInput, setPlayerIdInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { setPlayerId, playerData, setPlayerData } = useContext(PlayerContext);
+  const { setPlayerId, setPlayerData } = useContext(PlayerContext);
   const navigate = useNavigate();
+
+
+  console.log("API_URL is:", API_URL);
 
   // 登录处理函数
   const handleLogin = async () => {
@@ -20,7 +24,7 @@ function LoginPage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`https://twilight-king-cf43.1442334619.workers.dev/api/login`, {
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: playerIdInput }),

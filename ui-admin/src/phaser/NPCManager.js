@@ -261,6 +261,7 @@ export default class NPCManager {
     }
   }
 
+  // 判断玩家是否靠近NPC 
   isPlayerNearNPC(npcId) {
     try {
       const playerPos = this.scene.gridEngine.getPosition("player");
@@ -311,6 +312,7 @@ export default class NPCManager {
     const language = this.scene.playerData.language;
     npc.dialogState = "meal_selection";
 
+    // 获取NPC的问候语, 每个npc的问候语是固定的
     const greeting = this.getNPCGreeting(npc.id);
     const question =
       language === "zh"
@@ -733,10 +735,32 @@ export default class NPCManager {
   getNPCGreeting(npcId) {
     const language = this.scene.playerData.language;
     const greetings = {
+      // 村长
       village_head: {
-        zh: "你总算回来了……你师傅，他出事了。",
-        en: "You're finally back... Your master, something happened to him.",
+        zh:
+          "你总算回来了……你师傅，他出事了。\n\n" +
+          "三天前，他没有留下只言片语就离开了村子。\n" +
+          "炉灶里的火还温着，但人却消失了。\n\n" +
+          "你也知道，他从不是会无故离开的人。他几乎从未离开过村子。\n\n" +
+          "你曾是他的徒弟。\n" +
+          "如果有人能查出发生了什么，那就是你。\n\n" +
+          "但这次，不只是翻翻厨房的抽屉那么简单。\n\n" +
+          "他总是带着一本小本子，记录他与人的每次交流。\n" +
+          "也许你能试着用他的方式，去理解他的思路。\n\n" +
+          "我相信，那些记录里藏着线索。",
+        en:
+          "You’re finally back… Something happened to your master.\n\n" +
+          "Three days ago, he left the village without a word.\n" +
+          "The fire in his kitchen was still warm—but he was gone.\n\n" +
+          "You know as well as I do… he was never the kind to vanish without a reason.\n" +
+          "He has barely left the village his whole life.\n\n" +
+          "You were once his apprentice. If anyone can find out what happened to him… it’s you.\n\n" +
+          "But this search—it’s not just about turning over kitchen drawers.\n\n" +
+          "Not long ago, he always brought a notebook whenever he met someone.\n" +
+          "Maybe by following his method, you can understand how he thinks.\n\n" +
+          "I believe those records hold the key."
       },
+      // 店主阿桂
       shop_owner: {
         zh: "哟，回来了啊。你师傅离开那天，也是从这门口进来的。",
         en: "Oh, you're back. Your master came through this door the day he left.",

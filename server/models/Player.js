@@ -1,21 +1,10 @@
-// server/models/Player.js
-// id：主键
-// allowedId：关联你登录时用的ID
-// nickname：以后可以给玩家起名字
-// progress：存游戏进度，用JSON
+const { DataTypes } = require("sequelize");
+const sequelize = require("../db");
 
-const { DataTypes } = require('sequelize');
-const sequelize = require('../db');
-
-const Player = sequelize.define('Player', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
+const Player = sequelize.define("Player", {
   allowedId: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   nickname: {
     type: DataTypes.STRING,
@@ -23,9 +12,13 @@ const Player = sequelize.define('Player', {
   },
   progress: {
     type: DataTypes.JSONB,
-    allowNull: true,
     defaultValue: {},
   },
+  playerId: {
+    type: DataTypes.STRING,
+    allowNull: false,   
+    unique: true,
+  }
 });
 
 module.exports = Player;

@@ -7,7 +7,7 @@ const IntroScript = sequelize.define('IntroScript', {
     allowNull: false
   }
 }, {
-  timestamps: false   // 👈 这样表里就不会再有 createdAt、updatedAt
+  timestamps: false   
 });
 
 module.exports = IntroScript;
