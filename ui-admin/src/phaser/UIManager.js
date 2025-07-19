@@ -25,7 +25,7 @@ export default class UIManager {
     this.mobileButtons = []; // 保存按钮引用以便销毁
 
     const buttonSize = Math.min(width * 0.12, 60);
-    const buttonGap = 10;
+    const buttonGap = 8;
 
     const camera = this.scene.cameras.main;
     const centerX = camera.worldView.centerX;
@@ -761,6 +761,7 @@ export default class UIManager {
       this.clueJournalElements = null;
     }
   }
+
 
   // 最后的食谱
   showFinalEgg(content) {

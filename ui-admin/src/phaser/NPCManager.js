@@ -24,7 +24,7 @@ export default class NPCManager {
       {
         id: "village_head",
         name: this.scene.playerData.language === "zh" ? "村长" : "Village Head",
-        position: { x: 1, y: 1 },
+        position: { x: 1, y: 0.9 },
         day: 1,
         isUnlocked: true,
       },
@@ -237,11 +237,12 @@ export default class NPCManager {
         language === "zh" ? "按空格键对话" : "Press SPACE to talk";
 
       this.interactionHint = this.scene.add.text(
-        npc.sprite.x,
-        npc.sprite.y - 30,
+        // 提示的位置
+        npc.sprite.x + 40, // 向右偏移10px
+        npc.sprite.y - 10, // 向上偏移40px
         hintText,
         {
-          fontSize: "14px",
+          fontSize: "10px",
           fontFamily: "monospace",
           fill: "#ffd700",
           backgroundColor: "#000000",
@@ -827,7 +828,7 @@ export default class NPCManager {
     this.mapScale = newScale;
     this.npcs.forEach((npc) => {
       if (npc.sprite) {
-        npc.sprite.setScale(newScale * 0.3);
+        npc.sprite.setScale(newScale * 0.1);
       }
       // 同时更新高亮效果的位置
       if (npc.glowEffect) {

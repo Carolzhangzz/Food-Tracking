@@ -165,7 +165,7 @@ export default class MainScene extends Phaser.Scene {
       }
     }
 
-    this.npcManager?.updateScale(scale * 0.55);
+    this.npcManager?.updateScale(scale * 0.5);
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     this.cameras.main.startFollow(this.playerSprite, true);
     this.mapScale = scale;
