@@ -76,8 +76,10 @@ function GameScreen() {
           scale: {
             mode: Phaser.Scale.RESIZE,
             autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: gameWidth,
-            height: gameHeight
+            width: '100%',
+            height: '100%'
+            // width: gameWidth,
+            // height: gameHeight
           },
           // 移动端优化
           input: {
