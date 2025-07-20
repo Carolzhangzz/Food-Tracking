@@ -51,6 +51,21 @@ export default class MainScene extends Phaser.Scene {
     this.setupAudio();
     this.showWelcomeMessage();
     this.handleResize(this.scale.gameSize);
+
+    // Add scene switch button
+    this.switchSceneButton = this.add.text(this.scale.width - 120, 20, 'Switch Scene', {
+      fontSize: '16px',
+      fill: '#ffffff',
+      backgroundColor: '#000000',
+      padding: { x: 10, y: 5 }
+    })
+      .setInteractive()
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .on('pointerdown', () => {
+        this.scene.start('DialogScene'); // Replace 'OtherScene' with your target scene key
+      });
+
     // this.dialogSystem = new DialogSystem(this); // 👈 传入 this.scene
     // this.dialogSystem.createDialogUI();
     this.gameStarted = true;
@@ -208,8 +223,8 @@ export default class MainScene extends Phaser.Scene {
           ? "🎉 恭喜完成所有7天的旅程！"
           : "🎉 Congratulations on completing all 7 days!"
         : lang === "zh"
-        ? `第${currentDay}天完成！明天可以与新的NPC对话`
-        : `Day ${currentDay} complete! You can talk to a new NPC tomorrow`;
+          ? `第${currentDay}天完成！明天可以与新的NPC对话`
+          : `Day ${currentDay} complete! You can talk to a new NPC tomorrow`;
 
     this.showNotification(msg, 4000);
   }
