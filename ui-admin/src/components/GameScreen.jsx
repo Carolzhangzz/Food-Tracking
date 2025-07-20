@@ -8,6 +8,7 @@ import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
 import Control from "./Control";
+import DialogScene from "../phaser/DialogScene";
 
 function GameScreen() {
   const { playerId, playerData, setPlayerData, gameRef } =
@@ -72,7 +73,7 @@ function GameScreen() {
               },
             ],
           },
-          scene: [MainScene],
+          scene: [MainScene, DialogScene],
           scale: {
             mode: Phaser.Scale.RESIZE,
             autoCenter: Phaser.Scale.CENTER_BOTH,
