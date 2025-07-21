@@ -1,6 +1,6 @@
-// DialogSystem.js - 改进版本，完全响应式设计
+// DialogSystem.js - 修复后的移动端对话系统
+import Phaser from "phaser";
 
-import Phaser  from "phaser";
 export default class DialogSystem {
   constructor(scene) {
     this.scene = scene;
@@ -22,28 +22,6 @@ export default class DialogSystem {
     this.hint = null;
     this.typewriterTween = null;
     this.curText = "";
-
-    // 食物记录问题序列
-    this.foodQuestions = {
-      zh: [
-        "今天是第几餐？",
-        "你今天已经吃了几顿饭？",
-        "请描述这顿饭的详细内容 - 都吃了什么？怎么做的？",
-        "你为什么在这个时间吃饭？",
-        "你为什么选择这些食物？",
-        "你是什么时候决定吃这顿饭的？",
-        "你吃了多少？为什么是这个分量？",
-      ],
-      en: [
-        "Which meal of the day is this?",
-        "How many meals have you had today?",
-        "Please describe this meal in detail - what did you eat and how was it prepared?",
-        "Why did you eat at this particular time?",
-        "Why did you choose these foods?",
-        "When did you decide to have this meal?",
-        "How much did you eat and why that amount?",
-      ],
-    };
 
     // 监听窗口大小变化
     this.resizeHandler = () => this.handleResize();
@@ -87,21 +65,36 @@ export default class DialogSystem {
   }
 
   startDialog(npcId) {
-    if (this.isActive) return;
+    if (this.isActive) {
+      console.log("Dialog already active, ignoring new request");
+      return;
+    }
 
+    console.log("Starting dialog with NPC:", npcId);
+    
     this.currentNPC = npcId;
     this.isActive = true;
     this.questionIndex = 0;
     this.mealResponses = {};
-    this.createDialogUI();
-
-    // 开始对话
-    this.scene.time.delayedCall(500, () => {
-      this.nextLine();
-    });
+    
+    try {
+      this.createDialogUI();
+      
+      // 开始对话
+      this.scene.time.delayedCall(500, () => {
+        this.nextLine();
+      });
+      
+      console.log("Dialog UI created successfully");
+    } catch (error) {
+      console.error("Error starting dialog:", error);
+      this.endDialog(); // 清理状态
+    }
   }
 
   createDialogUI() {
+    console.log("Creating dialog UI...");
+    
     const { width, height } = this.scene.scale;
 
     // 检测设备类型和方向
@@ -114,15 +107,15 @@ export default class DialogSystem {
 
     if (isSmallScreen || (isMobile && isLandscape)) {
       // 小屏幕或横屏移动设备
-      boxHeight = Math.min(height * 0.35, 150);
+      boxHeight = Math.min(height * 0.4, 180);
       safeAreaBottom = 20;
     } else if (isMobile) {
       // 竖屏移动设备
-      boxHeight = Math.min(height * 0.3, 200);
-      safeAreaBottom = Math.max(height * 0.1, 50); // 为虚拟键盘预留空间
+      boxHeight = Math.min(height * 0.35, 220);
+      safeAreaBottom = Math.max(height * 0.05, 30);
     } else {
       // 桌面设备
-      boxHeight = Math.min(height * 0.25, 200);
+      boxHeight = Math.min(height * 0.3, 200);
       safeAreaBottom = 50;
     }
 
@@ -132,103 +125,109 @@ export default class DialogSystem {
     boxY = height - boxHeight - safeAreaBottom;
 
     // 确保对话框不会太靠上
-    boxY = Math.max(boxY, height * 0.5);
+    boxY = Math.max(boxY, height * 0.4);
 
-    // 创建对话框背景
-    this.dialogBox = this.scene.add.graphics();
-    this.dialogBox.fillStyle(0x1a1a2e, 0.95);
-    this.dialogBox.fillRoundedRect(margin, boxY, boxWidth, boxHeight, 8);
-    this.dialogBox.lineStyle(2, 0x4a5568);
-    this.dialogBox.strokeRoundedRect(margin, boxY, boxWidth, boxHeight, 8);
-    this.dialogBox.setScrollFactor(0);
-    this.dialogBox.setDepth(50);
+    console.log(`Dialog box dimensions: ${boxWidth}x${boxHeight} at ${margin},${boxY}`);
 
-    // 说话人名字 - 自适应字体大小
-    const npc = this.npcManager.getNPCById(this.currentNPC);
-    const nameSize = this.calculateFontSize(width, height, "name");
-    this.speakerName = this.scene.add.text(margin + 15, boxY + 10, npc.name, {
-      fontSize: `${nameSize}px`,
-      fontFamily: "monospace",
-      fill: "#ffd700",
-      fontStyle: "bold",
-    });
-    this.speakerName.setScrollFactor(0);
-    this.speakerName.setDepth(51);
+    try {
+      // 创建对话框背景
+      this.dialogBox = this.scene.add.graphics();
+      this.dialogBox.fillStyle(0x1a1a2e, 0.95);
+      this.dialogBox.fillRoundedRect(margin, boxY, boxWidth, boxHeight, 8);
+      this.dialogBox.lineStyle(2, 0x4a5568);
+      this.dialogBox.strokeRoundedRect(margin, boxY, boxWidth, boxHeight, 8);
+      this.dialogBox.setScrollFactor(0);
+      this.dialogBox.setDepth(50);
 
-    // 主要文本 - 自适应字体和间距
-    const textSize = this.calculateFontSize(width, height, "text");
-    const textPadding = Math.max(width * 0.02, 15);
-    const textY = boxY + 30 + (isSmallScreen ? -5 : 0);
-
-    this.textObject = this.scene.add.text(margin + textPadding, textY, "", {
-      fontSize: `${textSize}px`,
-      fontFamily: "monospace",
-      fill: "#e2e8f0",
-      wordWrap: { width: boxWidth - textPadding * 2 },
-      lineSpacing: isSmallScreen ? 2 : 4,
-    });
-    this.textObject.setScrollFactor(0);
-    this.textObject.setDepth(51);
-
-    // 继续提示符
-    const hintSize = this.calculateFontSize(width, height, "hint");
-    this.continueHint = this.scene.add.text(
-      margin + boxWidth - 25,
-      boxY + boxHeight - 20,
-      "▼",
-      {
-        fontSize: `${hintSize}px`,
+      // 说话人名字
+      const npc = this.npcManager.getNPCById(this.currentNPC);
+      if (!npc) {
+        throw new Error(`NPC not found: ${this.currentNPC}`);
+      }
+      
+      const nameSize = this.calculateFontSize(width, height, "name");
+      this.speakerName = this.scene.add.text(margin + 15, boxY + 10, npc.name, {
+        fontSize: `${nameSize}px`,
         fontFamily: "monospace",
         fill: "#ffd700",
-      }
-    );
-    this.continueHint.setScrollFactor(0);
-    this.continueHint.setDepth(51);
-    this.continueHint.setVisible(false);
+        fontStyle: "bold",
+      });
+      this.speakerName.setScrollFactor(0);
+      this.speakerName.setDepth(51);
 
-    // 提示符动画
-    this.scene.tweens.add({
-      targets: this.continueHint,
-      alpha: { from: 1, to: 0.3 },
-      duration: 1000,
-      yoyo: true,
-      repeat: -1,
-    });
+      // 主要文本
+      const textSize = this.calculateFontSize(width, height, "text");
+      const textPadding = Math.max(width * 0.02, 15);
+      const textY = boxY + 35 + (isSmallScreen ? -5 : 0);
 
-    // 底部提示文字 - 确保不被遮挡
-    const instructionSize = this.calculateFontSize(
-      width,
-      height,
-      "instruction"
-    );
-    const instructionY = boxY - 10;
-    this.hint = this.scene.add.text(
-      width / 2,
-      instructionY,
-      this.scene.playerData.language === "zh"
-        ? "按空格键或点击继续"
-        : "Press SPACE or Click to continue",
-      {
-        fontSize: `${instructionSize}px`,
+      this.textObject = this.scene.add.text(margin + textPadding, textY, "", {
+        fontSize: `${textSize}px`,
         fontFamily: "monospace",
-        fill: "#718096",
-        align: "center",
-      }
-    );
-    this.hint.setOrigin(0.5, 1);
-    this.hint.setScrollFactor(0);
-    this.hint.setDepth(51);
+        fill: "#e2e8f0",
+        wordWrap: { width: boxWidth - textPadding * 2 },
+        lineSpacing: isSmallScreen ? 2 : 4,
+      });
+      this.textObject.setScrollFactor(0);
+      this.textObject.setDepth(51);
 
-    // 监听输入
-    this.scene.input.keyboard.on("keydown-SPACE", this.nextLine, this);
-    this.scene.input.on("pointerdown", this.handlePointerDown, this);
+      // 继续提示符
+      const hintSize = this.calculateFontSize(width, height, "hint");
+      this.continueHint = this.scene.add.text(
+        margin + boxWidth - 25,
+        boxY + boxHeight - 20,
+        "▼",
+        {
+          fontSize: `${hintSize}px`,
+          fontFamily: "monospace",
+          fill: "#ffd700",
+        }
+      );
+      this.continueHint.setScrollFactor(0);
+      this.continueHint.setDepth(51);
+      this.continueHint.setVisible(false);
 
-    this.dialogBounds = new Phaser.Geom.Rectangle(
-      margin,
-      boxY,
-      boxWidth,
-      boxHeight
-    );
+      // 提示符动画
+      this.scene.tweens.add({
+        targets: this.continueHint,
+        alpha: { from: 1, to: 0.3 },
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+      });
+
+      // 底部提示文字
+      const instructionSize = this.calculateFontSize(width, height, "instruction");
+      const instructionY = boxY - 10;
+      this.hint = this.scene.add.text(
+        width / 2,
+        instructionY,
+        this.scene.playerData.language === "zh"
+          ? "点击继续对话"
+          : "Tap to continue",
+        {
+          fontSize: `${instructionSize}px`,
+          fontFamily: "monospace",
+          fill: "#718096",
+          align: "center",
+        }
+      );
+      this.hint.setOrigin(0.5, 1);
+      this.hint.setScrollFactor(0);
+      this.hint.setDepth(51);
+
+      // 设置对话框点击区域
+      this.dialogBounds = new Phaser.Geom.Rectangle(margin, boxY, boxWidth, boxHeight);
+      
+      // 监听点击事件
+      this.scene.input.on("pointerdown", this.handlePointerDown, this);
+      
+      console.log("Dialog UI created successfully");
+      
+    } catch (error) {
+      console.error("Error creating dialog UI:", error);
+      this.destroyUIElements();
+      throw error;
+    }
   }
 
   calculateFontSize(width, height, type) {
@@ -253,18 +252,21 @@ export default class DialogSystem {
 
   handlePointerDown(pointer) {
     // 检查是否点击了对话框区域
-    if (this.dialogBox && this.isActive) {
-      if (
-        this.dialogBounds &&
-        this.dialogBounds.contains(pointer.x, pointer.y)
-      ) {
+    if (this.dialogBox && this.isActive && this.dialogBounds) {
+      if (this.dialogBounds.contains(pointer.x, pointer.y)) {
+        console.log("Dialog area clicked");
         this.nextLine();
       }
     }
   }
 
   async nextLine() {
-    if (!this.isActive) return;
+    if (!this.isActive) {
+      console.log("Dialog not active, ignoring nextLine");
+      return;
+    }
+
+    console.log("Processing next line...");
 
     if (this.isTyping) {
       this.skipTyping();
@@ -280,38 +282,57 @@ export default class DialogSystem {
       this.mealResponses[`q${this.questionIndex}`] = userInput;
     }
 
-    // 处理NPC对话
-    const result = await this.npcManager.handleNPCDialog(
-      this.currentNPC,
-      userInput
-    );
+    try {
+      // 处理NPC对话
+      const result = await this.npcManager.handleNPCDialog(this.currentNPC, userInput);
+      console.log("Dialog result:", result);
 
-    if (result.next) {
-      this.typeText(result.response, () => {
-        if (result.buttons && result.buttons.length > 0) {
-          this.createButtonOptions(result.buttons);
-        } else if (result.requireInput) {
-          this.createTextInput();
-        } else {
-          // 自动继续到下一个问题
-          this.scene.time.delayedCall(1000, () => {
-            this.nextLine();
+      if (result.next) {
+        this.typeText(result.response, () => {
+          if (result.buttons && result.buttons.length > 0) {
+            this.createButtonOptions(result.buttons);
+          } else if (result.requireInput) {
+            this.createTextInput();
+          } else {
+            // 自动继续到下一个问题
+            this.scene.time.delayedCall(1000, () => {
+              this.nextLine();
+            });
+          }
+        });
+      } else {
+        // 对话结束
+        this.typeText(result.response, () => {
+          this.scene.time.delayedCall(2000, () => {
+            this.endDialog();
+          });
+        });
+      }
+    } catch (error) {
+      console.error("Error in nextLine:", error);
+      // 显示错误信息并结束对话
+      this.typeText(
+        this.scene.playerData.language === "zh" 
+          ? "对话出现错误，请重试。" 
+          : "Dialog error occurred, please try again.",
+        () => {
+          this.scene.time.delayedCall(2000, () => {
+            this.endDialog();
           });
         }
-      });
-    } else {
-      // 对话结束
-      this.typeText(result.response, () => {
-        this.scene.time.delayedCall(2000, () => {
-          this.endDialog();
-        });
-      });
+      );
     }
   }
 
   typeText(text, callback) {
+    console.log("Typing text:", text.substring(0, 50) + "...");
+    
     this.isTyping = true;
-    if (!this.textObject) return;
+    if (!this.textObject) {
+      console.error("Text object not found!");
+      if (callback) callback();
+      return;
+    }
 
     this.textObject.setText("");
     this.continueHint.setVisible(false);
@@ -323,7 +344,7 @@ export default class DialogSystem {
     this.typewriterTween = this.scene.tweens.add({
       targets: { value: 0 },
       value: totalChars,
-      duration: totalChars * 30, // 稍微加快打字速度
+      duration: totalChars * 30,
       ease: "none",
       onUpdate: (tween) => {
         const progress = Math.floor(tween.getValue());
@@ -344,27 +365,29 @@ export default class DialogSystem {
     if (this.isTyping && this.typewriterTween) {
       this.typewriterTween.stop();
       this.textObject.setText(this.curText);
-      this.typewriterTween.complete();
+      this.isTyping = false;
+      this.continueHint.setVisible(true);
     }
   }
 
   createTextInput() {
+    console.log("Creating text input...");
+    
     const { width, height } = this.scene.scale;
     const isMobile = width < 768;
-    const isLandscape = width > height;
 
-    // 计算输入框位置 - 确保在对话框上方
+    // 计算输入框位置
     const dialogBounds = this.dialogBounds;
-    const dialogTop = dialogBounds ? dialogBounds.y : height * 0.5;
+    const dialogTop = dialogBounds ? dialogBounds.y : height * 0.6;
 
     // 响应式输入框尺寸
     const inputWidth = Math.min(width * 0.9, 500);
     const inputHeight = isMobile ? 80 : 100;
-    const fontSize = this.calculateFontSize(width, height, "text");
+    const fontSize = Math.max(this.calculateFontSize(width, height, "text"), 16); // 防止iOS缩放
 
-    // 确保输入框在对话框上方，有足够空间
+    // 确保输入框在对话框上方
     const inputBottom = dialogTop - 20;
-    const inputTop = inputBottom - inputHeight - 40; // 40是按钮高度+间距
+    const inputTop = inputBottom - inputHeight - 40;
 
     // 创建半透明背景遮罩
     const inputBg = document.createElement("div");
@@ -374,7 +397,7 @@ export default class DialogSystem {
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.3);
       z-index: 999;
     `;
     document.body.appendChild(inputBg);
@@ -388,7 +411,7 @@ export default class DialogSystem {
     this.inputBox.style.cssText = `
       position: fixed;
       left: 50%;
-      top: ${inputTop}px;
+      top: ${Math.max(inputTop, 50)}px;
       transform: translateX(-50%);
       z-index: 1001;
       width: ${inputWidth}px;
@@ -413,10 +436,10 @@ export default class DialogSystem {
     this.sendBtn.style.cssText = `
       position: fixed;
       left: 50%;
-      top: ${inputTop + inputHeight + 10}px;
+      top: ${Math.max(inputTop + inputHeight + 10, 160)}px;
       transform: translateX(-50%);
       z-index: 1001;
-      padding: 10px 30px;
+      padding: 12px 30px;
       font-size: ${fontSize}px;
       border: none;
       border-radius: 8px;
@@ -425,6 +448,7 @@ export default class DialogSystem {
       cursor: pointer;
       font-family: monospace;
       font-weight: bold;
+      touch-action: manipulation;
     `;
     document.body.appendChild(this.sendBtn);
 
@@ -433,35 +457,38 @@ export default class DialogSystem {
 
     // 事件监听
     this.sendBtn.onclick = () => {
-      this.scene.input.keyboard.on("keydown-SPACE", this.nextLine, this);
+      console.log("Send button clicked");
       this.scene.input.on("pointerdown", this.handlePointerDown, this);
       this.nextLine();
     };
 
-    // 移动端优化：点击背景关闭键盘
+    // 移动端优化：点击背景不关闭键盘（避免意外关闭）
     inputBg.onclick = (e) => {
       if (e.target === inputBg) {
-        this.inputBox.blur();
+        // 什么都不做，保持输入框焦点
       }
     };
 
     // 暂时禁用场景输入
-    this.scene.input.keyboard.off("keydown-SPACE", this.nextLine, this);
     this.scene.input.off("pointerdown", this.handlePointerDown, this);
 
     // 延迟聚焦，避免立即弹出键盘
     setTimeout(() => {
-      this.inputBox.focus();
+      if (this.inputBox && document.body.contains(this.inputBox)) {
+        this.inputBox.focus();
+      }
     }, 300);
   }
 
   createButtonOptions(buttons) {
+    console.log("Creating button options:", buttons);
+    
     const { width, height } = this.scene.scale;
     const isMobile = width < 768;
 
     // 获取对话框位置
     const dialogBounds = this.dialogBounds;
-    const dialogTop = dialogBounds ? dialogBounds.y : height * 0.5;
+    const dialogTop = dialogBounds ? dialogBounds.y : height * 0.6;
 
     // 响应式按钮布局
     const buttonHeight = Math.max(height * 0.06, 40);
@@ -481,7 +508,6 @@ export default class DialogSystem {
     }
 
     // 暂时禁用场景输入
-    this.scene.input.keyboard.off("keydown-SPACE", this.nextLine, this);
     this.scene.input.off("pointerdown", this.handlePointerDown, this);
     this.buttons = [];
 
@@ -490,7 +516,7 @@ export default class DialogSystem {
       const startY = dialogTop - buttons.length * (buttonHeight + 10) - 20;
 
       buttons.forEach((buttonText, index) => {
-        const buttonY = startY + index * (buttonHeight + 10);
+        const buttonY = Math.max(startY + index * (buttonHeight + 10), 100);
         this.createButton(
           buttonText,
           width / 2 - buttonWidth / 2,
@@ -502,21 +528,13 @@ export default class DialogSystem {
       });
     } else {
       // 水平布局
-      const totalWidth =
-        buttons.length * buttonWidth + (buttons.length - 1) * 15;
+      const totalWidth = buttons.length * buttonWidth + (buttons.length - 1) * 15;
       const startX = (width - totalWidth) / 2;
-      const buttonY = dialogTop - buttonHeight - 20;
+      const buttonY = Math.max(dialogTop - buttonHeight - 20, 120);
 
       buttons.forEach((buttonText, index) => {
         const buttonX = startX + index * (buttonWidth + 15);
-        this.createButton(
-          buttonText,
-          buttonX,
-          buttonY,
-          buttonWidth,
-          buttonHeight,
-          fontSize
-        );
+        this.createButton(buttonText, buttonX, buttonY, buttonWidth, buttonHeight, fontSize);
       });
     }
   }
@@ -563,9 +581,9 @@ export default class DialogSystem {
     });
 
     button.on("pointerdown", () => {
+      console.log("Button clicked:", text);
       this.inputBox = { value: text };
       this.cleanupButtons();
-      this.scene.input.keyboard.on("keydown-SPACE", this.nextLine, this);
       this.scene.input.on("pointerdown", this.handlePointerDown, this);
       this.nextLine();
     });
@@ -625,6 +643,8 @@ export default class DialogSystem {
   }
 
   endDialog() {
+    console.log("Ending dialog...");
+    
     this.cleanupButtons();
     this.destroyInputElements();
     this.destroyUIElements();
@@ -636,14 +656,13 @@ export default class DialogSystem {
     this.mealResponses = {};
 
     // 移除事件监听
-    this.scene.input.keyboard.off("keydown-SPACE", this.nextLine, this);
     this.scene.input.off("pointerdown", this.handlePointerDown, this);
 
     // 更新玩家数据
     if (this.scene.gridEngine) {
       try {
         const playerPos = this.scene.gridEngine.getPosition("player");
-        if (playerPos) {
+        if (playerPos && this.scene.updatePlayerdata) {
           this.scene.updatePlayerdata({
             playLoc: [playerPos.x, playerPos.y],
           });
@@ -652,6 +671,8 @@ export default class DialogSystem {
         console.warn("Error updating player position:", error);
       }
     }
+    
+    console.log("Dialog ended successfully");
   }
 
   // 获取当前对话进度
@@ -666,6 +687,8 @@ export default class DialogSystem {
 
   // 清理资源
   destroy() {
+    console.log("Destroying DialogSystem...");
+    
     window.removeEventListener("resize", this.resizeHandler);
     window.removeEventListener("orientationchange", this.resizeHandler);
     this.endDialog();

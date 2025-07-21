@@ -19,6 +19,9 @@ app.use('/api', playerRoutes);
 const mealRoutes = require("./routes/mealRoutes"); 
 app.use("/api", mealRoutes);
 
+const conversationRoutes = require("./routes/conversationRoutes");
+app.use("/api", conversationRoutes);
+
 app.listen(3001, () => {
   console.log('✅ 服务器运行在 http://localhost:3001');
 });

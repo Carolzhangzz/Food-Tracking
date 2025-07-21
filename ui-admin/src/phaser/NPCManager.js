@@ -1,5 +1,6 @@
-// NPCManager.js - 增强7天进度系统和最终彩蛋功能
 import Phaser from "phaser";
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 export default class NPCManager {
   constructor(scene, mapScale) {
@@ -9,8 +10,8 @@ export default class NPCManager {
     this.dialogSystem = null;
     this.currentDay = 1;
     this.dailyMealsRecorded = 0;
-    this.totalMealsRequired = 3; // 早餐、午餐、晚餐
-    this.allMealsData = []; // 存储所有餐饮记录
+    this.totalMealsRequired = 3;
+    this.allMealsData = [];
     this.initializeNPCs();
   }
 
@@ -24,9 +25,11 @@ export default class NPCManager {
       {
         id: "village_head",
         name: this.scene.playerData.language === "zh" ? "村长" : "Village Head",
-        position: { x: 1, y: 0.9 },
+        position: { x: 1, y: 1 }, // 调整到更容易点击的位置
         day: 1,
         isUnlocked: true,
+        portraitKey: 'npc1head',
+        backgroundKey: 'npc1bg',
       },
       {
         id: "shop_owner",
@@ -91,18 +94,16 @@ export default class NPCManager {
     this.loadGameProgress();
 
     console.log("NPCs initialized:", this.npcs.size);
+    console.log("Current NPC unlocked:", this.getCurrentDayNPC()?.isUnlocked);
   }
 
   async loadGameProgress() {
     try {
-      const response = await fetch(
-        "https://twilight-king-cf43.1442334619.workers.dev/api/game-progress",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId: this.scene.playerId }),
-        }
-      );
+      const response = await fetch(`${API_URL}/game-progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: this.scene.playerId }),
+      });
 
       if (response.ok) {
         const progress = await response.json();
@@ -135,6 +136,7 @@ export default class NPCManager {
         // 高亮显示当天的NPC
         if (npc.day === day) {
           this.highlightNPC(npc);
+          this.addNPCClickArea(npc); // 添加点击区域
         }
       }
     });
@@ -144,7 +146,7 @@ export default class NPCManager {
     // 为当天的NPC添加高亮效果
     const glowEffect = this.scene.add.graphics();
     glowEffect.lineStyle(3, 0xffd700, 0.8);
-    glowEffect.strokeCircle(0, 0, 20);
+    glowEffect.strokeCircle(0, 0, 25); // 增大高亮范围
     glowEffect.setPosition(npc.sprite.x, npc.sprite.y);
     glowEffect.setDepth(4);
 
@@ -162,9 +164,85 @@ export default class NPCManager {
     npc.glowEffect = glowEffect;
   }
 
+  addNPCClickArea(npc) {
+    // 为NPC添加扩大的点击区域
+    if (npc.clickArea) {
+      npc.clickArea.destroy();
+    }
+
+    const clickRadius = 40; // 扩大的点击区域
+    npc.clickArea = this.scene.add.graphics();
+    npc.clickArea.fillStyle(0x00ff00, 0); // 透明的绿色（调试时可以设置为0.3查看区域）
+    npc.clickArea.fillCircle(0, 0, clickRadius);
+    npc.clickArea.setPosition(npc.sprite.x, npc.sprite.y);
+    npc.clickArea.setDepth(3);
+    npc.clickArea.setInteractive(
+      new Phaser.Geom.Circle(0, 0, clickRadius),
+      Phaser.Geom.Circle.Contains
+    );
+
+    // 设置点击事件
+    npc.clickArea.on("pointerdown", () => {
+      console.log(`NPC ${npc.id} clicked directly!`);
+      if (this.canInteractWithNPC(npc)) {
+        this.startDialogScene(npc.id);
+      } else {
+        this.showInteractionBlockedMessage(npc);
+      }
+    });
+
+    // 添加悬停效果（主要用于PC端）
+    npc.clickArea.on("pointerover", () => {
+      this.showNPCHover(npc);
+    });
+
+    npc.clickArea.on("pointerout", () => {
+      this.hideNPCHover(npc);
+    });
+  }
+
+  showNPCHover(npc) {
+    if (npc.hoverText) return; // 避免重复创建
+
+    const language = this.scene.playerData.language;
+    const hintText = language === "zh" ? "点击对话" : "Tap to talk";
+
+    npc.hoverText = this.scene.add.text(
+      npc.sprite.x,
+      npc.sprite.y - 50,
+      hintText,
+      {
+        fontSize: "14px",
+        fontFamily: "monospace",
+        fill: "#ffd700",
+        backgroundColor: "#000000",
+        padding: { x: 8, y: 4 },
+      }
+    );
+    npc.hoverText.setOrigin(0.5);
+    npc.hoverText.setDepth(20);
+
+    // 添加浮动动画
+    this.scene.tweens.add({
+      targets: npc.hoverText,
+      y: npc.hoverText.y - 10,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  hideNPCHover(npc) {
+    if (npc.hoverText) {
+      npc.hoverText.destroy();
+      npc.hoverText = null;
+    }
+  }
+
   createNPC(config) {
     const npcSprite = this.scene.add.sprite(0, 0, "npc");
-    npcSprite.setScale(this.mapScale * 0.3);
+    npcSprite.setScale(this.mapScale * 0.3); // 修复NPC尺寸，避免过大
     npcSprite.setDepth(5);
     npcSprite.setVisible(config.isUnlocked);
 
@@ -188,8 +266,10 @@ export default class NPCManager {
       dialogState: "initial",
       currentMeal: null,
       mealsRecordedToday: 0,
-      hasClueGiven: false,
+      hasRecordedAnyMeal: false, // 新增：是否记录了至少一餐
       glowEffect: null,
+      clickArea: null,
+      hoverText: null,
     };
 
     this.npcs.set(config.id, npcData);
@@ -207,68 +287,16 @@ export default class NPCManager {
     );
   }
 
-  checkInteractions() {
-    if (this.dialogSystem && this.dialogSystem.isDialogActive()) {
-      return;
-    }
+  // 移除原来的键盘交互检测方法
+  // checkInteractions() 方法已删除
 
-    const currentNPC = this.getCurrentDayNPC();
-    if (
-      currentNPC &&
-      currentNPC.isUnlocked &&
-      this.isPlayerNearNPC(currentNPC.id)
-    ) {
-      // 显示交互提示
-      this.showInteractionHint(currentNPC);
-
-      if (Phaser.Input.Keyboard.JustDown(this.scene.interactKey)) {
-        this.hideInteractionHint();
-        this.dialogSystem.startDialog(currentNPC.id);
-      }
-    } else {
-      this.hideInteractionHint();
-    }
-  }
-
-  showInteractionHint(npc) {
-    if (!this.interactionHint) {
-      const language = this.scene.playerData.language;
-      const hintText =
-        language === "zh" ? "按空格键对话" : "Press SPACE to talk";
-
-      this.interactionHint = this.scene.add.text(
-        // 提示的位置
-        npc.sprite.x + 40, // 向右偏移10px
-        npc.sprite.y - 10, // 向上偏移40px
-        hintText,
-        {
-          fontSize: "10px",
-          fontFamily: "monospace",
-          fill: "#ffd700",
-          backgroundColor: "#000000",
-          padding: { x: 8, y: 4 },
-        }
-      );
-      this.interactionHint.setOrigin(0.5);
-      this.interactionHint.setDepth(10);
-    }
-  }
-
-  hideInteractionHint() {
-    if (this.interactionHint) {
-      this.interactionHint.destroy();
-      this.interactionHint = null;
-    }
-  }
-
-  // 判断玩家是否靠近NPC 
+  // 判断玩家是否靠近NPC（保留用于其他逻辑）
   isPlayerNearNPC(npcId) {
     try {
       const playerPos = this.scene.gridEngine.getPosition("player");
       const npcPos = this.scene.gridEngine.getPosition(npcId);
       return (
-        Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) ===
-        1
+        Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) <= 2
       );
     } catch (error) {
       console.error(`Error checking distance to NPC ${npcId}:`, error);
@@ -312,7 +340,7 @@ export default class NPCManager {
     const language = this.scene.playerData.language;
     npc.dialogState = "meal_selection";
 
-    // 获取NPC的问候语, 每个npc的问候语是固定的
+    // 获取NPC的问候语
     const greeting = this.getNPCGreeting(npc.id);
     const question =
       language === "zh"
@@ -386,18 +414,15 @@ export default class NPCManager {
       this.allMealsData.push(mealRecord);
 
       // 调用食物记录API
-      const response = await fetch(
-        "https://twilight-king-cf43.1442334619.workers.dev/api/record-meal",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerId: this.scene.playerId,
-            ...mealRecord,
-            language: language,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/record-meal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: this.scene.playerId,
+          ...mealRecord,
+          language: language,
+        }),
+      });
 
       if (response.ok) {
         const result = await response.json();
@@ -442,49 +467,63 @@ export default class NPCManager {
     }
   }
 
-  // NPCManager.js 中，当 npc.dialogState === 'completed' 时调用
-  // async handleCompletedDialog(npc) {
-  //   const lang = this.scene.playerData.language;
+  handleCompletionCheck(npc, userInput) {
+    const language = this.scene.playerData.language;
 
-  //   // 固定的结束语
-  //   const farewell =
-  //     lang === "zh"
-  //       ? "感谢这几天的陪伴……让我来为你准备一个特别的惊喜！"
-  //       : "Thanks for spending these days with me… Let me prepare a special surprise for you!";
+    if (userInput === "是的" || userInput === "Yes") {
+      // 玩家确认已完成所有三餐
+      npc.dialogState = "clue_giving";
+      npc.hasCompletedDialog = true;
 
-  //   // 异步向后端请求 LLM 生成彩蛋
-  //   try {
-  //     const resp = await fetch("https://你的后端域名/api/generate-easter-egg", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         playerId: this.scene.playerId,
-  //         meals: this.allMealsData,
-  //         language: lang,
-  //       }),
-  //     });
-  //     const { eggText } = await resp.json();
+      const clueIntro =
+        language === "zh"
+          ? "很好！既然你已经完成了今天的记录，我可以告诉你一个关于你师父的重要线索："
+          : "Great! Since you've completed today's records, I can tell you an important clue about your master:";
 
-  //     // 使用对话系统展示彩蛋文本
-  //     this.dialogSystem.typeText(eggText);
-  //   } catch (e) {
-  //     console.error("彩蛋生成失败：", e);
-  //     this.dialogSystem.typeText(
-  //       lang === "zh"
-  //         ? "彩蛋生成失败，请稍后重试哦~"
-  //         : "Failed to prepare the surprise. Please try again later."
-  //     );
-  //   }
+      return {
+        response: clueIntro,
+        buttons: [],
+        next: true,
+      };
+    } else {
+      // 玩家还没完成所有餐食记录
+      npc.dialogState = "completed";
 
-  //   return {
-  //     response: farewell,
-  //     buttons: [],
-  //     next: false,
-  //   };
-  // }
+      const reminder =
+        language === "zh"
+          ? "那请你先完成今天的所有三餐记录吧。记录完成后再来找我，我会告诉你重要的线索。"
+          : "Then please complete all three meals for today first. Come back to me after recording everything, and I'll tell you important clues.";
 
-  // NPCManager.js 中，当 npc.dialogState === 'completed' 时调用
+      return {
+        response: reminder,
+        buttons: [],
+        next: false,
+      };
+    }
+  }
+
   async handleCompletedDialog(npc) {
+    const lang = this.scene.playerData.language;
+
+    // 检查是否是最后一天且已给出线索
+    if (this.currentDay === 7 && npc.hasClueGiven) {
+      return this.handleFinalEggDialog(npc);
+    }
+
+    // 固定的结束语
+    const farewell =
+      lang === "zh"
+        ? "今天我们已经聊过了。请记录完所有三餐后再来找我。"
+        : "We've already talked today. Please record all three meals and come back to me.";
+
+    return {
+      response: farewell,
+      buttons: [],
+      next: false,
+    };
+  }
+
+  async handleFinalEggDialog(npc) {
     const lang = this.scene.playerData.language;
 
     // 固定的结束语
@@ -495,7 +534,7 @@ export default class NPCManager {
 
     // 异步向后端请求 LLM 生成彩蛋
     try {
-      const resp = await fetch("https://你的后端域名/api/generate-easter-egg", {
+      const resp = await fetch(`${API_URL}/generate-final-egg`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -504,17 +543,26 @@ export default class NPCManager {
           language: lang,
         }),
       });
-      const { eggText } = await resp.json();
 
-      // 使用对话系统展示彩蛋文本
-      this.dialogSystem.typeText(eggText);
+      if (resp.ok) {
+        const { eggText } = await resp.json();
+        // 使用UI管理器展示彩蛋文本
+        if (this.scene.uiManager) {
+          this.scene.uiManager.showFinalEgg(eggText);
+        }
+      } else {
+        throw new Error("Failed to generate final egg");
+      }
     } catch (e) {
       console.error("彩蛋生成失败：", e);
-      this.dialogSystem.typeText(
+      const fallbackText =
         lang === "zh"
           ? "彩蛋生成失败，请稍后重试哦~"
-          : "Failed to prepare the surprise. Please try again later."
-      );
+          : "Failed to prepare the surprise. Please try again later.";
+
+      if (this.scene.uiManager) {
+        this.scene.uiManager.showFinalEgg(fallbackText);
+      }
     }
 
     return {
@@ -546,6 +594,9 @@ export default class NPCManager {
       npc.glowEffect = null;
     }
 
+    // 隐藏点击区域的悬停效果
+    this.hideNPCHover(npc);
+
     // 通知场景记录了餐食
     if (this.scene.onMealRecorded) {
       this.scene.onMealRecorded();
@@ -556,33 +607,6 @@ export default class NPCManager {
 
     return {
       response: clue,
-      buttons: [],
-      next: false,
-    };
-  }
-
-  handleCompletedDialog(npc) {
-    const language = this.scene.playerData.language;
-    let completedMsg;
-
-    if (npc.hasClueGiven) {
-      completedMsg =
-        language === "zh"
-          ? "我们今天已经聊过了。明天再来找新的线索吧。"
-          : "We've already talked today. Come back tomorrow for new clues.";
-    } else {
-      completedMsg =
-        language === "zh"
-          ? `你今天还需要记录${
-              this.totalMealsRequired - this.dailyMealsRecorded
-            }餐。`
-          : `You still need to record ${
-              this.totalMealsRequired - this.dailyMealsRecorded
-            } more meal(s) today.`;
-    }
-
-    return {
-      response: completedMsg,
       buttons: [],
       next: false,
     };
@@ -608,6 +632,7 @@ export default class NPCManager {
           nextNPC.isUnlocked = true;
           nextNPC.sprite.setVisible(true);
           this.highlightNPC(nextNPC);
+          this.addNPCClickArea(nextNPC); // 为新NPC添加点击区域
 
           const message =
             this.scene.playerData.language === "zh"
@@ -634,21 +659,19 @@ export default class NPCManager {
     }
   }
 
+  // 保存游戏进度到后端
   async saveGameProgress() {
     try {
-      await fetch(
-        "https://twilight-king-cf43.1442334619.workers.dev/api/save-progress",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerId: this.scene.playerId,
-            currentDay: this.currentDay,
-            dailyMealsRecorded: this.dailyMealsRecorded,
-            allMealsData: this.allMealsData,
-          }),
-        }
-      );
+      await fetch(`${API_URL}/save-progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: this.scene.playerId,
+          currentDay: this.currentDay,
+          dailyMealsRecorded: this.dailyMealsRecorded,
+          allMealsData: this.allMealsData,
+        }),
+      });
     } catch (error) {
       console.error("Error saving progress:", error);
     }
@@ -667,19 +690,16 @@ export default class NPCManager {
       }));
 
       // 调用LLM生成最终彩蛋
-      const response = await fetch(
-        "https://twilight-king-cf43.1442334619.workers.dev/api/generate-final-egg",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            playerId: this.scene.playerId,
-            language: language,
-            mealsData: mealsSummary,
-            cluesCollected: this.getAllClues(),
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/generate-final-egg`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: this.scene.playerId,
+          language: language,
+          mealsData: mealsSummary,
+          cluesCollected: this.getAllClues(),
+        }),
+      });
 
       if (response.ok) {
         const result = await response.json();
@@ -749,16 +769,16 @@ export default class NPCManager {
           "也许你能试着用他的方式，去理解他的思路。\n\n" +
           "我相信，那些记录里藏着线索。",
         en:
-          "You’re finally back… Something happened to your master.\n\n" +
+          "You're finally back… Something happened to your master.\n\n" +
           "Three days ago, he left the village without a word.\n" +
           "The fire in his kitchen was still warm—but he was gone.\n\n" +
           "You know as well as I do… he was never the kind to vanish without a reason.\n" +
           "He has barely left the village his whole life.\n\n" +
-          "You were once his apprentice. If anyone can find out what happened to him… it’s you.\n\n" +
-          "But this search—it’s not just about turning over kitchen drawers.\n\n" +
+          "You were once his apprentice. If anyone can find out what happened to him… it's you.\n\n" +
+          "But this search—it's not just about turning over kitchen drawers.\n\n" +
           "Not long ago, he always brought a notebook whenever he met someone.\n" +
           "Maybe by following his method, you can understand how he thinks.\n\n" +
-          "I believe those records hold the key."
+          "I believe those records hold the key.",
       },
       // 店主阿桂
       shop_owner: {
@@ -790,24 +810,6 @@ export default class NPCManager {
     return greetings[npcId]
       ? greetings[npcId][language] || greetings[npcId]["en"]
       : "Hello!";
-  }
-
-  getVagueResponse() {
-    const language = this.scene.playerData.language;
-    const responses =
-      language === "zh"
-        ? [
-            "能听到你如此详细的分享真是太好了...记录完所有三餐后我会有重要的事告诉你。",
-            "你的美食记录让我想起了你师父...完成今天的记录后再来找我吧。",
-            "继续记录你的餐食吧，这对找到你师父很重要。",
-          ]
-        : [
-            "It's nice hearing you share in such detail... I'll have something important to tell you after you record all three meals.",
-            "Your food records remind me of your master... Come back after completing today's records.",
-            "Keep recording your meals, it's important for finding your master.",
-          ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
   }
 
   getNPCClue(npcId) {
@@ -852,13 +854,144 @@ export default class NPCManager {
     this.mapScale = newScale;
     this.npcs.forEach((npc) => {
       if (npc.sprite) {
-        npc.sprite.setScale(newScale * 0.1);
+        npc.sprite.setScale(newScale * 0.3); // 修复缩放比例
       }
-      // 同时更新高亮效果的位置
+      // 同时更新高亮效果和点击区域的位置
       if (npc.glowEffect) {
         npc.glowEffect.setPosition(npc.sprite.x, npc.sprite.y);
       }
+      if (npc.clickArea) {
+        npc.clickArea.setPosition(npc.sprite.x, npc.sprite.y);
+      }
     });
+  }
+
+  // 新增方法：检查是否可以与NPC交互
+  canInteractWithNPC(npc) {
+    // 检查是否是当天的NPC
+    if (npc.day !== this.currentDay) {
+      return false;
+    }
+
+    // 检查前一天是否完成了至少一餐的记录
+    if (npc.day > 1) {
+      const previousDayNPC = Array.from(this.npcs.values()).find(
+        (n) => n.day === npc.day - 1
+      );
+      if (!previousDayNPC || !previousDayNPC.hasRecordedAnyMeal) {
+        return false;
+      }
+    }
+
+    return npc.isUnlocked;
+  }
+
+  showInteractionBlockedMessage(npc) {
+    const language = this.scene.playerData.language;
+    let message;
+
+    if (npc.day > this.currentDay) {
+      message =
+        language === "zh"
+          ? `这是第${npc.day}天的NPC，请先完成今天的任务`
+          : `This is Day ${npc.day} NPC, please complete today's tasks first`;
+    } else if (npc.day === this.currentDay && npc.day > 1) {
+      message =
+        language === "zh"
+          ? "你需要先和前一天的NPC记录至少一餐才能解锁"
+          : "You need to record at least one meal with the previous day's NPC to unlock";
+    } else {
+      message =
+        language === "zh"
+          ? "暂时无法与此NPC对话"
+          : "Cannot interact with this NPC yet";
+    }
+
+    this.scene.showNotification(message, 3000);
+  }
+
+  startDialogScene(npcId) {
+    console.log(`Starting dialog scene with NPC: ${npcId}`);
+
+    // 暂停主场景并启动对话场景
+    this.scene.scene.pause("MainScene");
+    this.scene.scene.launch("DialogScene", {
+      npcId: npcId,
+      npcManager: this,
+      playerData: this.scene.playerData,
+      mainScene: this.scene,
+    });
+  }
+
+  // 完成NPC交互
+  async completeNPCInteraction(npcId) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return;
+
+    npc.hasCompletedDialog = true;
+    npc.hasRecordedAnyMeal = true; // 标记已记录至少一餐
+
+    // 移除高亮效果
+    if (npc.glowEffect) {
+      npc.glowEffect.destroy();
+      npc.glowEffect = null;
+    }
+
+    // 检查是否可以进入下一天
+    if (this.shouldProgressToNextDay(npc)) {
+      await this.progressToNextDay();
+    }
+  }
+
+  shouldProgressToNextDay(completedNPC) {
+    // 如果当前NPC已完成对话且记录了餐食
+    return completedNPC.hasCompletedDialog && completedNPC.hasRecordedAnyMeal;
+  }
+
+  async progressToNextDay() {
+    if (this.currentDay >= 7) {
+      // 游戏完成
+      this.triggerGameCompletion();
+      return;
+    }
+
+    this.currentDay++;
+    this.dailyMealsRecorded = 0;
+
+    // 解锁下一个NPC
+    const nextNPC = Array.from(this.npcs.values()).find(
+      (npc) => npc.day === this.currentDay
+    );
+
+    if (nextNPC) {
+      nextNPC.isUnlocked = true;
+      nextNPC.sprite.setVisible(true);
+      this.highlightNPC(nextNPC);
+      this.addNPCClickArea(nextNPC);
+
+      const message =
+        this.scene.playerData.language === "zh"
+          ? `🌅 第${this.currentDay}天开始！\n新的NPC ${nextNPC.name} 已解锁！`
+          : `🌅 Day ${this.currentDay} begins!\nNew NPC ${nextNPC.name} unlocked!`;
+
+      this.scene.showNotification(message, 5000);
+    }
+
+    // 保存进度
+    await this.saveGameProgress();
+  }
+
+  triggerGameCompletion() {
+    const message =
+      this.scene.playerData.language === "zh"
+        ? "🎊 恭喜完成7天的旅程！正在生成你的专属彩蛋..."
+        : "🎊 Congratulations on completing the 7-day journey! Generating your personalized ending...";
+
+    this.scene.showNotification(message, 3000);
+
+    setTimeout(() => {
+      this.triggerFinalEgg();
+    }, 3000);
   }
 
   getAllClues() {
@@ -888,13 +1021,15 @@ export default class NPCManager {
     };
   }
 
-  // 清理资源
   destroy() {
-    this.hideInteractionHint();
     this.npcs.forEach((npc) => {
       if (npc.glowEffect) {
         npc.glowEffect.destroy();
       }
+      if (npc.clickArea) {
+        npc.clickArea.destroy();
+      }
+      this.hideNPCHover(npc);
     });
   }
 }

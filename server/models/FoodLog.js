@@ -1,22 +1,26 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../db');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../db");
 
-const FoodLog = sequelize.define('FoodLog', {
-  playerId: {
+const FoodLog = sequelize.define("FoodLog", {
+  player_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  mealType: {
-    type: DataTypes.ENUM('breakfast', 'lunch', 'dinner'),
+  npc_id: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
-  description: {
+  meal_type: {
+    type: DataTypes.ENUM("breakfast", "lunch", "dinner"),
+    allowNull: false,
+  },
+  journal_raw_text: {
     type: DataTypes.TEXT,
     allowNull: false,
   },
-  timestamp: {
-    type: DataTypes.DATE,
-    allowNull: false,
+  journal_summary: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
 });
 

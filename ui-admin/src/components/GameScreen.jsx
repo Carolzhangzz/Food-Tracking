@@ -8,17 +8,19 @@ import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
 import Control from "./Control";
+import DialogScene from '../phaser/DialogScene';
 
 function GameScreen() {
   const { playerId, playerData, setPlayerData, gameRef } =
     useContext(PlayerContext);
   const navigate = useNavigate();
-
+const { gameProgress } = useContext(PlayerContext);
   useEffect(() => {
     if (!playerId || !playerData) {
       console.log("No player data, redirecting to login");
       navigate("/");
     } else {
+      console.log("当前 Day:", gameProgress.currentDay);
       console.log("GameScreen - Player ID:", playerId);
       console.log("GameScreen - Player Data:", playerData);
     }
@@ -72,7 +74,7 @@ function GameScreen() {
               },
             ],
           },
-          scene: [MainScene],
+           scene: [MainScene, DialogScene], 
           scale: {
             mode: Phaser.Scale.RESIZE,
             autoCenter: Phaser.Scale.CENTER_BOTH,
