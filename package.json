@@ -12,7 +12,9 @@
     "deploy": "gh-pages -d build"
   },
   "dependencies": {
+    "axios": "^1.10.0",
     "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
     "express": "^4.21.2",
     "grid-engine": "^2.48.0",
     "pg": "^8.16.3",

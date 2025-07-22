@@ -24,12 +24,11 @@ export default class NPCManager {
     const npcConfigs = [
       {
         id: "village_head",
-        name: this.scene.playerData.language === "zh" ? "村长" : "Village Head",
-        position: { x: 1, y: 1 }, // 调整到更容易点击的位置
+        name: "村长",
+        position: { x: 1, y: 1 },
         day: 1,
         isUnlocked: true,
-        portraitKey: 'npc1head',
-        backgroundKey: 'npc1bg',
+        convaiId: "xxx",
       },
       {
         id: "shop_owner",
@@ -48,6 +47,8 @@ export default class NPCManager {
         position: { x: 8, y: 12 },
         day: 3,
         isUnlocked: false,
+        portraitKey: "npc3head",
+        backgroundKey: "npc3bg",
       },
       {
         id: "restaurant_owner",
@@ -58,6 +59,8 @@ export default class NPCManager {
         position: { x: 15, y: 8 },
         day: 4,
         isUnlocked: false,
+        portraitKey: "npc4head",
+        backgroundKey: "npc4bg",
       },
       {
         id: "fisherman",
@@ -68,6 +71,8 @@ export default class NPCManager {
         position: { x: 3, y: 14 },
         day: 5,
         isUnlocked: false,
+        portraitKey: "npc5head",
+        backgroundKey: "npc5bg",
       },
       {
         id: "old_friend",
@@ -75,6 +80,8 @@ export default class NPCManager {
         position: { x: 18, y: 12 },
         day: 6,
         isUnlocked: false,
+        portraitKey: "npc6head",
+        backgroundKey: "npc6bg",
       },
       {
         id: "secret_apprentice",
@@ -82,6 +89,8 @@ export default class NPCManager {
         position: { x: 10, y: 3 },
         day: 7,
         isUnlocked: false,
+        portraitKey: "npc7head",
+        backgroundKey: "npc7bg",
       },
     ];
 
@@ -277,8 +286,29 @@ export default class NPCManager {
     return npcData;
   }
 
+  // getNPCById(id) {
+  //   return this.npcs.get(id);
+  // }
   getNPCById(id) {
-    return this.npcs.get(id);
+    const npc = this.npcs.get(id); // ✅ 正确使用 Map 的 get 方法
+    if (!npc) return null;
+
+    const npcAssetMap = {
+      village_head: { portraitKey: "npc1head", backgroundKey: "npc1bg" },
+      shop_owner: { portraitKey: "npc2head", backgroundKey: "npc2bg" },
+      spice_woman: { portraitKey: "npc3head", backgroundKey: "npc3bg" },
+      restaurant_owner: { portraitKey: "npc4head", backgroundKey: "npc4bg" },
+      fisherman: { portraitKey: "npc5head", backgroundKey: "npc5bg" },
+      old_friend: { portraitKey: "npc6head", backgroundKey: "npc6bg" },
+      secret_apprentice: { portraitKey: "npc7head", backgroundKey: "npc7bg" },
+    };
+
+    const assets = npcAssetMap[npc.id] || {};
+    return {
+      ...npc,
+      portraitKey: assets.portraitKey,
+      backgroundKey: assets.backgroundKey,
+    };
   }
 
   getCurrentDayNPC() {
@@ -304,273 +334,224 @@ export default class NPCManager {
     }
   }
 
-  async handleNPCDialog(npcId, userInput = "") {
-    const npc = this.npcs.get(npcId);
-    if (!npc) {
-      return { response: "NPC not found", buttons: [], next: false };
-    }
+  // async handleNPCDialog(npcId, userInput = "") {
+  //   const npc = this.npcs.get(npcId);
+  //   if (!npc) {
+  //     return { response: "NPC not found", buttons: [], next: false };
+  //   }
 
-    const language = this.scene.playerData.language;
+  //   const language = this.scene.playerData.language;
 
-    switch (npc.dialogState) {
-      case "initial":
-        return this.handleInitialDialog(npc);
+  //   switch (npc.dialogState) {
+  //     case "initial":
+  //       return this.handleInitialDialog(npc);
 
-      case "meal_selection":
-        return this.handleMealSelection(npc, userInput);
+  //     case "meal_selection":
+  //       return this.handleMealSelection(npc, userInput);
 
-      case "food_recording":
-        return await this.handleFoodRecording(npc, userInput);
+  //     case "food_recording":
+  //       return await this.handleFoodRecording(npc, userInput);
 
-      case "completion_check":
-        return this.handleCompletionCheck(npc, userInput);
+  //     case "completion_check":
+  //       return this.handleCompletionCheck(npc, userInput);
 
-      case "clue_giving":
-        return this.handleClueGiving(npc);
+  //     case "clue_giving":
+  //       return this.handleClueGiving(npc);
 
-      case "completed":
-        return this.handleCompletedDialog(npc);
+  //     case "completed":
+  //       return this.handleCompletedDialog(npc);
 
-      default:
-        return { response: "Dialog state error", buttons: [], next: false };
-    }
-  }
+  //     default:
+  //       return { response: "Dialog state error", buttons: [], next: false };
+  //   }
+  // }
 
-  handleInitialDialog(npc) {
-    const language = this.scene.playerData.language;
-    npc.dialogState = "meal_selection";
+  // async handleFoodRecording(npc, userInput) {
+  //   const language = this.scene.playerData.language;
 
-    // 获取NPC的问候语
-    const greeting = this.getNPCGreeting(npc.id);
-    const question =
-      language === "zh"
-        ? "\n\n你想记录哪一餐的食物日记？"
-        : "\n\nWhich meal would you like to record in your food journal?";
-    const buttons =
-      language === "zh"
-        ? ["早餐", "午餐", "晚餐"]
-        : ["Breakfast", "Lunch", "Dinner"];
+  //   if (!userInput || userInput.trim().length === 0) {
+  //     const prompt =
+  //       language === "zh"
+  //         ? "请输入你的食物记录，越详细越好。"
+  //         : "Please enter your food record, the more detailed the better.";
+  //     return {
+  //       response: prompt,
+  //       buttons: [],
+  //       next: true,
+  //       requireInput: true,
+  //     };
+  //   }
 
-    return {
-      response: greeting + question,
-      buttons: buttons,
-      next: true,
-    };
-  }
+  //   try {
+  //     // 保存餐饮记录到内存
+  //     const mealRecord = {
+  //       day: this.currentDay,
+  //       npcId: npc.id,
+  //       npcName: npc.name,
+  //       meal: npc.currentMeal,
+  //       content: userInput,
+  //       timestamp: new Date().toISOString(),
+  //     };
+  //     this.allMealsData.push(mealRecord);
 
-  handleMealSelection(npc, userInput) {
-    const language = this.scene.playerData.language;
-    const mealMap = {
-      Breakfast: "breakfast",
-      Lunch: "lunch",
-      Dinner: "dinner",
-      早餐: "breakfast",
-      午餐: "lunch",
-      晚餐: "dinner",
-    };
+  //     // 调用食物记录API
+  //     const response = await fetch(`${API_URL}/record-meal`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         playerId: this.scene.playerId,
+  //         ...mealRecord,
+  //         language: language,
+  //       }),
+  //     });
 
-    npc.currentMeal = mealMap[userInput] || "breakfast";
-    npc.dialogState = "food_recording";
+  //     if (response.ok) {
+  //       const result = await response.json();
+  //       npc.mealsRecordedToday++;
+  //       this.dailyMealsRecorded++;
 
-    const prompt =
-      language === "zh"
-        ? `请详细描述你的${userInput}：\n- 吃了什么？\n- 怎么做的？\n- 什么时候吃的？\n- 为什么选择这些食物？\n- 吃了多少？`
-        : `Please describe your ${userInput} in detail:\n- What did you eat?\n- How was it prepared?\n- When did you eat it?\n- Why did you choose these foods?\n- How much did you eat?`;
+  //       npc.dialogState = "completion_check";
 
-    return {
-      response: prompt,
-      buttons: [],
-      next: true,
-      requireInput: true,
-    };
-  }
+  //       const thankYou =
+  //         language === "zh"
+  //           ? "谢谢你与我分享这顿饭的记录。这让我想起了你师父..."
+  //           : "Thanks for sharing your meal record with me. It reminds me of your master...";
 
-  async handleFoodRecording(npc, userInput) {
-    const language = this.scene.playerData.language;
+  //       const question =
+  //         language === "zh"
+  //           ? "\n\n你今天已经记录了所有三餐了吗？"
+  //           : "\n\nHave you recorded all three meals today?";
 
-    if (!userInput || userInput.trim().length === 0) {
-      const prompt =
-        language === "zh"
-          ? "请输入你的食物记录，越详细越好。"
-          : "Please enter your food record, the more detailed the better.";
-      return {
-        response: prompt,
-        buttons: [],
-        next: true,
-        requireInput: true,
-      };
-    }
+  //       const buttons =
+  //         language === "zh" ? ["是的", "还没有"] : ["Yes", "Not yet"];
 
-    try {
-      // 保存餐饮记录到内存
-      const mealRecord = {
-        day: this.currentDay,
-        npcId: npc.id,
-        npcName: npc.name,
-        meal: npc.currentMeal,
-        content: userInput,
-        timestamp: new Date().toISOString(),
-      };
-      this.allMealsData.push(mealRecord);
+  //       return {
+  //         response: thankYou + question,
+  //         buttons: buttons,
+  //         next: true,
+  //       };
+  //     } else {
+  //       throw new Error("Failed to record meal");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error recording meal:", error);
+  //     const errorMsg =
+  //       language === "zh"
+  //         ? "记录失败，请重试。"
+  //         : "Recording failed, please try again.";
+  //     return {
+  //       response: errorMsg,
+  //       buttons: [],
+  //       next: true,
+  //       requireInput: true,
+  //     };
+  //   }
+  // }
 
-      // 调用食物记录API
-      const response = await fetch(`${API_URL}/record-meal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerId: this.scene.playerId,
-          ...mealRecord,
-          language: language,
-        }),
-      });
+  // handleCompletionCheck(npc, userInput) {
+  //   const language = this.scene.playerData.language;
 
-      if (response.ok) {
-        const result = await response.json();
-        npc.mealsRecordedToday++;
-        this.dailyMealsRecorded++;
+  //   if (userInput === "是的" || userInput === "Yes") {
+  //     // 玩家确认已完成所有三餐
+  //     npc.dialogState = "clue_giving";
+  //     npc.hasCompletedDialog = true;
 
-        npc.dialogState = "completion_check";
+  //     const clueIntro =
+  //       language === "zh"
+  //         ? "很好！既然你已经完成了今天的记录，我可以告诉你一个关于你师父的重要线索："
+  //         : "Great! Since you've completed today's records, I can tell you an important clue about your master:";
 
-        const thankYou =
-          language === "zh"
-            ? "谢谢你与我分享这顿饭的记录。这让我想起了你师父..."
-            : "Thanks for sharing your meal record with me. It reminds me of your master...";
+  //     return {
+  //       response: clueIntro,
+  //       buttons: [],
+  //       next: true,
+  //     };
+  //   } else {
+  //     // 玩家还没完成所有餐食记录
+  //     npc.dialogState = "completed";
 
-        const question =
-          language === "zh"
-            ? "\n\n你今天已经记录了所有三餐了吗？"
-            : "\n\nHave you recorded all three meals today?";
+  //     const reminder =
+  //       language === "zh"
+  //         ? "那请你先完成今天的所有三餐记录吧。记录完成后再来找我，我会告诉你重要的线索。"
+  //         : "Then please complete all three meals for today first. Come back to me after recording everything, and I'll tell you important clues.";
 
-        const buttons =
-          language === "zh" ? ["是的", "还没有"] : ["Yes", "Not yet"];
+  //     return {
+  //       response: reminder,
+  //       buttons: [],
+  //       next: false,
+  //     };
+  //   }
+  // }
 
-        return {
-          response: thankYou + question,
-          buttons: buttons,
-          next: true,
-        };
-      } else {
-        throw new Error("Failed to record meal");
-      }
-    } catch (error) {
-      console.error("Error recording meal:", error);
-      const errorMsg =
-        language === "zh"
-          ? "记录失败，请重试。"
-          : "Recording failed, please try again.";
-      return {
-        response: errorMsg,
-        buttons: [],
-        next: true,
-        requireInput: true,
-      };
-    }
-  }
+  // async handleCompletedDialog(npc) {
+  //   const lang = this.scene.playerData.language;
 
-  handleCompletionCheck(npc, userInput) {
-    const language = this.scene.playerData.language;
+  //   // 检查是否是最后一天且已给出线索
+  //   if (this.currentDay === 7 && npc.hasClueGiven) {
+  //     return this.handleFinalEggDialog(npc);
+  //   }
 
-    if (userInput === "是的" || userInput === "Yes") {
-      // 玩家确认已完成所有三餐
-      npc.dialogState = "clue_giving";
-      npc.hasCompletedDialog = true;
+  //   // 固定的结束语
+  //   const farewell =
+  //     lang === "zh"
+  //       ? "今天我们已经聊过了。请记录完所有三餐后再来找我。"
+  //       : "We've already talked today. Please record all three meals and come back to me.";
 
-      const clueIntro =
-        language === "zh"
-          ? "很好！既然你已经完成了今天的记录，我可以告诉你一个关于你师父的重要线索："
-          : "Great! Since you've completed today's records, I can tell you an important clue about your master:";
+  //   return {
+  //     response: farewell,
+  //     buttons: [],
+  //     next: false,
+  //   };
+  // }
 
-      return {
-        response: clueIntro,
-        buttons: [],
-        next: true,
-      };
-    } else {
-      // 玩家还没完成所有餐食记录
-      npc.dialogState = "completed";
+  // async handleFinalEggDialog(npc) {
+  //   const lang = this.scene.playerData.language;
 
-      const reminder =
-        language === "zh"
-          ? "那请你先完成今天的所有三餐记录吧。记录完成后再来找我，我会告诉你重要的线索。"
-          : "Then please complete all three meals for today first. Come back to me after recording everything, and I'll tell you important clues.";
+  //   // 固定的结束语
+  //   const farewell =
+  //     lang === "zh"
+  //       ? "感谢这几天的陪伴……让我来为你准备一个特别的惊喜！"
+  //       : "Thanks for spending these days with me… Let me prepare a special surprise for you!";
 
-      return {
-        response: reminder,
-        buttons: [],
-        next: false,
-      };
-    }
-  }
+  //   // 异步向后端请求 LLM 生成彩蛋
+  //   try {
+  //     const resp = await fetch(`${API_URL}/generate-final-egg`, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         playerId: this.scene.playerId,
+  //         meals: this.allMealsData,
+  //         language: lang,
+  //       }),
+  //     });
 
-  async handleCompletedDialog(npc) {
-    const lang = this.scene.playerData.language;
+  //     if (resp.ok) {
+  //       const { eggText } = await resp.json();
+  //       // 使用UI管理器展示彩蛋文本
+  //       if (this.scene.uiManager) {
+  //         this.scene.uiManager.showFinalEgg(eggText);
+  //       }
+  //     } else {
+  //       throw new Error("Failed to generate final egg");
+  //     }
+  //   } catch (e) {
+  //     console.error("彩蛋生成失败：", e);
+  //     const fallbackText =
+  //       lang === "zh"
+  //         ? "彩蛋生成失败，请稍后重试哦~"
+  //         : "Failed to prepare the surprise. Please try again later.";
 
-    // 检查是否是最后一天且已给出线索
-    if (this.currentDay === 7 && npc.hasClueGiven) {
-      return this.handleFinalEggDialog(npc);
-    }
+  //     if (this.scene.uiManager) {
+  //       this.scene.uiManager.showFinalEgg(fallbackText);
+  //     }
+  //   }
 
-    // 固定的结束语
-    const farewell =
-      lang === "zh"
-        ? "今天我们已经聊过了。请记录完所有三餐后再来找我。"
-        : "We've already talked today. Please record all three meals and come back to me.";
-
-    return {
-      response: farewell,
-      buttons: [],
-      next: false,
-    };
-  }
-
-  async handleFinalEggDialog(npc) {
-    const lang = this.scene.playerData.language;
-
-    // 固定的结束语
-    const farewell =
-      lang === "zh"
-        ? "感谢这几天的陪伴……让我来为你准备一个特别的惊喜！"
-        : "Thanks for spending these days with me… Let me prepare a special surprise for you!";
-
-    // 异步向后端请求 LLM 生成彩蛋
-    try {
-      const resp = await fetch(`${API_URL}/generate-final-egg`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerId: this.scene.playerId,
-          meals: this.allMealsData,
-          language: lang,
-        }),
-      });
-
-      if (resp.ok) {
-        const { eggText } = await resp.json();
-        // 使用UI管理器展示彩蛋文本
-        if (this.scene.uiManager) {
-          this.scene.uiManager.showFinalEgg(eggText);
-        }
-      } else {
-        throw new Error("Failed to generate final egg");
-      }
-    } catch (e) {
-      console.error("彩蛋生成失败：", e);
-      const fallbackText =
-        lang === "zh"
-          ? "彩蛋生成失败，请稍后重试哦~"
-          : "Failed to prepare the surprise. Please try again later.";
-
-      if (this.scene.uiManager) {
-        this.scene.uiManager.showFinalEgg(fallbackText);
-      }
-    }
-
-    return {
-      response: farewell,
-      buttons: [],
-      next: false,
-    };
-  }
+  //   return {
+  //     response: farewell,
+  //     buttons: [],
+  //     next: false,
+  //   };
+  // }
 
   handleClueGiving(npc) {
     const language = this.scene.playerData.language;

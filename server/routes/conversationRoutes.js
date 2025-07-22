@@ -1,32 +1,34 @@
-// 新增依赖
-const express = require("express");
-const fetch = require("node-fetch"); // 如果你用的是 node-fetch
+
+const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 
-// 新增 POST /convai-chat 路由
-router.post("/convai-chat", async (req, res) => {
+router.post('/convai-chat', async (req, res) => {
   const { userText, charID, sessionID, voiceResponse } = req.body;
-
   try {
     const formData = new URLSearchParams();
     formData.append("userText", userText);
     formData.append("charID", charID);
-    formData.append("sessionID", sessionID);
-    formData.append("voiceResponse", voiceResponse);
+    formData.append("sessionID", sessionID || "-1");
+    formData.append("voiceResponse", voiceResponse || "False");
+    const response = await axios.post(
+      "https://api.convai.com/character/getResponse",
+      formData,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "CONVAI-API-KEY": process.env.CONVAI_API_KEY,
+        },   
+      }
+    );
 
-    const response = await fetch("https://api.convai.com/character/getResponse", {
-      method: "POST",
-      headers: {
-        "CONVAI-API-KEY": process.env.CONVAI_API_KEY, // 你可以从 .env 获取
-      },
-      body: formData,
+    res.json(response.data);
+  } catch (error) {
+    console.error("ConvAI error:", error.response?.data || error.message);
+    res.status(500).json({
+      error: "ConvAI API call failed",
+      detail: error.response?.data || error.message,
     });
-
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    console.error("Convai proxy error:", err);
-    res.status(500).json({ error: "Convai API failed" });
   }
 });
 

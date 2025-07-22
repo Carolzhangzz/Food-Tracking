@@ -3,12 +3,12 @@ import Phaser from "phaser";
 import mapJson from "../assets/tiled.json";
 import tileset from "../assets/tiles.png";
 import characters from "../assets/characters.png";
-import npc from "../assets/npc1.png";
 import Agent from "./Agent";
-import DialogSystem from "./DialogScene.js";
+import DialogScene from "./DialogScene.js"; // 确保这个名称正确
 import NPCManager from "./NPCManager.js";
 import UIManager from "./UIManager.js";
 import { playBGM, stopBGM } from "../utils/audioManager";
+import npc from "../assets/npc1.png"; // 确保路径正确
 
 export default class MainScene extends Phaser.Scene {
   constructor() {
@@ -41,31 +41,12 @@ export default class MainScene extends Phaser.Scene {
 
     this.load.image("tiles", tileset);
     this.load.tilemapTiledJSON("field-map", mapJson);
-    this.load.spritesheet("player", characters, { frameWidth: 26, frameHeight: 36 });
-    // 加载NPC图片
+    this.load.spritesheet("player", characters, {
+      frameWidth: 26,
+      frameHeight: 36,
+    });
+    // load 第一个npc
     this.load.image("npc", npc);
-    this.load.image('npc1', 'assets/npc1.png');
-    this.load.image('npc2', 'assets/npc2.png');
-    this.load.image('npc3', 'assets/npc3.png');
-    this.load.image('npc4', 'assets/npc4.png');
-    this.load.image('npc5', 'assets/npc5.png');
-    this.load.image('npc6', 'assets/npc6.png');
-    // 加载NPC背景
-    this.load.image('npc1bg', 'assets/npc1_bg.png');
-    this.load.image('npc2bg', 'assets/npc2_bg.png');
-    this.load.image('npc3bg', 'assets/npc3_bg.png');
-    this.load.image('npc4bg', 'assets/npc4_bg.png');
-    this.load.image('npc5bg', 'assets/npc5_bg.png');
-    this.load.image('npc6bg', 'assets/npc6_bg.png');
-    this.load.image('npc7bg', 'assets/npc7_bg.png');
-    // 加载NPC头像 
-    this.load.image('npc1head', 'assets/npc1_head.png');
-    this.load.image('npc2head', 'assets/npc2_head.png');
-    this.load.image('npc3head', 'assets/npc3_head.png');
-    this.load.image('npc4head', 'assets/npc4_head.png');
-    this.load.image('npc5head', 'assets/npc5_head.png');
-    this.load.image('npc6head', 'assets/npc6_head.png');
-    this.load.image('npc7head', 'assets/npc7_head.png');
   }
 
   create() {
@@ -95,63 +76,99 @@ export default class MainScene extends Phaser.Scene {
   setupMobileControls() {
     // 设置移动端触控支持
     this.input.addPointer(2); // 支持多点触控
-    
+
     // 监听地图点击事件（移动玩家）
-    this.input.on('pointerdown', (pointer) => {
+    this.input.on("pointerdown", (pointer) => {
       this.handleMapTap(pointer);
     });
 
     // 长按检测（可选功能）
-    this.input.on('pointerup', (pointer) => {
+    this.input.on("pointerup", (pointer) => {
       this.handlePointerUp(pointer);
     });
   }
 
+  // 统一的对话状态检查方法
+  isDialogSceneActive() {
+    try {
+      return this.scene.isActive("DialogScene") ||
+             (this.dialogSystem && 
+              typeof this.dialogSystem.isDialogActive === 'function' && 
+              this.dialogSystem.isDialogActive());
+    } catch (error) {
+      console.warn("Error checking dialog state:", error);
+      return false;
+    }
+  }
+
   handleMapTap(pointer) {
     const currentTime = this.time.now;
-    
-    // 防止重复点击
+
+    // 防止短时间内重复点击
     if (currentTime - this.lastTapTime < this.tapDelay) {
       return;
     }
     this.lastTapTime = currentTime;
 
-    // 如果正在对话，不处理移动
-    if (this.dialogSystem?.isDialogActive()) {
+    // 如果对话正在进行，不允许移动
+    if (this.isDialogSceneActive()) {
       return;
     }
 
-    // 将屏幕坐标转换为游戏世界坐标
+    // 将点击位置从屏幕坐标转换为地图格子坐标
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tileX = Math.floor(worldPoint.x / (this.fieldMapTileMap.tileWidth * this.mapScale));
-    const tileY = Math.floor(worldPoint.y / (this.fieldMapTileMap.tileHeight * this.mapScale));
+    const tileX = Math.floor(
+      worldPoint.x / (this.fieldMapTileMap.tileWidth * this.mapScale)
+    );
+    const tileY = Math.floor(
+      worldPoint.y / (this.fieldMapTileMap.tileHeight * this.mapScale)
+    );
 
-    console.log(`Tap at tile: ${tileX}, ${tileY}`);
+    // console.log(`Tap at tile: ${tileX}, ${tileY}`);
 
-    // 检查是否点击了NPC
+    // 玩家尝试移动到点击的位置
+    this.movePlayerTo(tileX, tileY);
+
+    // 检查玩家是否靠近NPC（曼哈顿距离 <= 1）
+    if (this.gridEngine && this.gridEngine.getPosition("player")) {
+      const playerPos = this.gridEngine.getPosition("player");
+      const distanceToNPC =
+        Math.abs(playerPos.x - tileX) + Math.abs(playerPos.y - tileY);
+
+      if (distanceToNPC > 1) {
+        // console.log(`Player too far from NPC: ${distanceToNPC}`);
+        // 不用显示无效移动效果，因为玩家只是点击了一个远离NPC的地方
+        // this.showInvalidMoveEffect(tileX, tileY);
+        return;
+      }
+    }
+
+    // 如果点击的是NPC，则触发对话
     const clickedNPC = this.checkNPCClick(tileX, tileY);
     if (clickedNPC) {
       this.startDialogWithNPC(clickedNPC);
       return;
     }
-
-    // 移动玩家到点击位置
-    this.movePlayerTo(tileX, tileY);
   }
 
   checkNPCClick(tileX, tileY) {
     if (!this.npcManager) return null;
-    
+
     // 检查所有可见的NPC
-    const visibleNPCs = Array.from(this.npcManager.npcs.values()).filter(npc => npc.isUnlocked);
-    
+    const visibleNPCs = Array.from(this.npcManager.npcs.values()).filter(
+      (npc) => npc.isUnlocked
+    );
+
     for (let npc of visibleNPCs) {
       try {
         const npcPos = this.gridEngine.getPosition(npc.id);
-        const distance = Math.abs(npcPos.x - tileX) + Math.abs(npcPos.y - tileY);
-        
-        console.log(`NPC ${npc.id} at ${npcPos.x},${npcPos.y}, distance: ${distance}`);
-        
+        const distance =
+          Math.abs(npcPos.x - tileX) + Math.abs(npcPos.y - tileY);
+
+        console.log(
+          `NPC ${npc.id} at ${npcPos.x},${npcPos.y}, distance: ${distance}`
+        );
+
         // 如果点击的是NPC位置或者相邻位置
         if (distance <= 1) {
           return npc;
@@ -166,16 +183,16 @@ export default class MainScene extends Phaser.Scene {
 
   startDialogWithNPC(npc) {
     console.log(`Starting dialog with NPC: ${npc.id}`);
-    
+
     // 检查是否可以与NPC交互
     if (!this.npcManager.canInteractWithNPC(npc)) {
       this.npcManager.showInteractionBlockedMessage(npc);
       return;
     }
-    
+
     // 显示点击反馈
     this.showNPCClickFeedback(npc);
-    
+
     // 延迟启动对话场景
     this.time.delayedCall(200, () => {
       this.npcManager.startDialogScene(npc.id);
@@ -201,22 +218,22 @@ export default class MainScene extends Phaser.Scene {
       scaleY: 2,
       alpha: 0,
       duration: 400,
-      ease: 'Power2',
+      ease: "Power2",
       onComplete: () => {
         ripple.destroy();
-      }
+      },
     });
 
     // 显示"对话中"提示
     const dialogHint = this.add.text(
-      npcSprite.x, 
-      npcSprite.y - 40, 
-      this.playerData.language === 'zh' ? '对话中...' : 'Talking...',
+      npcSprite.x,
+      npcSprite.y - 40,
+      this.playerData.language === "zh" ? "对话中..." : "Talking...",
       {
-        fontSize: '14px',
-        fontFamily: 'monospace',
-        fill: '#ffd700',
-        backgroundColor: '#000000',
+        fontSize: "14px",
+        fontFamily: "monospace",
+        fill: "#ffd700",
+        backgroundColor: "#000000",
         padding: { x: 8, y: 4 },
       }
     );
@@ -231,7 +248,7 @@ export default class MainScene extends Phaser.Scene {
       duration: 1000,
       onComplete: () => {
         dialogHint.destroy();
-      }
+      },
     });
   }
 
@@ -248,7 +265,7 @@ export default class MainScene extends Phaser.Scene {
     try {
       // 使用GridEngine的moveTo功能
       this.gridEngine.moveTo("player", { x: tileX, y: tileY });
-      
+
       // 显示移动目标指示器
       this.showMoveTarget(tileX, tileY);
     } catch (error) {
@@ -259,9 +276,12 @@ export default class MainScene extends Phaser.Scene {
 
   isValidTile(tileX, tileY) {
     // 检查是否在地图范围内
-    if (tileX < 0 || tileY < 0 || 
-        tileX >= this.fieldMapTileMap.width || 
-        tileY >= this.fieldMapTileMap.height) {
+    if (
+      tileX < 0 ||
+      tileY < 0 ||
+      tileX >= this.fieldMapTileMap.width ||
+      tileY >= this.fieldMapTileMap.height
+    ) {
       return false;
     }
 
@@ -297,12 +317,12 @@ export default class MainScene extends Phaser.Scene {
       scaleY: { from: 1.5, to: 0.8 },
       alpha: { from: 0.8, to: 0.2 },
       duration: 800,
-      ease: 'Power2',
+      ease: "Power2",
       yoyo: true,
       repeat: 2,
       onComplete: () => {
         target.destroy();
-      }
+      },
     });
   }
 
@@ -311,10 +331,10 @@ export default class MainScene extends Phaser.Scene {
     const worldY = tileY * this.fieldMapTileMap.tileHeight * this.mapScale;
 
     // 显示"X"表示不能移动
-    const invalidX = this.add.text(worldX, worldY, '✗', {
-      fontSize: '24px',
-      fill: '#ff4444',
-      fontStyle: 'bold'
+    const invalidX = this.add.text(worldX, worldY, "✗", {
+      fontSize: "24px",
+      fill: "#ff4444",
+      fontStyle: "bold",
     });
     invalidX.setOrigin(0.5);
     invalidX.setDepth(15);
@@ -328,7 +348,7 @@ export default class MainScene extends Phaser.Scene {
       duration: 600,
       onComplete: () => {
         invalidX.destroy();
-      }
+      },
     });
 
     // 震动效果（可选）
@@ -370,8 +390,10 @@ export default class MainScene extends Phaser.Scene {
   }
 
   setupPlayer() {
-    const playerWorldX = this.playerLoc.x * this.fieldMapTileMap.tileWidth * this.mapScaleX;
-    const playerWorldY = this.playerLoc.y * this.fieldMapTileMap.tileHeight * this.mapScaleY;
+    const playerWorldX =
+      this.playerLoc.x * this.fieldMapTileMap.tileWidth * this.mapScaleX;
+    const playerWorldY =
+      this.playerLoc.y * this.fieldMapTileMap.tileHeight * this.mapScaleY;
 
     this.playerSprite = this.add.sprite(playerWorldX, playerWorldY, "player");
     this.playerSprite.setScale(Math.min(this.mapScaleX, this.mapScaleY) * 1.5);
@@ -379,17 +401,23 @@ export default class MainScene extends Phaser.Scene {
 
     // 保留键盘控制作为备用（PC端）
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.interactKey = this.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SPACE
+    );
 
     const config = {
-      characters: [{
-        id: "player",
-        sprite: this.playerSprite,
-        walkingAnimationMapping: 6,
-        startPosition: this.playerLoc,
-      }],
+      characters: [
+        {
+          id: "player",
+          sprite: this.playerSprite,
+          walkingAnimationMapping: 6,
+          startPosition: this.playerLoc,
+        },
+      ],
       collision: {
-        blockedTiles: [4, 5, 6, 25, 26, 27, 28, 29, 30, 32, 33, 34, 42, 44, 60, 62],
+        blockedTiles: [
+          4, 5, 6, 25, 26, 27, 28, 29, 30, 32, 33, 34, 42, 44, 60, 62,
+        ],
       },
     };
 
@@ -398,12 +426,29 @@ export default class MainScene extends Phaser.Scene {
   }
 
   setupGameSystems() {
-    this.dialogSystem = new DialogSystem(this);
+    // 检查是否已经存在DialogScene
+    let dialogScene = this.scene.get("DialogScene");
+
+    if (!dialogScene) {
+      // 如果不存在，则添加新的DialogScene
+      this.scene.add("DialogScene", DialogScene, false);
+      dialogScene = this.scene.get("DialogScene");
+    }
+
+    this.dialogSystem = dialogScene;
     this.npcManager = new NPCManager(this, this.mapScale);
     this.uiManager = new UIManager(this);
 
-    this.dialogSystem.setNPCManager(this.npcManager);
-    this.npcManager.setDialogSystem(this.dialogSystem);
+    // 安全地设置NPC管理器
+    if (this.dialogSystem) {
+      // 尝试调用setNPCManager方法
+      try {
+        // this.dialogSystem.setNPCManager(this.npcManager);
+        this.npcManager.setDialogSystem(this.dialogSystem);
+      } catch (error) {
+        console.error("Error setting up dialog system:", error);
+      }
+    }
   }
 
   setupCamera() {
@@ -445,11 +490,15 @@ export default class MainScene extends Phaser.Scene {
 
   update(time, delta) {
     // 保留键盘控制（PC端备用）
-    if (!this.dialogSystem?.isDialogActive()) {
-      if (this.cursors?.left.isDown) this.agent.moveAndCheckCollision("left", this.fieldMapTileMap);
-      else if (this.cursors?.right.isDown) this.agent.moveAndCheckCollision("right", this.fieldMapTileMap);
-      else if (this.cursors?.up.isDown) this.agent.moveAndCheckCollision("up", this.fieldMapTileMap);
-      else if (this.cursors?.down.isDown) this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
+    if (!this.isDialogSceneActive()) {
+      if (this.cursors?.left.isDown)
+        this.agent.moveAndCheckCollision("left", this.fieldMapTileMap);
+      else if (this.cursors?.right.isDown)
+        this.agent.moveAndCheckCollision("right", this.fieldMapTileMap);
+      else if (this.cursors?.up.isDown)
+        this.agent.moveAndCheckCollision("up", this.fieldMapTileMap);
+      else if (this.cursors?.down.isDown)
+        this.agent.moveAndCheckCollision("down", this.fieldMapTileMap);
     }
 
     // 更新玩家位置数据
