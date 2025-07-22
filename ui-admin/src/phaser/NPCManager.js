@@ -59,8 +59,6 @@ export default class NPCManager {
         position: { x: 15, y: 8 },
         day: 4,
         isUnlocked: false,
-        portraitKey: "npc4head",
-        backgroundKey: "npc4bg",
       },
       {
         id: "fisherman",
