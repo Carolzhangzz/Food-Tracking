@@ -2,7 +2,7 @@
   "name": "food-tracking",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://carolzhangzz.github.io/Food-Tracking/",
+  "homepage": "https://foodtracking-t1-4d8572bed4a3.herokuapp.com/",
   "engines": {
     "node": "20.19.4",
     "npm": "10.8.2"
@@ -46,5 +46,17 @@
     "css-select": "^4.0.0",
     "@svgr/webpack": "^8.1.0",
     "resolve-url-loader": "^5.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }
