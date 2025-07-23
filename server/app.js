@@ -17,7 +17,11 @@ sequelize.authenticate()
   .catch((err) => console.error("❌ DB connection error", err));
 
 const cors = require('cors');
-app.use(cors({ origin: 'http://localhost:3000' })); // 与前端端口一致
+app.use(cors({
+  origin: 'https://foodtracking-t1-4d8572bed4a3.herokuapp.com'  // for lan
+}));
+
+// app.use(cors({ origin: 'http://localhost:3000' })); // 与前端端口一致 for coral
 
 const playerRoutes = require('./routes/playerRoutes'); 
 app.use('/api', playerRoutes); 
@@ -28,8 +32,13 @@ app.use("/api", mealRoutes);
 const convaiRouter = require('./routes/conversationRoutes');
 app.use('/api', convaiRouter); // 调用路径为 /api/convai-chat
 
-app.listen(3001, () => {
-  console.log('服务器运行在 http://localhost:3001');
+// app.listen(3001, () => {
+//   console.log('服务器运行在 http://localhost:3001');
+// }); // for Coral
+
+const PORT = process.env.PORT || 3001;  // for Lan
+app.listen(PORT, () => {
+  console.log(`服务器运行在端口 ${PORT}`);
 });
 
 

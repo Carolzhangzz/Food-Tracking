@@ -8,7 +8,14 @@ import GameScreen from "./components/GameScreen";
 
 function App() {
   return (
-    <Router
+    // <Router
+    //   future={{
+    //     v7_startTransition: true,
+    //     v7_relativeSplatPath: true,
+    //   }}
+    // >
+      <Router
+      basename={process.env.PUBLIC_URL}
       future={{
         v7_startTransition: true,
         v7_relativeSplatPath: true,
@@ -29,7 +36,7 @@ function App() {
         >
           <Routes>
             <Route path="/" element={<LoginPage />} />
-            <Route path="/Food-Tracking" element={<LoginPage />} />
+            {/*<Route path="/Food-Tracking" element={<LoginPage />} />*/}
             <Route path="/intro" element={<CutScenePlayer />} />
             <Route path="/game" element={<GameScreen />} />
           </Routes>

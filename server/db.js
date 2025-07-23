@@ -3,17 +3,21 @@
 // for online postgres -- Lan
 const { Sequelize } = require('sequelize');
 
-// 使用 Heroku 提供的 DATABASE_URL 环境变量
-const sequelize = new Sequelize('postgres://u3bj18hdqgqut2:ped5dfbc4c9b428a75c7becd00eb96d0dd78ac9bff90ed1eeb703b907f53a2962@c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d37ihch0oqld7v', {
-  dialect: 'postgres',
-  protocol: 'postgres',
-  dialectOptions: {
-    ssl: {
-      require: true,  // 对于 Heroku PostgreSQL 需要开启 SSL
-      rejectUnauthorized: false,  // 禁用 SSL 认证
+// 优先读取 Heroku 提供的 DATABASE_URL 环境变量
+const sequelize = new Sequelize(
+  process.env.DATABASE_URL ||  // 优先使用 Heroku 环境变量
+  'postgres://u3bj18hdqgqut2:ped5dfbc4c9b428a75c7becd00eb96d0dd78ac9bff90ed1eeb703b907f53a2962@c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d37ihch0oqld7v',
+  {
+    dialect: 'postgres',
+    protocol: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
     },
-  },
-});
+  }
+);
 
 module.exports = sequelize;
 
