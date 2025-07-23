@@ -29,6 +29,7 @@
     "react-router-dom": "^7.7.0",
     "react-scripts": "^5.0.1",
     "sequelize": "^6.37.7",
+    "web-vitals": "^5.0.3",
     "ws": "^8.18.3"
   },
   "devDependencies": {
