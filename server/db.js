@@ -1,19 +1,5 @@
 // server/db.js
 
-
-// for localhost postgres -- Coral
-// const { Sequelize } = require('sequelize');
-//
-// //这里换成你自己的数据库名、用户、密码
-// const sequelize = new Sequelize('gptrpg', 'postgres', 'abc123', {
-//   host: 'localhost',
-//   dialect: 'postgres',
-//   logging: false,  // 可以关掉控制台的SQL打印
-// });
-//
-// module.exports = sequelize;
-
-
 // for online postgres -- Lan
 const { Sequelize } = require('sequelize');
 
@@ -30,3 +16,38 @@ const sequelize = new Sequelize('postgres://u3bj18hdqgqut2:ped5dfbc4c9b428a75c7b
 });
 
 module.exports = sequelize;
+
+// for localhost postgres -- Coral
+// const { Sequelize } = require('sequelize');
+//
+// //这里换成你自己的数据库名、用户、密码
+// const sequelize = new Sequelize('gptrpg', 'postgres', 'abc123', {
+//   host: 'localhost',
+//   dialect: 'postgres',
+//   logging: false,  // 可以关掉控制台的SQL打印
+// });
+//
+// module.exports = sequelize;
+
+//for localhost postgres -- Coral (package.json), deleted right now
+//{
+//  "name": "agent",
+//  "version": "1.0.0",
+//  "description": "",
+//  "main": "index.js",
+//  "scripts": {
+//    "start": "nodemon index.js",
+//    "test": "echo \"Error: no test specified\" && exit 1"
+//  },
+//  "type": "commonjs",
+//  "author": "",
+//  "license": "ISC",
+//  "dependencies": {
+//    "extract-json-from-string": "^1.0.1",
+//    "openai": "^3.2.1",
+//    "ws": "^8.13.0"
+//  },
+//  "devDependencies": {
+//    "nodemon": "^2.0.22"
+//  }
+//}
