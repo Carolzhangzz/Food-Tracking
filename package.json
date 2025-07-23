@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "homepage": "https://carolzhangzz.github.io/Food-Tracking/",
+    "engines": {
+    "node": "15.14.0",
+    "npm": "7.7.6"
+  },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "node server/app.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
