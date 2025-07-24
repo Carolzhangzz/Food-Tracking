@@ -86,7 +86,14 @@ router.post("/save-progress", async (req, res) => {
       return res.status(404).json({ error: "Player not found" });
     }
 
-    await player.update({ progress });
+    // 🔴 合并历史进度，避免覆盖原有记录
+    const updatedProgress = {
+      ...player.progress,  // 保留已有进度
+      ...progress,         // 合并新进度
+      lastUpdated: new Date().toISOString()  // 新增更新时间
+    };
+
+    await player.update({ progress: updatedProgress });  // 🔴 使用合并后的进度
 
     res.json({ success: true });
   } catch (error) {
@@ -94,26 +101,26 @@ router.post("/save-progress", async (req, res) => {
     res.status(500).json({ error: "Failed to save progress" });
   }
 });
-
-// 加载游戏进度
-router.post("/game-progress", async (req, res) => {
-  const { playerId } = req.body;
-
-  try {
-    const player = await Player.findOne({ where: { allowedId: playerId } }); // ✅ 正确的
-
-    if (!player) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Player not found" });
-    }
-
-    res.json(player.progress); // 返回 progress 对象
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
+//
+// // 加载游戏进度
+// router.post("/game-progress", async (req, res) => {
+//   const { playerId } = req.body;
+//
+//   try {
+//     const player = await Player.findOne({ where: { allowedId: playerId } }); // ✅ 正确的
+//
+//     if (!player) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Player not found" });
+//     }
+//
+//     res.json(player.progress); // 返回 progress 对象
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// });
 
 // 重置玩家进度
 router.post("/reset-progress", async (req, res) => {
@@ -134,6 +141,7 @@ router.post("/reset-progress", async (req, res) => {
         unlockedNPCs: ["village_head"],
         totalClues: 0,
         gameCompleted: false,
+        conversations: []
       },
     });
 
