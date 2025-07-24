@@ -32,10 +32,14 @@ app.use('/api', convaiRouter);
 // 静态资源托管（必须放在路由配置之后，接口路由优先）
 app.use(express.static(path.join(__dirname, '..', 'build')));
 
-// 前端路由 fallback（所有未匹配接口的路径返回 index.html）
-app.get('*', (req, res) => {
+// // 前端路由 fallback（所有未匹配接口的路径返回 index.html）
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
+// });
+app.get(/^(?!\/api).*/, (req, res) => {  // 只处理非 /api 开头的路径
   res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
 });
+
 
 // 仅保留一次端口定义和服务器启动（关键修正）
 const PORT = process.env.PORT || 3001;
