@@ -1,4 +1,6 @@
 // PlayerContext.js - 更新后的玩家上下文，支持游戏进度管理
+
+console.log("REACT_APP_API_URL is:", process.env.REACT_APP_API_URL);
 import React, { createContext, useState, useRef, useEffect } from "react";
 const API_URL = process.env.REACT_APP_API_URL;
 export const PlayerContext = createContext();
