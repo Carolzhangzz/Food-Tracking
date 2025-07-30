@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/Food-Tracking/static/css/main.41426987.css",
-    "main.js": "/Food-Tracking/static/js/main.5098b939.js",
+    "main.js": "/Food-Tracking/static/js/main.7d4ebbec.js",
     "static/js/453.a8397b35.chunk.js": "/Food-Tracking/static/js/453.a8397b35.chunk.js",
     "static/media/bgm.mp3": "/Food-Tracking/static/media/bgm.a78b2b8f163b2b5805e1.mp3",
     "static/media/npc1bg.png": "/Food-Tracking/static/media/npc1bg.98da186e4e3b0bca04ab.png",
@@ -10,11 +10,11 @@
     "static/media/characters.png": "/Food-Tracking/static/media/characters.dbba81a9af152d9dcf99.png",
     "index.html": "/Food-Tracking/index.html",
     "main.41426987.css.map": "/Food-Tracking/static/css/main.41426987.css.map",
-    "main.5098b939.js.map": "/Food-Tracking/static/js/main.5098b939.js.map",
+    "main.7d4ebbec.js.map": "/Food-Tracking/static/js/main.7d4ebbec.js.map",
     "453.a8397b35.chunk.js.map": "/Food-Tracking/static/js/453.a8397b35.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.41426987.css",
-    "static/js/main.5098b939.js"
+    "static/js/main.7d4ebbec.js"
   ]
 }
