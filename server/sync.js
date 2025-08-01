@@ -3,7 +3,6 @@ const sequelize = require('./db');
 const AllowedId = require('./models/AllowedId');
 const Player = require('./models/Player');
 const IntroScript = require('./models/IntroScript');
-const Clue = require('./models/Clue');
 const Conversation = require('./models/Conversation');
 const NPCProgress = require('./models/NPCProgress');
 const FoodLog = require('./models/FoodLog');
@@ -24,7 +23,6 @@ const FoodLog = require('./models/FoodLog');
     console.log('✅ AllowedId 表同步完成');
 
     await Player.sync({ alter: true });
-
     console.log('✅ Player 表同步完成');
 
     await NPCProgress.sync({ alter: true });
@@ -32,9 +30,6 @@ const FoodLog = require('./models/FoodLog');
 
     await FoodLog.sync({ alter: true });
     console.log('✅ FoodLog 表同步完成');
-
-    await Clue.sync({ alter: true });
-    console.log('✅ Clue 表同步完成');
 
     await Conversation.sync({ alter: true });
     console.log('✅ Conversation 表同步完成');  
