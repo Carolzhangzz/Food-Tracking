@@ -245,7 +245,6 @@ export default class UIManager {
     this.progressLabel.setOrigin(0.5);
     this.progressLabel.setScrollFactor(0);
     this.progressLabel.setDepth(100);
-
     this.updateProgressDisplay();
   }
 
