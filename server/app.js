@@ -4,7 +4,19 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 console.log("环境变量:", process.env.CONVAI_API_KEY);
 
 const express = require('express');
+const cors = require('cors');
 const app = express();
+
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://foodtracking-t1-4d8572bed4a3.herokuapp.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -12,14 +24,12 @@ const sequelize = require("./db");
 sequelize.sync({ alter: true });
 sequelize.authenticate()
   .then(() => console.log("DB connected"))
-  .catch((err) => console.error("❌ DB connection error", err));
+  .catch((err) => console.error("DB connection error", err));
 
-const cors = require('cors');
-app.use(cors({
-  origin: 'https://foodtracking-t1-4d8572bed4a3.herokuapp.com'  // 允许 Heroku 前端访问
-}));
 
-// 后端路由配置
+const groqRoutes = require('./routes/groqRoutes');
+app.use('/api', groqRoutes);
+
 const playerRoutes = require('./routes/playerRoutes');
 app.use('/api', playerRoutes);
 
@@ -41,7 +51,6 @@ app.get(/^(?!\/api).*/, (req, res) => {  // 只处理非 /api 开头的路径
 });
 
 
-// 仅保留一次端口定义和服务器启动（关键修正）
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`服务器运行在端口 ${PORT}`);
