@@ -985,7 +985,10 @@ export class NPCManager {
       hasCompletedDialog: npc.hasCompletedDialog,
       hasRecordedAnyMeal: npc.hasRecordedAnyMeal
     };
-    await this.playerContext.saveGameProgress({ ... });
+    await this.playerContext.saveGameProgress({
+      currentDay: this.getCurrentDay(),
+      dailyMealsRecorded: this.getDailyMealsRecorded()
+    });
 
     if (npc.glowEffect) {
       npc.glowEffect.destroy();
@@ -993,7 +996,10 @@ export class NPCManager {
     }
 
     if (this.shouldProgressToNextDay(npc)) {
-      await this.playerContext.saveGameProgress({ ... });
+      await this.playerContext.saveGameProgress({
+        currentDay: this.getCurrentDay() + 1,
+        dailyMealsRecorded: 0
+      });
     }
   }
 
