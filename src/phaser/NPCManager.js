@@ -2,17 +2,26 @@ import Phaser from "phaser";
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-export default class NPCManager {
-  constructor(scene, mapScale) {
+export class NPCManager {
+  constructor(scene, mapScale, playerContext) {
     this.scene = scene;
+    this.playerContext = playerContext;
     this.mapScale = mapScale;
     this.npcs = new Map();
     this.dialogSystem = null;
-    this.currentDay = 1;
-    this.dailyMealsRecorded = 0;
-    this.totalMealsRequired = 3;
+    // this.currentDay = 1;
+    // this.dailyMealsRecorded = 0;
+    // this.totalMealsRequired = 3;
     this.allMealsData = [];
+    this.npcProgress = {
+      npcDialogStates: {},      // 每个NPC的对话状态
+      npcInteractionLogs: [],   // NPC交互记录
+      npcClueStatus: {}         // 线索发放状态
+    };
     this.initializeNPCs();
+    console.log("NPCManager 接收的 playerContext:", this.playerContext);
+    console.log("是否包含玩家ID:", !!this.playerContext?.playerId);
+    console.log("是否包含游戏进度:", !!this.playerContext?.gameProgress);
   }
 
   setDialogSystem(dialogSystem) {
@@ -25,70 +34,79 @@ export default class NPCManager {
       {
         id: "village_head",
         name: "村长",
-        position: { x: 1, y: 1 },
+        position: {x: 1, y: 1},
         day: 1,
-        isUnlocked: true,
-        convaiId: "xxx",
+        isUnlocked: false,
+        convaiId: "111",
+        portraitKey: "npc1head",
+        backgroundKey: "npc1bg",
+        journalTriggers: ["village_head_journal_1", "village_head_journal_2", "village_head_journal_3"]
       },
       {
         id: "shop_owner",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "店主阿桂"
-            : "Grace (Shop Owner)",
-        position: { x: 12, y: 5 },
+        name: "店主阿桂",
+        position: {x: 12, y: 5},
         day: 2,
         isUnlocked: false,
+        convaiId: "222",
+        portraitKey: "npc2head",
+        backgroundKey: "npc2bg",
+        journalTriggers: ["shop_owner_journal_1", "shop_owner_journal_2", "shop_owner_journal_3"]
       },
       {
         id: "spice_woman",
-        name:
-          this.scene.playerData.language === "zh" ? "香料婆婆" : "Spice Woman",
-        position: { x: 8, y: 12 },
+        name: "香料婆婆",
+        position: {x: 8, y: 12},
         day: 3,
         isUnlocked: false,
+        convaiId: "333",
         portraitKey: "npc3head",
         backgroundKey: "npc3bg",
+        journalTriggers: ["spice_woman_journal_1", "spice_woman_journal_2", "spice_woman_journal_3"]
       },
       {
         id: "restaurant_owner",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "餐厅店长老韩"
-            : "Han (Restaurant Owner)",
-        position: { x: 15, y: 8 },
+        name: "餐厅店长老韩",
+        position: {x: 15, y: 8},
         day: 4,
         isUnlocked: false,
+        convaiId: "444",
+        portraitKey: "npc4head",
+        backgroundKey: "npc4bg",
+        journalTriggers: ["restaurant_owner_journal_1", "restaurant_owner_journal_2", "restaurant_owner_journal_3"]
       },
       {
         id: "fisherman",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "渔夫阿梁"
-            : "Leon (Fisherman)",
-        position: { x: 3, y: 14 },
+        name: "渔夫阿梁",
+        position: {x: 3, y: 14},
         day: 5,
         isUnlocked: false,
+        convaiId: "555",
         portraitKey: "npc5head",
         backgroundKey: "npc5bg",
+        journalTriggers: ["fisherman_journal_1", "fisherman_journal_2", "fisherman_journal_3"]
       },
       {
         id: "old_friend",
-        name: this.scene.playerData.language === "zh" ? "林川" : "Rowan",
-        position: { x: 18, y: 12 },
+        name: "林川",
+        position: {x: 18, y: 12},
         day: 6,
         isUnlocked: false,
+        convaiId: "666",
         portraitKey: "npc6head",
         backgroundKey: "npc6bg",
+        journalTriggers: ["old_friend_journal_1", "old_friend_journal_2", "old_friend_journal_3"]
       },
       {
         id: "secret_apprentice",
-        name: this.scene.playerData.language === "zh" ? "念念" : "NianNian",
-        position: { x: 10, y: 3 },
+        name: "念念",
+        position: {x: 10, y: 3},
         day: 7,
         isUnlocked: false,
+        convaiId: "777",
         portraitKey: "npc7head",
         backgroundKey: "npc7bg",
+        journalTriggers: ["secret_apprentice_journal_1", "secret_apprentice_journal_2", "secret_apprentice_journal_3"]
       },
     ];
 
@@ -97,9 +115,10 @@ export default class NPCManager {
       this.createNPC(config);
     });
 
-    // 加载当前进度
-    this.loadGameProgress();
-
+    // 先加载NPC专属进度，再同步全局进度
+    this.loadGameProgress().then(() => {
+      this.syncGameProgress(); // 确保最终以全局进度为准
+    });
     console.log("NPCs initialized:", this.npcs.size);
     console.log("Current NPC unlocked:", this.getCurrentDayNPC()?.isUnlocked);
   }
@@ -108,30 +127,79 @@ export default class NPCManager {
     try {
       const response = await fetch(`${API_URL}/game-progress`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: this.scene.playerId }),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({playerId: this.scene.playerId}),
       });
 
       if (response.ok) {
         const progress = await response.json();
-        this.currentDay = progress.currentDay || 1;
-        this.dailyMealsRecorded = progress.dailyMealsRecorded || 0;
-        this.allMealsData = progress.allMealsData || [];
+        // this.currentDay = progress.currentDay || 1;
+        // this.dailyMealsRecorded = progress.dailyMealsRecorded || 0;
+        // this.allMealsData = progress.allMealsData || [];
+
+        this.npcProgress = {
+          npcDialogStates: progress.npcDialogStates || {},
+          npcInteractionLogs: progress.npcInteractionLogs || [],
+          npcClueStatus: progress.npcClueStatus || {}
+        };
 
         // 解锁对应的NPC
-        this.unlockNPCsUpToDay(this.currentDay);
+        // this.unlockNPCsUpToDay(this.currentDay);
 
+        // 恢复NPC的对话状态
+        this.restoreNPCStates();
+
+        // console.log(
+        //     `Game progress loaded: Day ${this.playerContext.gameProgress.currentDay}, Meals recorded today: ${this.playerContext.gameProgress.dailyMealsRecorded}`
+        // );
+
+        const currentDay = this.playerContext?.gameProgress?.currentDay ?? 1;
+        const dailyMeals = this.playerContext?.gameProgress?.dailyMealsRecorded ?? 0;
         console.log(
-          `Game progress loaded: Day ${this.currentDay}, Meals recorded today: ${this.dailyMealsRecorded}`
+          `Game progress loaded: Day ${currentDay}, Meals recorded today: ${dailyMeals}`
         );
       }
     } catch (error) {
       console.error("Error loading game progress:", error);
-      // 使用默认值：第一天开始
-      this.currentDay = 1;
-      this.dailyMealsRecorded = 0;
-      this.allMealsData = [];
+      // // 使用默认值：第一天开始
+      // this.currentDay = 1;
+      // this.dailyMealsRecorded = 0;
+      // this.allMealsData = [];
+
+      // 错误时使用默认NPC状态
+      this.npcProgress = {
+        npcDialogStates: {},
+        npcInteractionLogs: [],
+        npcClueStatus: {}
+      };
     }
+  }
+
+  // 从加载的NPC进度中恢复状态
+  restoreNPCStates() {
+    this.npcs.forEach((npc) => {
+      // 恢复对话状态
+      if (this.npcProgress.npcDialogStates[npc.id]) {
+        npc.dialogState = this.npcProgress.npcDialogStates[npc.id].dialogState;
+        npc.hasCompletedDialog = this.npcProgress.npcDialogStates[npc.id].hasCompletedDialog;
+        npc.hasRecordedAnyMeal = this.npcProgress.npcDialogStates[npc.id].hasRecordedAnyMeal;
+      }
+      // 恢复线索状态
+      if (this.npcProgress.npcClueStatus[npc.id]) {
+        npc.hasClueGiven = this.npcProgress.npcClueStatus[npc.id];
+      }
+    });
+  }
+
+  // 同步PlayerContext中的全局进度到NPCManager
+  syncGameProgress() {
+    const {gameProgress, foodJournal} = this.playerContext;
+    // 1. 用全局进度解锁NPC（关键：以全局天数为准）
+    this.unlockNPCsUpToDay(gameProgress.currentDay);
+    // 2. 同步全局餐食记录
+    this.allMealsData = foodJournal;
+    // 3. 日志输出同步结果
+    console.log(`同步全局进度：第 ${gameProgress.currentDay} 天，已记录 ${gameProgress.dailyMealsRecorded}/${gameProgress.totalMealsRequired} 餐`);
   }
 
   unlockNPCsUpToDay(day) {
@@ -142,11 +210,34 @@ export default class NPCManager {
 
         // 高亮显示当天的NPC
         if (npc.day === day) {
+          if (npc.glowEffect) {
+            npc.glowEffect.destroy();
+          }
           this.highlightNPC(npc);
           this.addNPCClickArea(npc); // 添加点击区域
         }
       }
     });
+  }
+
+  // 从PlayerContext获取当前天数
+  getCurrentDay() {
+    return this.playerContext.gameProgress.currentDay;
+  }
+
+  // 从PlayerContext获取今日已记录餐数
+  getDailyMealsRecorded() {
+    return this.playerContext.gameProgress.dailyMealsRecorded;
+  }
+
+  // 从PlayerContext获取每日所需记录的餐数
+  getTotalMealsRequired() {
+    return this.playerContext.gameProgress.totalMealsRequired;
+  }
+
+  // 检查当天是否已完成所有餐食记录
+  isDayComplete() {
+    return this.getDailyMealsRecorded() >= this.getTotalMealsRequired();
   }
 
   highlightNPC(npc) {
@@ -160,9 +251,9 @@ export default class NPCManager {
     // 添加脉冲动画
     this.scene.tweens.add({
       targets: glowEffect,
-      scaleX: { from: 1, to: 1.3 },
-      scaleY: { from: 1, to: 1.3 },
-      alpha: { from: 0.8, to: 0.2 },
+      scaleX: {from: 1, to: 1.3},
+      scaleY: {from: 1, to: 1.3},
+      alpha: {from: 0.8, to: 0.2},
       duration: 1500,
       repeat: -1,
       yoyo: true,
@@ -184,8 +275,8 @@ export default class NPCManager {
     npc.clickArea.setPosition(npc.sprite.x, npc.sprite.y);
     npc.clickArea.setDepth(3);
     npc.clickArea.setInteractive(
-      new Phaser.Geom.Circle(0, 0, clickRadius),
-      Phaser.Geom.Circle.Contains
+        new Phaser.Geom.Circle(0, 0, clickRadius),
+        Phaser.Geom.Circle.Contains
     );
 
     // 设置点击事件
@@ -215,16 +306,16 @@ export default class NPCManager {
     const hintText = language === "zh" ? "点击对话" : "Tap to talk";
 
     npc.hoverText = this.scene.add.text(
-      npc.sprite.x,
-      npc.sprite.y - 50,
-      hintText,
-      {
-        fontSize: "14px",
-        fontFamily: "monospace",
-        fill: "#ffd700",
-        backgroundColor: "#000000",
-        padding: { x: 8, y: 4 },
-      }
+        npc.sprite.x,
+        npc.sprite.y - 50,
+        hintText,
+        {
+          fontSize: "14px",
+          fontFamily: "monospace",
+          fill: "#ffd700",
+          backgroundColor: "#000000",
+          padding: {x: 8, y: 4},
+        }
     );
     npc.hoverText.setOrigin(0.5);
     npc.hoverText.setDepth(20);
@@ -277,6 +368,8 @@ export default class NPCManager {
       glowEffect: null,
       clickArea: null,
       hoverText: null,
+      portraitKey: config.portraitKey,
+      backgroundKey: config.backgroundKey,
     };
 
     this.npcs.set(config.id, npcData);
@@ -284,34 +377,17 @@ export default class NPCManager {
     return npcData;
   }
 
-  // getNPCById(id) {
-  //   return this.npcs.get(id);
-  // }
   getNPCById(id) {
-    const npc = this.npcs.get(id); // ✅ 正确使用 Map 的 get 方法
+    const npc = this.npcs.get(id);
     if (!npc) return null;
-
-    const npcAssetMap = {
-      village_head: { portraitKey: "npc1head", backgroundKey: "npc1bg" },
-      shop_owner: { portraitKey: "npc2head", backgroundKey: "npc2bg" },
-      spice_woman: { portraitKey: "npc3head", backgroundKey: "npc3bg" },
-      restaurant_owner: { portraitKey: "npc4head", backgroundKey: "npc4bg" },
-      fisherman: { portraitKey: "npc5head", backgroundKey: "npc5bg" },
-      old_friend: { portraitKey: "npc6head", backgroundKey: "npc6bg" },
-      secret_apprentice: { portraitKey: "npc7head", backgroundKey: "npc7bg" },
-    };
-
-    const assets = npcAssetMap[npc.id] || {};
     return {
       ...npc,
-      portraitKey: assets.portraitKey,
-      backgroundKey: assets.backgroundKey,
     };
   }
 
   getCurrentDayNPC() {
     return Array.from(this.npcs.values()).find(
-      (npc) => npc.day === this.currentDay
+        (npc) => npc.day === this.getCurrentDay()
     );
   }
 
@@ -324,7 +400,7 @@ export default class NPCManager {
       const playerPos = this.scene.gridEngine.getPosition("player");
       const npcPos = this.scene.gridEngine.getPosition(npcId);
       return (
-        Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) <= 2
+          Math.abs(playerPos.x - npcPos.x) + Math.abs(playerPos.y - npcPos.y) <= 2
       );
     } catch (error) {
       console.error(`Error checking distance to NPC ${npcId}:`, error);
@@ -556,6 +632,8 @@ export default class NPCManager {
     npc.hasClueGiven = true;
     npc.dialogState = "completed";
 
+    this.npcProgress.npcClueStatus[npc.id] = true;
+    this.saveNPCProgress().catch(error => console.error(error));
     const clue = this.getNPCClue(npc.id);
 
     // 添加线索到UI管理器
@@ -563,7 +641,7 @@ export default class NPCManager {
       this.scene.uiManager.addClue({
         npcName: npc.name,
         clue: clue,
-        day: this.currentDay,
+        day: this.getCurrentDay(),
       });
     }
 
@@ -593,62 +671,53 @@ export default class NPCManager {
 
   async checkDayProgression() {
     const currentNPC = this.getCurrentDayNPC();
+    const currentDay = this.getCurrentDay();
+
     if (
-      currentNPC &&
-      currentNPC.hasCompletedDialog &&
-      currentNPC.hasClueGiven
+        currentNPC &&
+        currentNPC.hasCompletedDialog &&
+        currentNPC.hasClueGiven &&
+      currentDay < 7
     ) {
-      if (this.currentDay < 7) {
-        // 进入下一天
-        this.currentDay++;
-        this.dailyMealsRecorded = 0;
+      // 调用PlayerContext的方法更新全局进度
+      await this.playerContext.saveGameProgress({
+        currentDay: currentDay + 1,
+        dailyMealsRecorded: 0,
+      });
 
-        // 解锁下一个NPC
-        const nextNPC = Array.from(this.npcs.values()).find(
-          (npc) => npc.day === this.currentDay
-        );
-        if (nextNPC) {
-          nextNPC.isUnlocked = true;
-          nextNPC.sprite.setVisible(true);
-          this.highlightNPC(nextNPC);
-          this.addNPCClickArea(nextNPC); // 为新NPC添加点击区域
+      this.syncGameProgress();
 
-          const message =
-            this.scene.playerData.language === "zh"
-              ? `🌅 第${this.currentDay}天开始！\n新的NPC ${nextNPC.name} 已解锁！`
-              : `🌅 Day ${this.currentDay} begins!\nNew NPC ${nextNPC.name} unlocked!`;
-          this.scene.showNotification(message, 5000);
-        }
-
-        // 保存进度
-        await this.saveGameProgress();
-      } else {
-        // 第7天完成，触发最终彩蛋
-        this.scene.showNotification(
+      // 解锁下一个NPC
+      const nextNPC = this.getCurrentDayNPC();
+      const message =
           this.scene.playerData.language === "zh"
-            ? "🎊 恭喜完成7天的旅程！正在生成你的专属彩蛋..."
-            : "🎊 Congratulations on completing the 7-day journey! Generating your personalized ending...",
-          3000
-        );
+              ? `第${currentDay + 1}天开始！\n新的NPC ${nextNPC.name} 已解锁！`
+              : `Day ${currentDay + 1} begins!\nNew NPC ${nextNPC.name} unlocked!`;
+          this.scene.showNotification(message, 5000);
+        } else if (currentDay >= 7) {
+          this.scene.showNotification(
+            this.scene.playerData.language === "zh"
+              ? "恭喜完成7天的旅程！正在生成你的专属彩蛋..."
+              : "Congratulations on completing the 7-day journey! Generating your personalized ending...",
+            3000
+          );
 
         setTimeout(() => {
           this.triggerFinalEgg();
         }, 3000);
       }
     }
-  }
+
 
   // 保存游戏进度到后端
-  async saveGameProgress() {
+  async saveNPCProgress() {
     try {
       await fetch(`${API_URL}/save-progress`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           playerId: this.scene.playerId,
-          currentDay: this.currentDay,
-          dailyMealsRecorded: this.dailyMealsRecorded,
-          allMealsData: this.allMealsData,
+          npcProgress: this.npcProgress
         }),
       });
     } catch (error) {
@@ -671,7 +740,7 @@ export default class NPCManager {
       // 调用LLM生成最终彩蛋
       const response = await fetch(`${API_URL}/generate-final-egg`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           playerId: this.scene.playerId,
           language: language,
@@ -709,8 +778,8 @@ export default class NPCManager {
     });
 
     const foodsList = Array.from(uniqueFoods)
-      .slice(0, 5)
-      .join(language === "zh" ? "、" : ", ");
+        .slice(0, 5)
+        .join(language === "zh" ? "、" : ", ");
 
     if (language === "zh") {
       return `师父留给你的秘方：\n\n"亲爱的徒弟，你的美食之旅让我看到了你的成长。\n\n通过你记录的${foodsList}等食材，我看到了你对美食的热爱和理解。\n\n真正的秘方不在于特定的食材，而在于用心烹饪每一道菜，就像你这七天所做的那样。\n\n继续用爱烹饪，用心品味生活。\n\n——你的师父"`;
@@ -737,27 +806,27 @@ export default class NPCManager {
       // 村长
       village_head: {
         zh:
-          "你总算回来了……你师傅，他出事了。\n\n" +
-          "三天前，他没有留下只言片语就离开了村子。\n" +
-          "炉灶里的火还温着，但人却消失了。\n\n" +
-          "你也知道，他从不是会无故离开的人。他几乎从未离开过村子。\n\n" +
-          "你曾是他的徒弟。\n" +
-          "如果有人能查出发生了什么，那就是你。\n\n" +
-          "但这次，不只是翻翻厨房的抽屉那么简单。\n\n" +
-          "他总是带着一本小本子，记录他与人的每次交流。\n" +
-          "也许你能试着用他的方式，去理解他的思路。\n\n" +
-          "我相信，那些记录里藏着线索。",
+            "你总算回来了……你师傅，他出事了。\n\n" +
+            "三天前，他没有留下只言片语就离开了村子。\n" +
+            "炉灶里的火还温着，但人却消失了。\n\n" +
+            "你也知道，他从不是会无故离开的人。他几乎从未离开过村子。\n\n" +
+            "你曾是他的徒弟。\n" +
+            "如果有人能查出发生了什么，那就是你。\n\n" +
+            "但这次，不只是翻翻厨房的抽屉那么简单。\n\n" +
+            "他总是带着一本小本子，记录他与人的每次交流。\n" +
+            "也许你能试着用他的方式，去理解他的思路。\n\n" +
+            "我相信，那些记录里藏着线索。",
         en:
-          "You're finally back… Something happened to your master.\n\n" +
-          "Three days ago, he left the village without a word.\n" +
-          "The fire in his kitchen was still warm—but he was gone.\n\n" +
-          "You know as well as I do… he was never the kind to vanish without a reason.\n" +
-          "He has barely left the village his whole life.\n\n" +
-          "You were once his apprentice. If anyone can find out what happened to him… it's you.\n\n" +
-          "But this search—it's not just about turning over kitchen drawers.\n\n" +
-          "Not long ago, he always brought a notebook whenever he met someone.\n" +
-          "Maybe by following his method, you can understand how he thinks.\n\n" +
-          "I believe those records hold the key.",
+            "You're finally back… Something happened to your master.\n\n" +
+            "Three days ago, he left the village without a word.\n" +
+            "The fire in his kitchen was still warm—but he was gone.\n\n" +
+            "You know as well as I do… he was never the kind to vanish without a reason.\n" +
+            "He has barely left the village his whole life.\n\n" +
+            "You were once his apprentice. If anyone can find out what happened to him… it's you.\n\n" +
+            "But this search—it's not just about turning over kitchen drawers.\n\n" +
+            "Not long ago, he always brought a notebook whenever he met someone.\n" +
+            "Maybe by following his method, you can understand how he thinks.\n\n" +
+            "I believe those records hold the key.",
       },
       // 店主阿桂
       shop_owner: {
@@ -787,8 +856,8 @@ export default class NPCManager {
     };
 
     return greetings[npcId]
-      ? greetings[npcId][language] || greetings[npcId]["en"]
-      : "Hello!";
+        ? greetings[npcId][language] || greetings[npcId]["en"]
+        : "Hello!";
   }
 
   getNPCClue(npcId) {
@@ -825,8 +894,8 @@ export default class NPCManager {
     };
 
     return clues[npcId]
-      ? clues[npcId][language] || clues[npcId]["en"]
-      : "No clue available";
+        ? clues[npcId][language] || clues[npcId]["en"]
+        : "No clue available";
   }
 
   updateScale(newScale) {
@@ -848,14 +917,14 @@ export default class NPCManager {
   // 新增方法：检查是否可以与NPC交互
   canInteractWithNPC(npc) {
     // 检查是否是当天的NPC
-    if (npc.day !== this.currentDay) {
+    if (npc.day !== this.getCurrentDay()) {
       return false;
     }
 
     // 检查前一天是否完成了至少一餐的记录
     if (npc.day > 1) {
       const previousDayNPC = Array.from(this.npcs.values()).find(
-        (n) => n.day === npc.day - 1
+          (n) => n.day === npc.day - 1
       );
       if (!previousDayNPC || !previousDayNPC.hasRecordedAnyMeal) {
         return false;
@@ -869,21 +938,21 @@ export default class NPCManager {
     const language = this.scene.playerData.language;
     let message;
 
-    if (npc.day > this.currentDay) {
+    if (npc.day > this.getCurrentDay()) {
       message =
-        language === "zh"
-          ? `这是第${npc.day}天的NPC，请先完成今天的任务`
-          : `This is Day ${npc.day} NPC, please complete today's tasks first`;
-    } else if (npc.day === this.currentDay && npc.day > 1) {
+          language === "zh"
+              ? `这是第${npc.day}天的NPC，请先完成今天的任务`
+              : `This is Day ${npc.day} NPC, please complete today's tasks first`;
+    } else if (npc.day === this.getCurrentDay() && npc.day > 1) {
       message =
-        language === "zh"
-          ? "你需要先和前一天的NPC记录至少一餐才能解锁"
-          : "You need to record at least one meal with the previous day's NPC to unlock";
+          language === "zh"
+              ? "你需要先和前一天的NPC记录至少一餐才能解锁"
+              : "You need to record at least one meal with the previous day's NPC to unlock";
     } else {
       message =
-        language === "zh"
-          ? "暂时无法与此NPC对话"
-          : "Cannot interact with this NPC yet";
+          language === "zh"
+              ? "暂时无法与此NPC对话"
+              : "Cannot interact with this NPC yet";
     }
 
     this.scene.showNotification(message, 3000);
@@ -910,15 +979,21 @@ export default class NPCManager {
     npc.hasCompletedDialog = true;
     npc.hasRecordedAnyMeal = true; // 标记已记录至少一餐
 
-    // 移除高亮效果
+    // 保存NPC对话状态到专属进度
+    this.npcProgress.npcDialogStates[npc.id] = {
+      dialogState: npc.dialogState,
+      hasCompletedDialog: npc.hasCompletedDialog,
+      hasRecordedAnyMeal: npc.hasRecordedAnyMeal
+    };
+    await this.playerContext.saveGameProgress({ ... });
+
     if (npc.glowEffect) {
       npc.glowEffect.destroy();
       npc.glowEffect = null;
     }
 
-    // 检查是否可以进入下一天
     if (this.shouldProgressToNextDay(npc)) {
-      await this.progressToNextDay();
+      await this.playerContext.saveGameProgress({ ... });
     }
   }
 
@@ -928,48 +1003,58 @@ export default class NPCManager {
   }
 
   async progressToNextDay() {
-    if (this.currentDay >= 7) {
+    if (this.getCurrentDay() >= 7) {
       // 游戏完成
       this.triggerGameCompletion();
       return;
     }
 
-    this.currentDay++;
-    this.dailyMealsRecorded = 0;
+    // 调用PlayerContext的方法更新全局进度
+    await this.playerContext.saveGameProgress({  // 这里修改了
+      currentDay: this.getCurrentDay() + 1,
+      dailyMealsRecorded: 0,
+    });
+
+    this.syncGameProgress();  // 这里添加了
+
 
     // 解锁下一个NPC
     const nextNPC = Array.from(this.npcs.values()).find(
-      (npc) => npc.day === this.currentDay
+        (npc) => npc.day === this.getCurrentDay()
     );
 
-    if (nextNPC) {
-      nextNPC.isUnlocked = true;
-      nextNPC.sprite.setVisible(true);
-      this.highlightNPC(nextNPC);
-      this.addNPCClickArea(nextNPC);
 
-      const message =
-        this.scene.playerData.language === "zh"
-          ? `🌅 第${this.currentDay}天开始！\n新的NPC ${nextNPC.name} 已解锁！`
-          : `🌅 Day ${this.currentDay} begins!\nNew NPC ${nextNPC.name} unlocked!`;
-
-      this.scene.showNotification(message, 5000);
-    }
+    // if (nextNPC) {
+    //   nextNPC.isUnlocked = true;
+    //   nextNPC.sprite.setVisible(true);
+    //   this.highlightNPC(nextNPC);
+    //   this.addNPCClickArea(nextNPC);
+    //
+    //   const message =
+    //       this.scene.playerData.language === "zh"
+    //           ? `🌅 第${this.getCurrentDay()}天开始！\n新的NPC ${nextNPC.name} 已解锁！`
+    //           : `🌅 Day ${this.getCurrentDay()} begins!\nNew NPC ${nextNPC.name} unlocked!`;
+    //
+    //   this.scene.showNotification(message, 5000);
+    // }
 
     // 保存进度
-    await this.saveGameProgress();
+    // await this.saveGameProgress(); // already realized in "await this.playerContext.saveGameProgress({ ... });"
   }
 
   triggerGameCompletion() {
     const message =
-      this.scene.playerData.language === "zh"
-        ? "🎊 恭喜完成7天的旅程！正在生成你的专属彩蛋..."
-        : "🎊 Congratulations on completing the 7-day journey! Generating your personalized ending...";
+        this.scene.playerData.language === "zh"
+            ? "🎊 恭喜完成7天的旅程！正在生成你的专属彩蛋..."
+            : "🎊 Congratulations on completing the 7-day journey! Generating your personalized ending...";
 
     this.scene.showNotification(message, 3000);
 
     setTimeout(() => {
-      this.triggerFinalEgg();
+      // 在 setTimeout 回调中处理异步操作的 Promise
+      this.triggerFinalEgg().catch(error => {
+        console.error("触发最终彩蛋时发生错误:", error);
+      });
     }, 3000);
   }
 
@@ -987,16 +1072,12 @@ export default class NPCManager {
     return clues.sort((a, b) => a.day - b.day);
   }
 
-  getCurrentDay() {
-    return this.currentDay;
-  }
-
   getDailyProgress() {
     return {
-      currentDay: this.currentDay,
-      mealsRecorded: this.dailyMealsRecorded,
-      totalMealsRequired: this.totalMealsRequired,
-      isComplete: this.dailyMealsRecorded >= this.totalMealsRequired,
+      currentDay: this.getCurrentDay(),
+      mealsRecorded: this.getDailyMealsRecorded(),
+      totalMealsRequired: this.getTotalMealsRequired(),
+      isComplete: this.isDayComplete(),
     };
   }
 

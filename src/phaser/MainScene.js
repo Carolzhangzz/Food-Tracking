@@ -4,11 +4,17 @@ import mapJson from "../assets/tiled.json";
 import tileset from "../assets/tiles.png";
 import characters from "../assets/characters.png";
 import Agent from "./Agent";
-import DialogScene from "./DialogScene.js"; // 确保这个名称正确
-import NPCManager from "./NPCManager.js";
+import DialogScene from "./DialogScene.js";
+import {NPCManager} from "./NPCManager.js";
 import UIManager from "./UIManager.js";
 import { playBGM, stopBGM } from "../utils/audioManager";
-import npc from "../assets/npc1.png"; // 确保路径正确
+import npc1 from "../assets/npc/npc1.png";
+import npc2 from "../assets/npc/npc2.png";
+import npc3 from "../assets/npc/npc3.png";
+import npc4 from "../assets/npc/npc4.png";
+import npc5 from "../assets/npc/npc5.png";
+import npc6 from "../assets/npc/npc6.png";
+import npc7 from "../assets/npc/npc7.png";
 
 export default class MainScene extends Phaser.Scene {
   constructor() {
@@ -23,6 +29,7 @@ export default class MainScene extends Phaser.Scene {
     this.playerId = data.playerId;
     this.playerData = data.playerData;
     this.updatePlayerdata = data.updatePlayerdata;
+    this.playerContext = data.playerContext;
 
     try {
       this.playerLoc = {
@@ -45,8 +52,14 @@ export default class MainScene extends Phaser.Scene {
       frameWidth: 26,
       frameHeight: 36,
     });
-    // load 第一个npc
-    this.load.image("npc", npc);
+    // load npc
+    this.load.image("npc1", npc1);
+    this.load.image("npc2", npc2);
+    this.load.image("npc3", npc3);
+    this.load.image("npc4", npc4);
+    this.load.image("npc5", npc5);
+    this.load.image("npc6", npc6);
+    this.load.image("npc7", npc7);
   }
 
   create() {
@@ -59,6 +72,11 @@ export default class MainScene extends Phaser.Scene {
     this.showWelcomeMessage();
     this.handleResize(this.scale.gameSize);
     this.gameStarted = true;
+    this.npcManager = new NPCManager(
+      this,
+      0.5,
+      this.playerContext // 传递上下文实例
+    );
   }
 
   setupAudio() {
@@ -436,7 +454,6 @@ export default class MainScene extends Phaser.Scene {
     }
 
     this.dialogSystem = dialogScene;
-    this.npcManager = new NPCManager(this, this.mapScale);
     this.uiManager = new UIManager(this);
 
     // 安全地设置NPC管理器

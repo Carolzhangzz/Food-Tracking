@@ -1,6 +1,12 @@
 // DialogScene.js - 移动端优化版本
 import Phaser from "phaser";
 import npc1bg from "../assets/npc/npc1bg.png";
+import npc2bg from "../assets/npc/npc2bg.png";
+import npc3bg from "../assets/npc/npc3bg.png";
+import npc4bg from "../assets/npc/npc4bg.png";
+import npc5bg from "../assets/npc/npc4bg.png";
+import npc6bg from "../assets/npc/npc4bg.png";
+import npc7bg from "../assets/npc/npc4bg.png";
 
 const API_URL = process.env.REACT_APP_API_URL;
  
@@ -36,18 +42,22 @@ export default class DialogScene extends Phaser.Scene {
   }
 
   preload() {
+    // 获取当前NPC的配置（包含backgroundKey）
     const npc = this.npcManager.getNPCById(this.currentNPC);
-    const imageName = {
-      npc1bg: npc1bg,
-    };
-    if (npc?.backgroundKey) {
-      const backgroundPath = imageName[npc.backgroundKey];
-      console.log(`Attempting to load background: ${backgroundPath}`);
-      this.load.image(npc.backgroundKey, backgroundPath);
+    if (!npc || !npc.backgroundKey) {
+      console.warn("No background key for NPC:", this.currentNPC);
+      return;
     }
-
+    // 动态导入当前NPC的背景图（根据实际路径调整）
+    const backgroundPath = `../assets/npc/${npc.backgroundKey}.png`; // 假设背景图在src/assets/npc/目录下
+    import(backgroundPath).then((module) => {
+    // 加载背景图，key与backgroundKey一致（例如 "npc2bg"）
+      this.load.image(npc.backgroundKey, module.default);
+    }).catch((error) => {
+      console.error(`Failed to load background for ${npc.backgroundKey}:`, error);
+    });
     this.load.on("complete", () => {
-      console.log("Preload complete, proceeding with dialog");
+      console.log("Background preload complete");
     });
   }
 

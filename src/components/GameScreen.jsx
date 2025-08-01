@@ -11,10 +11,9 @@ import Control from "./Control";
 import DialogScene from '../phaser/DialogScene';
 
 function GameScreen() {
-  const { playerId, playerData, setPlayerData, gameRef } =
-    useContext(PlayerContext);
+  const playerContext = useContext(PlayerContext);
+  const { playerId, playerData, setPlayerData, gameRef, gameProgress } = playerContext;
   const navigate = useNavigate();
-const { gameProgress } = useContext(PlayerContext);
   useEffect(() => {
     if (!playerId || !playerData) {
       console.log("No player data, redirecting to login");
