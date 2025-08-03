@@ -169,7 +169,7 @@ function Control() {
 
 const styles = {
   button: {
-    padding: "clamp(6px, 2vw, 12px)",
+    padding: "clamp(4px, 2vw, 12px)",
     backgroundColor: "rgba(0, 0, 0, 0.8)",
     color: "white",
     border: "1px solid rgba(255, 255, 255, 0.3)",

@@ -8,6 +8,7 @@ export class NPCManager {
     this.playerContext = playerContext;
     this.mapScale = mapScale;
     this.npcs = new Map();
+    this.npcTalkedStatus = new Map();
     this.dialogSystem = null;
     // this.currentDay = 1;
     // this.dailyMealsRecorded = 0;
@@ -22,6 +23,7 @@ export class NPCManager {
     console.log("NPCManager 接收的 playerContext:", this.playerContext);
     console.log("是否包含玩家ID:", !!this.playerContext?.playerId);
     console.log("是否包含游戏进度:", !!this.playerContext?.gameProgress);
+    this.currentDay = 1;  // 当前天数（可从playerData读取）
   }
 
   setDialogSystem(dialogSystem) {
@@ -916,60 +918,37 @@ export class NPCManager {
 
   // 新增方法：检查是否可以与NPC交互
   canInteractWithNPC(npc) {
-    // 检查是否是当天的NPC
-    if (npc.day !== this.getCurrentDay()) {
-      return false;
-    }
+    // 只有当天的NPC且未对话过才可交互
+    return npc.day === this.getCurrentDay() && !this.npcTalkedStatus.get(npc.id);
+}
 
-    // 检查前一天是否完成了至少一餐的记录
-    if (npc.day > 1) {
-      const previousDayNPC = Array.from(this.npcs.values()).find(
-          (n) => n.day === npc.day - 1
-      );
-      if (!previousDayNPC || !previousDayNPC.hasRecordedAnyMeal) {
-        return false;
-      }
-    }
-
-    return npc.isUnlocked;
-  }
-
-  showInteractionBlockedMessage(npc) {
-    const language = this.scene.playerData.language;
-    let message;
-
-    if (npc.day > this.getCurrentDay()) {
-      message =
-          language === "zh"
-              ? `这是第${npc.day}天的NPC，请先完成今天的任务`
-              : `This is Day ${npc.day} NPC, please complete today's tasks first`;
-    } else if (npc.day === this.getCurrentDay() && npc.day > 1) {
-      message =
-          language === "zh"
-              ? "你需要先和前一天的NPC记录至少一餐才能解锁"
-              : "You need to record at least one meal with the previous day's NPC to unlock";
-    } else {
-      message =
-          language === "zh"
-              ? "暂时无法与此NPC对话"
-              : "Cannot interact with this NPC yet";
-    }
-
-    this.scene.showNotification(message, 3000);
-  }
+showInteractionBlockedMessage(npc) {
+    const lang = this.scene.playerData.language;
+    const msg = lang === "zh" ? "今天不能和他对话哦" : "Can't talk to him today";
+    this.scene.showNotification(msg, 2000);
+}
 
   startDialogScene(npcId) {
-    console.log(`Starting dialog scene with NPC: ${npcId}`);
-
-    // 暂停主场景并启动对话场景
+    console.log(`Starting dialog with NPC: ${npcId}`);
     this.scene.scene.pause("MainScene");
     this.scene.scene.launch("DialogScene", {
-      npcId: npcId,
-      npcManager: this,
-      playerData: this.scene.playerData,
-      mainScene: this.scene,
+        npcId: npcId,
+        npcManager: this,
+        playerData: this.scene.playerData,
+        mainScene: this.scene,
+        onComplete: () => {  // 传递对话结束回调
+            this.scene.onDialogComplete(npcId);
+        }
     });
-  }
+}
+getClueForNPC(npcId) {
+    // 委托DialogScene获取线索（或直接实现线索逻辑）
+    return this.dialogSystem?.getClueForNPC(npcId);
+}
+
+markNPCAsTalked(npcId) {
+    this.npcTalkedStatus.set(npcId, true);
+}
 
   // 完成NPC交互
   async completeNPCInteraction(npcId) {

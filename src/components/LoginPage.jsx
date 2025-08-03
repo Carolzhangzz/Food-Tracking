@@ -10,8 +10,6 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { setPlayerId, setPlayerData } = useContext(PlayerContext);
   const navigate = useNavigate();
-
-
   console.log("API_URL is:", API_URL);
 
   // 登录处理函数
