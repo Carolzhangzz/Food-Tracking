@@ -50,7 +50,6 @@ if (config.use_env_variable) {
 // } else {
 //   sequelize = new Sequelize(config.database, config.username, config.password, config);
 // }
-
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -62,10 +61,13 @@ fs
     );
   })
   .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    // 直接导入模型实例（而非工厂函数）
+    const model = require(path.join(__dirname, file));
+    // 使用模型的名称作为键存入db对象
     db[model.name] = model;
   });
 
+// 执行关联（如果模型定义了associate方法）
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
