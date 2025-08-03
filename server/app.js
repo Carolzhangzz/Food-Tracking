@@ -63,8 +63,8 @@ const convaiRoutes = require("./routes/convaiRoutes");
 
 // 注册API路由
 app.use("/api", gameRoutes);
-app.use("/api", geminiRoutes);
-app.use("/api", convaiRoutes);
+// app.use("/api", geminiRoutes);
+// app.use("/api", convaiRoutes);
 
 // 新增：前端静态资源路由配置
 // 假设前端构建产物在项目根目录的 "client/build" 文件夹
