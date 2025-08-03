@@ -62,11 +62,11 @@ const geminiRoutes = require("./routes/geminiRoutes");
 const convaiRoutes = require("./routes/convaiRoutes");
 
 
-// 新增：前端静态资源路由配置
-const frontendBuildPath = path.join(__dirname, "../public");
-
-// 提供前端静态文件（CSS、JS、图片等）
-app.use(express.static(frontendBuildPath));
+// 静态资源配置：托管public和src目录（按你的需求保留）
+const publicPath = path.join(__dirname, "../public");
+const srcPath = path.join(__dirname, "../src");
+app.use(express.static(publicPath));
+app.use(express.static(srcPath));
 
 // 注册API路由
 app.use("/api", gameRoutes);
@@ -77,11 +77,10 @@ app.use("/api", convaiRoutes);
 // 修复后的通配符路由
 app.get("/*path", (req, res) => {
   if (!req.path.startsWith("/api")) {
-    // 拼接public目录下的index.html路径
-    const indexPath = path.join(frontendBuildPath, "index.html");
+    // 使用定义好的publicPath变量（修复未定义错误）
+    const indexPath = path.join(publicPath, "index.html");
     res.sendFile(indexPath, (err) => {
       if (err) {
-        // 打印错误（方便排查）
         console.error("无法加载index.html：", err);
         res.status(500).send("页面加载失败");
       }
@@ -90,6 +89,9 @@ app.get("/*path", (req, res) => {
     res.status(404).json({ message: "API endpoint not found" });
   }
 });
+
+
+
 // 健康检查端点
 app.get("/health", (req, res) => {
   res.json({
