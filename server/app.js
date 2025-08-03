@@ -61,12 +61,10 @@ const gameRoutes = require("./routes/gameRoutes");
 const geminiRoutes = require("./routes/geminiRoutes");
 const convaiRoutes = require("./routes/convaiRoutes");
 
-
-// 静态资源配置：托管public和src目录（按你的需求保留）
-const publicPath = path.join(__dirname, "../public");
-const srcPath = path.join(__dirname, "../src");
-app.use(express.static(publicPath));
-app.use(express.static(srcPath));
+// 静态资源目录：根目录的 build 文件夹（React 构建后可直接运行的产物）
+const buildPath = path.join(__dirname, "../build"); // 从 server 目录向上找根目录的 build
+// 只托管 build 目录（包含转译后的 JS、CSS、index.html）
+app.use(express.static(buildPath));
 
 // 注册API路由
 app.use("/api", gameRoutes);
@@ -77,11 +75,11 @@ app.use("/api", convaiRoutes);
 // 修复后的通配符路由
 app.get("/*path", (req, res) => {
   if (!req.path.startsWith("/api")) {
-    // 使用定义好的publicPath变量（修复未定义错误）
-    const indexPath = path.join(publicPath, "index.html");
+    // 指向构建后的入口 HTML（根目录 build 下的 index.html）
+    const indexPath = path.join(buildPath, "index.html");
     res.sendFile(indexPath, (err) => {
       if (err) {
-        console.error("无法加载index.html：", err);
+        console.error("无法加载 build/index.html：", err);
         res.status(500).send("页面加载失败");
       }
     });
@@ -89,7 +87,6 @@ app.get("/*path", (req, res) => {
     res.status(404).json({ message: "API endpoint not found" });
   }
 });
-
 
 
 // 健康检查端点
