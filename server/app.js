@@ -67,21 +67,27 @@ app.use("/api", geminiRoutes);
 app.use("/api", convaiRoutes);
 
 // 新增：前端静态资源路由配置
-// 假设前端构建产物在项目根目录的 "client/build" 文件夹
-const frontendBuildPath = path.join(__dirname, "../client/build");
+const frontendBuildPath = path.join(__dirname, "../public");
 
 // 提供前端静态文件（CSS、JS、图片等）
 app.use(express.static(frontendBuildPath));
 
 // 修复后的通配符路由
-app.get("/*path", (req, res) => {  // 这里将 "*" 改为 "/*path"，补充参数名 "path"
+app.get("/*path", (req, res) => {
   if (!req.path.startsWith("/api")) {
-    res.sendFile(path.join(frontendBuildPath, "index.html"));
+    // 拼接public目录下的index.html路径
+    const indexPath = path.join(frontendBuildPath, "index.html");
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        // 打印错误（方便排查）
+        console.error("无法加载index.html：", err);
+        res.status(500).send("页面加载失败");
+      }
+    });
   } else {
     res.status(404).json({ message: "API endpoint not found" });
   }
 });
-
 // 健康检查端点
 app.get("/health", (req, res) => {
   res.json({
