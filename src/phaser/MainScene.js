@@ -17,7 +17,7 @@ import npc6 from "../assets/npc/npc6.png";
 import npc7 from "../assets/npc/npc7.png";
 
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
+const API_URL = process.env.REACT_APP_API_URL;
 export default class MainScene extends Phaser.Scene {
     constructor() {
         super({key: "MainScene"});
