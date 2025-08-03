@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
@@ -18,7 +17,7 @@ router.post('/convai-chat', async (req, res) => {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "CONVAI-API-KEY": process.env.CONVAI_API_KEY,
-        },   
+        },
       }
     );
 

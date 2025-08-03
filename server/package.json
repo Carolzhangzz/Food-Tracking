@@ -1,29 +1,27 @@
 {
-  "name": "food-tracking",
+  "name": "agent",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "commonjs",
+  "author": "",
+  "license": "ISC",
   "engines": {
-    "node": "15.14.0",
-    "npm": "7.7.6"
+    "node": "22.17.1",
+    "npm": "10.9.2"
   },
   "dependencies": {
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-scripts": "^4.0.3",
+    "extract-json-from-string": "^1.0.1",
     "openai": "^3.2.1",
     "ws": "^8.13.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }
 

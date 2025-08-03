@@ -1,57 +1,62 @@
-// server/db.js
-
-// for online postgres -- Lan
+// server/db.js - PostgreSQL 配置
 const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-// 优先读取 Heroku 提供的 DATABASE_URL 环境变量
-const sequelize = new Sequelize(
-  process.env.DATABASE_URL ||  // 优先使用 Heroku 环境变量
-  'postgres://u3bj18hdqgqut2:ped5dfbc4c9b428a75c7becd00eb96d0dd78ac9bff90ed1eeb703b907f53a2962@c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d37ihch0oqld7v',
-  {
-    dialect: 'postgres',
-    protocol: 'postgres',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-  }
-);
+const sequelize = process.env.DATABASE_URL
+  ? new Sequelize(process.env.DATABASE_URL, {
+      dialect: 'postgres',
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false // Heroku 可能需要关闭严格 SSL 验证
+        }
+      }
+    })
+  : new Sequelize(
+      process.env.DB_NAME,
+      process.env.DB_USER,
+      process.env.DB_PASS,
+      {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        dialect: 'postgres'
+      }
+    );
 
 module.exports = sequelize;
 
-// for localhost postgres -- Coral
-// const { Sequelize } = require('sequelize');
 //
-// //这里换成你自己的数据库名、用户、密码
-// const sequelize = new Sequelize('gptrpg', 'postgres', 'abc123', {
-//   host: 'localhost',
-//   dialect: 'postgres',
-//   logging: false,  // 可以关掉控制台的SQL打印
-// });
+// let sequelize;
+//
+// if (process.env.DATABASE_URL) {
+//   // 生产环境或使用完整的 DATABASE_URL
+//   sequelize = new Sequelize(process.env.DATABASE_URL, {
+//     dialect: 'postgres',
+//     dialectOptions: {
+//       ssl: process.env.NODE_ENV === 'production' ? {
+//         require: true,
+//         rejectUnauthorized: false
+//       } : false
+//     },
+//     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+//   });
+// } else {
+//   // 开发环境，使用分离的配置
+//   sequelize = new Sequelize({
+//     database: process.env.DB_NAME || 'rpg_game_db',
+//     username: process.env.DB_USER || 'postgres',
+//     password: process.env.DB_PASS || 'password',
+//     host: process.env.DB_HOST || 'localhost',
+//     port: process.env.DB_PORT || 5432,
+//     dialect: 'postgres',
+//     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+//     pool: {
+//       max: 5,
+//       min: 0,
+//       acquire: 30000,
+//       idle: 10000,
+//     },
+//   });
+// }
 //
 // module.exports = sequelize;
-
-//for localhost postgres -- Coral (package.json), deleted right now
-//{
-//  "name": "agent",
-//  "version": "1.0.0",
-//  "description": "",
-//  "main": "index.js",
-//  "scripts": {
-//    "start": "nodemon index.js",
-//    "test": "echo \"Error: no test specified\" && exit 1"
-//  },
-//  "type": "commonjs",
-//  "author": "",
-//  "license": "ISC",
-//  "dependencies": {
-//    "extract-json-from-string": "^1.0.1",
-//    "openai": "^3.2.1",
-//    "ws": "^8.13.0"
-//  },
-//  "devDependencies": {
-//    "nodemon": "^2.0.22"
-//  }
-//}

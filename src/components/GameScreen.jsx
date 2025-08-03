@@ -11,15 +11,15 @@ import Control from "./Control";
 import DialogScene from '../phaser/DialogScene';
 
 function GameScreen() {
-  const playerContext = useContext(PlayerContext);
-  const { playerId, playerData, setPlayerData, gameRef, gameProgress } = playerContext;
+  const { playerId, playerData, setPlayerData, gameRef } =
+    useContext(PlayerContext);
   const navigate = useNavigate();
+
   useEffect(() => {
     if (!playerId || !playerData) {
       console.log("No player data, redirecting to login");
       navigate("/");
     } else {
-      console.log("当前 Day:", gameProgress.currentDay);
       console.log("GameScreen - Player ID:", playerId);
       console.log("GameScreen - Player Data:", playerData);
     }

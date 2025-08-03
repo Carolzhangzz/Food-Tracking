@@ -1,4 +1,4 @@
-// DialogScene.js - 调试和修复版本
+// DialogScene.js - 修正餐食选择和线索逻辑
 import Phaser from "phaser";
 import npc1bg from "../assets/npc/npc1bg.png";
 import npc2bg from "../assets/npc/npc2bg.png";
@@ -7,22 +7,13 @@ import npc4bg from "../assets/npc/npc4bg.png";
 import npc5bg from "../assets/npc/npc5bg.png";
 import npc6bg from "../assets/npc/npc6bg.png";
 import npc7bg from "../assets/npc/npc7bg.png";
+
 import {
   createDialogBox,
   createReturnButton,
   showChoiceButtons,
 } from "./DialogUI.js";
-// import { updateProgress } from "./UIManager.js";
 const API_URL = process.env.REACT_APP_API_URL;
-const bgMap = {
-  npc1bg,
-  npc2bg,
-  npc3bg,
-  npc4bg,
-  npc5bg,
-  npc6bg,
-  npc7bg
-};
 
 export default class DialogScene extends Phaser.Scene {
   constructor() {
@@ -40,13 +31,14 @@ export default class DialogScene extends Phaser.Scene {
     this.conversationHistory = [];
 
     // 对话状态管理
-    this.dialogPhase = "initial"; // initial, continuing, meal_selection, completed
+    this.dialogPhase = "initial";
     this.canSkipToMeal = false;
     this.dialogTurnCount = 0;
     this.maxDialogTurns = 5;
     this.fixedQuestionPhase = "meal_type";
     this.mealAnswers = {};
     this.currentQuestionIndex = 0;
+    this.availableMealTypes = []; // 新增：当前可选择的餐食类型
 
     // 新增：资源清理追踪
     this.timers = [];
@@ -54,7 +46,6 @@ export default class DialogScene extends Phaser.Scene {
 
     // 添加调试标志
     this.debugMode = true;
-    //添加动态按钮数组
     this.dynamicButtons = [];
   }
 
@@ -65,6 +56,14 @@ export default class DialogScene extends Phaser.Scene {
     this.mainScene = data.mainScene;
     this.convaiSessionId = "-1";
 
+    // 获取当前NPC可选择的餐食类型
+    const availableNPC = this.npcManager.availableNPCs.find(
+      (n) => n.npcId === this.currentNPC
+    );
+    this.availableMealTypes = availableNPC
+      ? availableNPC.availableMealTypes || []
+      : [];
+
     // 检测是否为移动端
     this.isMobile = this.scale.width < 768;
 
@@ -72,6 +71,7 @@ export default class DialogScene extends Phaser.Scene {
       console.log("=== DialogScene初始化 ===");
       console.log("当前NPC:", this.currentNPC);
       console.log("玩家数据:", this.playerData);
+      console.log("可选餐食类型:", this.availableMealTypes);
     }
   }
 
@@ -89,15 +89,6 @@ export default class DialogScene extends Phaser.Scene {
     this.load.on("complete", () => {
       console.log("Preload complete, proceeding with dialog");
     });
-
-Object.entries(bgMap).forEach(([key, url]) => {
-    this.load.image(key, url);
-  });
-
-  this.load.on("complete", () => {
-    console.log("DialogScene preload 完成，所有背景已加载");
-  });
-
   }
 
   create() {
@@ -270,7 +261,6 @@ Object.entries(bgMap).forEach(([key, url]) => {
         text:
           this.playerData.language === "zh" ? "继续对话" : "Continue talking",
         onClick: () => {
-          // hideChoiceButtons();
           this.waitForUserInput();
         },
       },
@@ -280,7 +270,6 @@ Object.entries(bgMap).forEach(([key, url]) => {
             ? "开始记录食物"
             : "Start recording meal",
         onClick: () => {
-          // hideChoiceButtons();
           this.proceedToMealSelection();
         },
       },
@@ -305,7 +294,7 @@ Object.entries(bgMap).forEach(([key, url]) => {
     }, 200);
   }
 
-  // 显示餐食选择按钮
+  // 修改：显示餐食选择按钮 - 只显示可选择的餐食类型
   showMealSelectionButtons() {
     // 额外彻底清理所有残留按钮
     this.children.list.forEach((child) => {
@@ -316,10 +305,25 @@ Object.entries(bgMap).forEach(([key, url]) => {
 
     if (this.debugMode) {
       console.log("=== 显示餐食选择按钮 ===");
+      console.log("可选餐食类型:", this.availableMealTypes);
+    }
+
+    // 检查是否有可选择的餐食类型
+    if (!this.availableMealTypes || this.availableMealTypes.length === 0) {
+      this.showSingleMessage(
+        "npc",
+        this.playerData.language === "zh"
+          ? "今天的餐食已经全部记录完了，明天再来吧！"
+          : "All meals for today have been recorded, come back tomorrow!",
+        () => {
+          this.dialogPhase = "completed";
+          this.returnToMainScene();
+        }
+      );
+      return;
     }
 
     const { width, height } = this.scale;
-    const meals = ["Breakfast", "Lunch", "Dinner"];
 
     this.mealButtons = [];
 
@@ -332,7 +336,9 @@ Object.entries(bgMap).forEach(([key, url]) => {
     const questionText = this.add.text(
       width / 2,
       startY - 80,
-      "Which meal do you want to record?",
+      this.playerData.language === "zh"
+        ? "选择要记录的餐食类型:"
+        : "Which meal do you want to record?",
       {
         fontSize: this.isMobile ? "16px" : "18px",
         fontFamily: "monospace",
@@ -343,9 +349,19 @@ Object.entries(bgMap).forEach(([key, url]) => {
     questionText.setOrigin(0.5);
     questionText.setDepth(20);
 
-    meals.forEach((meal, index) => {
+    // 餐食类型的中英文映射
+    const mealTypeNames = {
+      breakfast: this.playerData.language === "zh" ? "早餐" : "Breakfast",
+      lunch: this.playerData.language === "zh" ? "午餐" : "Lunch",
+      dinner: this.playerData.language === "zh" ? "晚餐" : "Dinner",
+    };
+
+    // 只显示可选择的餐食类型
+    this.availableMealTypes.forEach((mealType, index) => {
       const buttonY = startY + index * buttonSpacing;
-      const button = this.add.text(width / 2, buttonY, meal, {
+      const displayName = mealTypeNames[mealType] || mealType;
+
+      const button = this.add.text(width / 2, buttonY, displayName, {
         fontSize: fontSize,
         fontFamily: "monospace",
         fill: "#e2e8f0",
@@ -361,9 +377,9 @@ Object.entries(bgMap).forEach(([key, url]) => {
 
       button.on("pointerdown", () => {
         if (this.debugMode) {
-          console.log("选择餐食:", meal);
+          console.log("选择餐食:", mealType);
         }
-        this.selectMeal(meal);
+        this.selectMeal(mealType, displayName);
       });
 
       button.on("pointerover", () => {
@@ -414,39 +430,6 @@ Object.entries(bgMap).forEach(([key, url]) => {
       });
     }
   }
-
-  //  showChoiceButtons(scene, options) {
-  //   const { width, height } = scene.scale;
-  //   const isMobile = scene.isMobile;
-  //   const fontSize = isMobile ? "14px" : "18px";
-  //   const startY = isMobile ? height * 0.3 : height * 0.4;
-  //   const spacing = isMobile ? 60 : 70;
-
-  //   scene.choiceButtons = [];
-
-  //   Object.keys(options).forEach((key, index) => {
-  //     const opt = options[key];
-  //     const y = startY + index * spacing;
-
-  //     const btn = scene.add.text(width / 2, y, opt.text, {
-  //       fontSize,
-  //       fontFamily: "monospace",
-  //       fill: "#e2e8f0",
-  //       backgroundColor: "#4a5568",
-  //       padding: { x: 16, y: 10 },
-  //       align: "center",
-  //     });
-  //     // 把创建的按钮放入数组
-  //     scene.dynamicButtons.push(btn);
-
-  //     btn.setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(30);
-  //     btn.on("pointerdown", opt.onClick);
-  //     btn.on("pointerover", () => btn.setTint(0x667eea));
-  //     btn.on("pointerout", () => btn.clearTint());
-
-  //     scene.choiceButtons.push(btn);
-  //   });
-  // }
 
   // 显示初始选择按钮
   showInitialChoices() {
@@ -507,6 +490,84 @@ Object.entries(bgMap).forEach(([key, url]) => {
   }
 
   // 用户输入处理
+  // async handleUserInput(input) {
+  //   if (this.debugMode) {
+  //     console.log("=== 处理用户输入开始 ===");
+  //     console.log("输入内容:", input);
+  //     console.log("当前对话阶段:", this.dialogPhase);
+  //   }
+
+  //   // 立即清理输入框，避免重复提交
+  //   this.clearTextInput();
+
+  //   this.dialogTurnCount++;
+
+  //   console.log("=== 对话调试信息 ===");
+  //   console.log("当前对话阶段:", this.dialogPhase);
+  //   console.log("对话轮数:", this.dialogTurnCount);
+  //   console.log("用户输入:", input);
+
+  //   // 添加到对话历史
+  //   this.addToConversationHistory("player", input);
+  //   this.dialogHistory.push({
+  //     type: "user",
+  //     content: input,
+  //   });
+
+  //   // 显示"正在思考..."状态
+  //   this.updateStatus("正在思考...");
+
+  //   try {
+  //     let response;
+
+  //     // 根据当前状态选择正确的 API
+  //     switch (this.dialogPhase) {
+  //       case "continuing":
+  //         if (this.debugMode) {
+  //           console.log("调用 ConvAI API");
+  //         }
+  //         response = await this.callConvaiAPI(input);
+  //         break;
+  //       case "meal_recording":
+  //         if (this.debugMode) {
+  //           console.log("调用 Gemini API"); // 修改日志信息
+  //         }
+  //         response = await this.callGeminiAPI(input); // 调用新的 Gemini API 方法
+  //         break;
+  //       default:
+  //         throw new Error(`Unknown dialog phase: ${this.dialogPhase}`);
+  //     }
+
+  //     if (this.debugMode) {
+  //       console.log("API响应:", response);
+  //     }
+
+  //     if (response && response.success) {
+  //       console.log("NPC回复:", response.message);
+
+  //       // 添加到对话历史
+  //       this.dialogHistory.push({
+  //         type: "assistant",
+  //         content: response.message,
+  //       });
+
+  //       // 清除"正在思考..."状态
+  //       this.updateStatus("");
+
+  //       await this.processResponse(response);
+  //     } else {
+  //       // 清除"正在思考..."状态
+  //       this.updateStatus("");
+  //       await this.handleResponseError(response);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error in handleUserInput:", error);
+  //     // 清除"正在思考..."状态
+  //     this.updateStatus("");
+  //     await this.handleError(error);
+  //   }
+  // }
+
   async handleUserInput(input) {
     if (this.debugMode) {
       console.log("=== 处理用户输入开始 ===");
@@ -514,14 +575,27 @@ Object.entries(bgMap).forEach(([key, url]) => {
       console.log("当前对话阶段:", this.dialogPhase);
     }
 
-    // 立即清理输入框，避免重复提交，但不要立即设置 isWaitingForInput = false
+    // 立即清理输入框，避免重复提交
     this.clearTextInput();
 
-    this.dialogTurnCount++;
+    // 根据对话阶段增加相应的轮数计数
+    if (this.dialogPhase === "continuing") {
+      this.dialogTurnCount++;
+    } else if (this.dialogPhase === "meal_recording") {
+      this.geminiTurnCount++; // 新增：Gemini 轮数计数
+
+      // 强制结束检测：超过最大轮数
+      if (this.geminiTurnCount >= this.maxGeminiTurns) {
+        console.log("Gemini 对话达到最大轮数，强制结束");
+        this.forceEndGeminiDialog();
+        return;
+      }
+    }
 
     console.log("=== 对话调试信息 ===");
     console.log("当前对话阶段:", this.dialogPhase);
-    console.log("对话轮数:", this.dialogTurnCount);
+    console.log("ConvAI轮数:", this.dialogTurnCount);
+    console.log("Gemini轮数:", this.geminiTurnCount || 0);
     console.log("用户输入:", input);
 
     // 添加到对话历史
@@ -547,9 +621,9 @@ Object.entries(bgMap).forEach(([key, url]) => {
           break;
         case "meal_recording":
           if (this.debugMode) {
-            console.log("调用 Groq API");
+            console.log("调用 Gemini API (轮数: " + this.geminiTurnCount + ")");
           }
-          response = await this.callGroqAPI(input);
+          response = await this.callGeminiAPI(input);
           break;
         default:
           throw new Error(`Unknown dialog phase: ${this.dialogPhase}`);
@@ -585,13 +659,30 @@ Object.entries(bgMap).forEach(([key, url]) => {
     }
   }
 
-  // 新增：处理成功响应
+  forceEndGeminiDialog() {
+    console.log("强制结束 Gemini 对话");
+
+    const endMessage =
+      this.playerData.language === "zh"
+        ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
+        : "Thank you for sharing your meal with me! I have recorded your meal information.";
+
+    this.showSingleMessage("npc", endMessage, () => {
+      this.mealRecorded = true;
+      this.currentDialogState = "completion_check";
+      this.dialogPhase = "completed";
+      this.handleMealCompletion();
+    });
+  }
+
+  // 增强结束检测
   async processResponse(response) {
     return new Promise((resolve) => {
       this.showSingleMessage("npc", response.message, () => {
         if (this.debugMode) {
           console.log("=== 响应处理完成 ===");
           console.log("当前阶段:", this.dialogPhase);
+          console.log("Gemini轮数:", this.geminiTurnCount || 0);
           console.log(
             "检查结束消息:",
             this.detectThankYouMessage(response.message)
@@ -599,39 +690,41 @@ Object.entries(bgMap).forEach(([key, url]) => {
         }
 
         if (this.dialogPhase === "continuing") {
-          // 检查是否有触发短语（优先级最高）
+          // ConvAI 对话逻辑保持不变
           if (this.checkForTriggerPhrase(response.message)) {
             console.log("检测到触发短语，直接进入食物选择");
             this.proceedToMealSelection();
-          }
-          // 第4次对话后自动跳转
-          else if (this.dialogTurnCount >= 4) {
+          } else if (this.dialogTurnCount >= 4) {
             console.log("对话轮数>=4，自动进入食物选择");
             this.proceedToMealSelection();
-          }
-          // 第2次对话后显示选择按钮
-          else if (this.dialogTurnCount >= 2) {
+          } else if (this.dialogTurnCount >= 2) {
             console.log("对话轮数>=2，显示继续/跳过选择按钮");
             this.showContinueOrSkipChoice();
-          }
-          // 第1次对话后继续等待输入
-          else {
+          } else {
             console.log("继续下一轮对话（轮数:", this.dialogTurnCount, "）");
             setTimeout(() => {
               this.waitForUserInput();
             }, 500);
           }
         } else if (this.dialogPhase === "meal_recording") {
-          // Check if this is the end of Groq conversation
+          // Gemini 对话结束检测 - 增强版
           if (this.detectThankYouMessage(response.message)) {
-            console.log("检测到Groq对话结束消息，准备获取线索/模糊回复");
+            console.log("检测到Gemini对话结束消息，准备获取线索/模糊回复");
             this.mealRecorded = true;
             this.currentDialogState = "completion_check";
             this.dialogPhase = "completed";
-            // 处理餐食完成逻辑
             this.handleMealCompletion();
+          }
+          // 新增：轮数限制检查
+          else if (this.geminiTurnCount >= this.maxGeminiTurns) {
+            console.log("Gemini 对话达到最大轮数，结束对话");
+            this.forceEndGeminiDialog();
           } else {
-            console.log("继续Groq食物记录对话");
+            console.log(
+              "继续Gemini食物记录对话（轮数:",
+              this.geminiTurnCount,
+              "）"
+            );
             setTimeout(() => {
               this.waitForUserInput();
             }, 500);
@@ -719,7 +812,7 @@ Object.entries(bgMap).forEach(([key, url]) => {
     });
   }
 
-  // 检查触发短语
+  // 不同npc的触发短语
   checkForTriggerPhrase(message) {
     const npcTriggerMap = {
       village_head: "I believe those records hold the key",
@@ -1058,12 +1151,6 @@ I believe those records hold the key.`,
 
     // 确保输入框被创建
     this.createTextInput();
-
-    // if (this.debugMode) {
-    //   console.log("输入框已启用，等待输入状态:", this.isWaitingForInput);
-    //   console.log("输入框是否存在:", this.textInput ? "是" : "否");
-    //   console.log("发送按钮是否存在:", this.sendButton ? "是" : "否");
-    // }
   }
 
   disableInputBox() {
@@ -1086,14 +1173,9 @@ I believe those records hold the key.`,
     }
 
     this.npcMap = new Map();
-        this.npcMap.set("village_head", "d38ecac8-5c6b-11f0-946c-42010a7be01f");
-        this.npcMap.set("shop_owner", "abc123-shop-owner-id");
-        this.npcMap.set("spice_woman", "abc456-spice-woman-id");
-        this.npcMap.set("restaurant_owner", "abc456-restaurant-owner-id");
-        this.npcMap.set("fisherman", "abc456-fisherman-id");
-        this.npcMap.set("old_friend", "abc456-old-friend-id");
-        this.npcMap.set("secret_apprentice", "abc456-secret-apprentice-id");
-
+    this.npcMap.set("village_head", "d38ecac8-5c6b-11f0-946c-42010a7be01f");
+    this.npcMap.set("shop_owner", "abc123-shop-owner-id");
+    this.npcMap.set("spice_woman", "abc456-spice-woman-id");
 
     const charID = this.npcMap.get(this.currentNPC);
 
@@ -1151,13 +1233,13 @@ I believe those records hold the key.`,
     }
   }
 
-  // 调用Groq API处理用户输入
-  async callGroqAPI(userInput) {
+  async callGeminiAPI(userInput) {
     if (this.debugMode) {
-      console.log("=== 调用 Groq API ===");
+      console.log("=== 调用 Gemini API ===");
       console.log("用户输入:", userInput);
       console.log("当前NPC:", this.currentNPC);
       console.log("餐食类型:", this.selectedMealType);
+      console.log("当前轮数:", this.geminiTurnCount);
     }
 
     try {
@@ -1167,13 +1249,14 @@ I believe those records hold the key.`,
         mealType: this.selectedMealType,
         mealAnswers: this.mealAnswers,
         dialogHistory: this.dialogHistory,
+        turnCount: this.geminiTurnCount, // 新增：传递轮数给后端
       };
 
       if (this.debugMode) {
-        console.log("Groq 请求体:", requestBody);
+        console.log("Gemini 请求体:", requestBody);
       }
 
-      const response = await fetch(`${API_URL}/groq-chat`, {
+      const response = await fetch(`${API_URL}/gemini-chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -1182,7 +1265,8 @@ I believe those records hold the key.`,
       const data = await response.json();
 
       if (this.debugMode) {
-        console.log("Groq 响应数据:", data);
+        console.log("Gemini 响应数据:", data);
+        console.log("响应消息:", data.message);
       }
 
       if (data.success) {
@@ -1194,7 +1278,14 @@ I believe those records hold the key.`,
         throw new Error(data.error);
       }
     } catch (error) {
-      console.error("Error calling Groq API:", error);
+      console.error("Error calling Gemini API:", error);
+
+      // 如果 API 调用失败，也强制结束对话
+      console.log("Gemini API 调用失败，强制结束对话");
+      setTimeout(() => {
+        this.forceEndGeminiDialog();
+      }, 1000);
+
       return {
         success: false,
         error: error.message,
@@ -1202,27 +1293,225 @@ I believe those records hold the key.`,
     }
   }
 
-  async selectMeal(meal) {
+  // 修改选择餐食方法
+  async selectMeal(mealType, displayName) {
     if (this.debugMode) {
       console.log("=== 选择餐食 ===");
-      console.log("选择的餐食:", meal);
+      console.log("选择的餐食:", mealType);
     }
 
     // 清理餐食选择按钮
     this.clearAllButtons();
 
     // 记录选择的餐食
-    this.selectedMealType = meal.toLowerCase();
-    this.addToConversationHistory("player", meal);
+    this.selectedMealType = mealType;
+    this.addToConversationHistory("player", displayName);
 
     // 初始化答案存储
     this.mealAnswers = {
-      mealType: meal,
+      mealType: mealType,
     };
 
     // 直接显示所有固定问题
     this.showAllFixedQuestions();
   }
+
+  // // 显示所有固定问题（一次性显示）
+  // // showAllFixedQuestions() {
+  // //   if (this.debugMode) {
+  // //     console.log("=== 显示所有固定问题 ===");
+  // //   }
+
+  // //   const { width, height } = this.scale;
+
+  // //   // 清理现有按钮
+  // //   this.clearAllButtons();
+
+  // //   // 问题和选项数据
+  // //   const questions = [
+  // //     {
+  // //       title: "1. How is your meal obtained?",
+  // //       options: [
+  // //         "A. Home-cooked meals",
+  // //         "B. Eat out at restaurants",
+  // //         "C. Takeout or delivery",
+  // //         "D. Ready-to-eat meals",
+  // //       ],
+  // //       key: "obtainMethod",
+  // //     },
+  // //     {
+  // //       title: "2. What time did you have this meal?",
+  // //       options: [
+  // //         "A. Early morning (before 7:00 AM)",
+  // //         "B. Morning (7:00–11:00 AM)",
+  // //         "C. Midday (11:00 AM–2:00 PM)",
+  // //         "D. Afternoon (2:00–5:00 PM)",
+  // //         "E. Evening (5:00–9:00 PM)",
+  // //         "F. Night (after 9:00 PM)",
+  // //       ],
+  // //       key: "mealTime",
+  // //     },
+  // //     {
+  // //       title: "3. How long did you eat?",
+  // //       options: [
+  // //         "A. Less than 10 minutes",
+  // //         "B. 10–30 minutes",
+  // //         "C. 30–60 minutes",
+  // //         "D. More than 60 minutes",
+  // //       ],
+  // //       key: "duration",
+  // //     },
+  // //   ];
+
+  // //   this.fixedQuestionButtons = [];
+  // //   this.questionAnswers = {}; // 存储每个问题的答案
+
+  // //   let currentY = this.isMobile ? height * 0.1 : height * 0.15;
+  // //   const questionSpacing = this.isMobile ? 120 : 150;
+  // //   const optionSpacing = this.isMobile ? 25 : 30;
+  // //   const fontSize = this.isMobile ? "11px" : "13px";
+  // //   const titleFontSize = this.isMobile ? "13px" : "15px";
+
+  // //   questions.forEach((question, qIndex) => {
+  // //     // 显示问题标题
+  // //     const questionTitle = this.add.text(width / 2, currentY, question.title, {
+  // //       fontSize: titleFontSize,
+  // //       fontFamily: "monospace",
+  // //       fill: "#f1f5f9",
+  // //       align: "center",
+  // //       fontStyle: "bold",
+  // //     });
+  // //     questionTitle.setOrigin(0.5);
+  // //     questionTitle.setDepth(20);
+  // //     this.fixedQuestionButtons.push(questionTitle);
+
+  // //     currentY += 35;
+
+  // //     // 显示选项按钮
+  // //     question.options.forEach((option, oIndex) => {
+  // //       const button = this.add.text(width / 2, currentY, option, {
+  // //         fontSize: fontSize,
+  // //         fontFamily: "monospace",
+  // //         fill: "#e2e8f0",
+  // //         backgroundColor: "#4a5568",
+  // //         padding: { x: 12, y: 6 },
+  // //       });
+
+  // //       button.setOrigin(0.5);
+  // //       button.setInteractive({ useHandCursor: true });
+  // //       button.setDepth(20);
+
+  // //       button.on("pointerdown", () => {
+  // //         this.selectFixedQuestionAnswer(question.key, option, oIndex, qIndex);
+  // //       });
+
+  // //       button.on("pointerover", () => {
+  // //         button.setTint(0x667eea);
+  // //       });
+
+  // //       button.on("pointerout", () => {
+  // //         button.clearTint();
+  // //       });
+
+  // //       this.fixedQuestionButtons.push(button);
+  // //       currentY += optionSpacing;
+  // //     });
+
+  // //     currentY += questionSpacing - question.options.length * optionSpacing;
+  // //   });
+
+  // //   // 添加提交按钮（初始隐藏）
+  // //   this.submitButton = this.add.text(
+  // //     width / 2,
+  // //     currentY + 30,
+  // //     "Submit All Answers",
+  // //     {
+  // //       fontSize: this.isMobile ? "14px" : "16px",
+  // //       fontFamily: "monospace",
+  // //       fill: "#ffffff",
+  // //       backgroundColor: "#10b981",
+  // //       padding: { x: 20, y: 10 },
+  // //     }
+  // //   );
+  // //   this.submitButton.setOrigin(0.5);
+  // //   this.submitButton.setDepth(20);
+  // //   this.submitButton.setVisible(false);
+
+  // //   this.submitButton.setInteractive({ useHandCursor: true });
+  // //   this.submitButton.on("pointerdown", () => {
+  // //     this.submitAllFixedAnswers();
+  // //   });
+
+  // //   this.submitButton.on("pointerover", () => {
+  // //     this.submitButton.setTint(0x059669);
+  // //   });
+
+  // //   this.submitButton.on("pointerout", () => {
+  // //     this.submitButton.clearTint();
+  // //   });
+
+  // //   this.fixedQuestionButtons.push(this.submitButton);
+  // // }
+
+  // // 选择固定问题的答案
+  // selectFixedQuestionAnswer(questionKey, answer, answerIndex, questionIndex) {
+  //   if (this.debugMode) {
+  //     console.log("=== 选择固定问题答案 ===");
+  //     console.log("问题:", questionKey, "答案:", answer);
+  //   }
+
+  //   // 存储答案
+  //   this.questionAnswers[questionKey] = { text: answer, index: answerIndex };
+  //   this.mealAnswers[questionKey] = { text: answer, index: answerIndex };
+
+  //   // 添加到对话历史
+  //   this.addToConversationHistory("player", answer);
+
+  //   // 更新按钮状态 - 高亮选中的按钮，取消同组其他按钮的高亮
+  //   this.fixedQuestionButtons.forEach((button, index) => {
+  //     if (button.setText) {
+  //       // 确保是按钮而不是标题
+  //       button.clearTint();
+  //       button.setAlpha(0.7);
+  //     }
+  //   });
+
+  //   // 高亮当前选中的按钮
+  //   const clickedButton = this.fixedQuestionButtons.find(
+  //     (btn) => btn.text === answer
+  //   );
+  //   if (clickedButton) {
+  //     clickedButton.setTint(0x10b981);
+  //     clickedButton.setAlpha(1);
+  //   }
+
+  //   // 检查是否所有问题都已回答
+  //   const totalQuestions = 3;
+  //   const answeredQuestions = Object.keys(this.questionAnswers).length;
+
+  //   if (this.debugMode) {
+  //     console.log("已回答问题数:", answeredQuestions, "/", totalQuestions);
+  //   }
+
+  //   if (answeredQuestions >= totalQuestions) {
+  //     this.submitButton.setVisible(true);
+  //     this.submitButton.setTint(0x10b981);
+  //   }
+  // }
+
+  // // 提交所有固定问题的答案
+  // async submitAllFixedAnswers() {
+  //   if (this.debugMode) {
+  //     console.log("=== 提交所有固定答案 ===");
+  //     console.log("所有答案:", this.mealAnswers);
+  //   }
+
+  //   // 清理固定问题界面
+  //   this.clearAllButtons();
+
+  //   // 开始 Gemini 对话
+  //   this.startGeminiChat(); // 调用新的方法名
+  // }
 
   // 显示所有固定问题（一次性显示）
   showAllFixedQuestions() {
@@ -1238,35 +1527,60 @@ I believe those records hold the key.`,
     // 问题和选项数据
     const questions = [
       {
-        title: "1. How is your meal obtained?",
-        options: [
-          "A. Home-cooked meals",
-          "B. Eat out at restaurants",
-          "C. Takeout or delivery",
-          "D. Ready-to-eat meals",
-        ],
+        title:
+          this.playerData.language === "zh"
+            ? "1. 你的餐食是如何获得的？"
+            : "1. How is your meal obtained?",
+        options:
+          this.playerData.language === "zh"
+            ? ["A. 家里做的", "B. 餐厅用餐", "C. 外卖/打包", "D. 即食食品"]
+            : [
+                "A. Home-cooked meals",
+                "B. Eat out at restaurants",
+                "C. Takeout or delivery",
+                "D. Ready-to-eat meals",
+              ],
         key: "obtainMethod",
       },
       {
-        title: "2. What time did you have this meal?",
-        options: [
-          "A. Early morning (before 7:00 AM)",
-          "B. Morning (7:00–11:00 AM)",
-          "C. Midday (11:00 AM–2:00 PM)",
-          "D. Afternoon (2:00–5:00 PM)",
-          "E. Evening (5:00–9:00 PM)",
-          "F. Night (after 9:00 PM)",
-        ],
+        title:
+          this.playerData.language === "zh"
+            ? "2. 你什么时候吃的这餐？"
+            : "2. What time did you have this meal?",
+        options:
+          this.playerData.language === "zh"
+            ? [
+                "A. 清晨 (7点前)",
+                "B. 上午 (7-11点)",
+                "C. 中午 (11点-下午2点)",
+                "D. 下午 (下午2-5点)",
+                "E. 傍晚 (下午5-9点)",
+                "F. 夜晚 (9点后)",
+              ]
+            : [
+                "A. Early morning (before 7:00 AM)",
+                "B. Morning (7:00–11:00 AM)",
+                "C. Midday (11:00 AM–2:00 PM)",
+                "D. Afternoon (2:00–5:00 PM)",
+                "E. Evening (5:00–9:00 PM)",
+                "F. Night (after 9:00 PM)",
+              ],
         key: "mealTime",
       },
       {
-        title: "3. How long did you eat?",
-        options: [
-          "A. Less than 10 minutes",
-          "B. 10–30 minutes",
-          "C. 30–60 minutes",
-          "D. More than 60 minutes",
-        ],
+        title:
+          this.playerData.language === "zh"
+            ? "3. 你用了多长时间吃完？"
+            : "3. How long did you eat?",
+        options:
+          this.playerData.language === "zh"
+            ? ["A. 不到10分钟", "B. 10-30分钟", "C. 30-60分钟", "D. 超过60分钟"]
+            : [
+                "A. Less than 10 minutes",
+                "B. 10–30 minutes",
+                "C. 30–60 minutes",
+                "D. More than 60 minutes",
+              ],
         key: "duration",
       },
     ];
@@ -1332,7 +1646,7 @@ I believe those records hold the key.`,
     this.submitButton = this.add.text(
       width / 2,
       currentY + 30,
-      "Submit All Answers",
+      this.playerData.language === "zh" ? "提交所有答案" : "Submit All Answers",
       {
         fontSize: this.isMobile ? "14px" : "16px",
         fontFamily: "monospace",
@@ -1417,24 +1731,32 @@ I believe those records hold the key.`,
     // 清理固定问题界面
     this.clearAllButtons();
 
-    // 开始 Groq 对话
-    this.startGroqChat();
+    // 开始 Gemini 对话
+    this.startGeminiChat();
   }
 
+  // 1. 修改结束消息检测方法
   detectThankYouMessage(text) {
     const lowerText = text.toLowerCase();
+    console.log("检测结束消息:", lowerText); // 添加调试日志
+
     return (
-      lowerText.includes("thanks for sharing") ||
-      lowerText.includes("thank you for sharing") ||
-      lowerText.includes("谢谢你分享") ||
-      lowerText.includes("谢谢你与我分享") ||
+      // Gemini 系统提示词中的准确结束语
+      lowerText.includes("thanks for sharing your meal with me") ||
+      lowerText.includes("thank you for sharing your meal with me") ||
+      // 中文版本
+      lowerText.includes("谢谢你分享你的餐食") ||
+      lowerText.includes("谢谢你与我分享餐食") ||
+      // 其他可能的结束模式
       lowerText.includes("good job! keep doing this") ||
       lowerText.includes("little by little, you'll start to understand") ||
       lowerText.includes("no need to rush") ||
       lowerText.includes("take it one meal at a time") ||
-      // Add more ending patterns based on your Groq prompts
-      lowerText.includes("he often stopped by grace's shop") ||
-      lowerText.includes("maybe you will get some insights from her")
+      // 添加更通用的结束检测
+      (lowerText.includes("thanks") && lowerText.includes("meal")) ||
+      (lowerText.includes("thank you") && lowerText.includes("sharing")) ||
+      // 对话轮数限制作为后备检测
+      this.geminiTurnCount >= 5 // 新增：最多5轮Gemini对话
     );
   }
 
@@ -1474,55 +1796,121 @@ I believe those records hold the key.`,
       console.log("文本输入框清理完成");
     }
   }
-
-  // 处理食物记录完成
+  // 修复：添加线索到NPC管理器时确保使用当前语言
   async handleMealCompletion() {
     try {
       if (this.debugMode) {
         console.log("=== 处理食物记录完成 ===");
         console.log("餐食类型:", this.selectedMealType);
-        console.log("是否为晚餐:", this.selectedMealType === "dinner");
+        console.log("固定答案:", this.mealAnswers);
+        console.log("对话历史:", this.dialogHistory);
       }
 
-      // 根据餐食类型决定获取线索还是模糊回复
-      if (this.selectedMealType === "dinner") {
-        console.log("晚餐记录完成，获取明确线索");
+      // 提取餐食内容（从对话历史中提取用户的餐食描述）
+      const mealContent = this.extractMealContentFromHistory();
+
+      // 记录餐食到数据库
+      const recordResult = await this.npcManager.recordMeal(
+        this.currentNPC,
+        this.selectedMealType,
+        this.mealAnswers,
+        this.dialogHistory,
+        mealContent
+      );
+
+      if (!recordResult.success) {
+        throw new Error(recordResult.error || "Failed to record meal");
+      }
+
+      // 根据返回结果决定给出线索还是普通结束
+      if (recordResult.shouldGiveClue) {
+        console.log("给出线索并完成NPC交互");
+        // 修复：确保使用当前语言获取线索
         const clue = this.getClueForNPC(this.currentNPC);
-        this.showSingleMessage("npc", clue, () => {
+
+        // 只在这里添加线索到NPC管理器，确保传递正确的语言版本
+        this.npcManager.addClue(
+          this.currentNPC,
+          clue,
+          this.npcManager.getCurrentDay()
+        );
+
+        this.showSingleMessage("npc", clue, async () => {
           this.dialogPhase = "completed";
-          // 标记NPC完成交互
-          this.markNPCCompleted();
+          // 标记NPC交互完成，但不再重复添加线索
+          await this.npcManager.completeNPCInteraction(this.currentNPC);
+          this.notifyMealRecorded(); // 改名，不再添加线索
         });
       } else {
-        console.log("非晚餐记录完成，获取模糊回复");
+        console.log("普通餐食记录完成，不给线索");
+        const endMessage =
+          this.playerData.language === "zh"
+            ? "谢谢你的分享！记得按时吃饭哦。"
+            : "Thanks for sharing! Remember to eat on time.";
 
-        // 检查是否是第一次与此NPC交互
-        const isFirstInteraction = this.checkIfFirstInteraction();
-        const vagueVersion = isFirstInteraction ? 1 : 2;
-
-        const vague = this.getVagueDialogFromFrontend(
-          this.currentNPC,
-          vagueVersion
-        );
-        this.showSingleMessage("npc", vague, () => {
+        this.showSingleMessage("npc", endMessage, () => {
           this.dialogPhase = "completed";
+          // 不标记为完成，玩家可以继续记录其他餐食
         });
       }
     } catch (error) {
       console.error("处理食物记录完成时出错:", error);
-      this.showSingleMessage("npc", "今天我记性不好，不如明天再聊吧。", () => {
-        this.dialogPhase = "completed";
-        // updateProgress();
-      });
+      this.showSingleMessage(
+        "npc",
+        this.playerData.language === "zh"
+          ? "抱歉，记录餐食时出现了问题。请稍后再试。"
+          : "Sorry, there was an error recording your meal. Please try again later.",
+        () => {
+          this.dialogPhase = "completed";
+        }
+      );
     }
   }
 
+  notifyMealRecorded() {
+    // 只通知场景记录了餐食，不再添加线索
+    if (this.mainScene.onMealRecorded) {
+      this.mainScene.onMealRecorded();
+    }
+  }
+
+  extractMealContentFromHistory() {
+    // 提取用户在Gemini对话阶段的所有输入
+    const mealPhaseHistory = this.dialogHistory.filter(
+      (entry) =>
+        entry.type === "user" &&
+        // 过滤掉固定问题的答案和初始设置
+        !this.isFixedQuestionAnswer(entry.content)
+    );
+
+    // 将用户的餐食描述合并
+    const mealDescriptions = mealPhaseHistory.map((entry) => entry.content);
+    return mealDescriptions.join(" ");
+  }
+
+  // 新增：判断是否是固定问题的答案
+  isFixedQuestionAnswer(content) {
+    const fixedAnswers = [
+      "A. Home-cooked meals",
+      "B. Eat out at restaurants",
+      "C. Takeout or delivery",
+      "D. Ready-to-eat meals",
+      "A. Early morning",
+      "B. Morning",
+      "C. Midday",
+      "D. Afternoon",
+      "E. Evening",
+      "F. Night",
+      "A. Less than 10 minutes",
+      "B. 10–30 minutes",
+      "C. 30–60 minutes",
+      "D. More than 60 minutes",
+    ];
+
+    return fixedAnswers.some((answer) => content.includes(answer));
+  }
   // 标记NPC完成交互
   markNPCCompleted() {
-    if (this.npcManager && this.npcManager.completeNPCInteraction) {
-      this.npcManager.completeNPCInteraction(this.currentNPC);
-    }
-
     // 添加线索到UI管理器
     if (this.mainScene && this.mainScene.uiManager) {
       const npc = this.npcManager.getNPCById(this.currentNPC);
@@ -1532,10 +1920,13 @@ I believe those records hold the key.`,
       this.mainScene.uiManager.addClue({
         npcName: npc ? npc.name : "Unknown NPC",
         clue: clueShort,
-        day: this.npcManager.getCurrentDay
-          ? this.npcManager.getCurrentDay()
-          : 1,
+        day: this.npcManager.getCurrentDay(),
       });
+    }
+
+    // 通知场景记录了餐食
+    if (this.mainScene.onMealRecorded) {
+      this.mainScene.onMealRecorded();
     }
   }
 
@@ -1550,16 +1941,58 @@ I believe those records hold the key.`,
   }
 
   // 4. Get vague dialog from frontend (no backend call)
-  getVagueDialogFromFrontend(npcId, version = 1) {
-    return this.getVagueResponse(npcId, version);
+  getVagueDialogFromFrontend(npcId) {
+    const language = this.playerData.language;
+
+    const npcVagueResponses = {
+      village_head: {
+        zh: "你记录得很用心。不过，我觉得你师傅更喜欢听晚餐的故事。也许你可以晚上再来和我聊聊？",
+        en: "You're recording very thoughtfully. But I think your master preferred hearing dinner stories. Maybe you could come back in the evening to chat with me?",
+      },
+      shop_owner: {
+        zh: "嗯，这个记录不错。不过你师傅总是说，晚餐时的回忆最深刻。要不你今天晚餐后再来？",
+        en: "Hmm, this record is good. But your master always said dinner memories are the deepest. Why don't you come back after dinner today?",
+      },
+      spice_woman: {
+        zh: "香料的秘密，往往在夜幕降临时才会显现。晚餐时分，再来找我吧。",
+        en: "The secrets of spices often reveal themselves when night falls. Come find me at dinner time.",
+      },
+      restaurant_owner: {
+        zh: "作为厨师，我最看重的是晚餐时光。那时候的味觉最敏锐。今晚再来吧。",
+        en: "As a chef, I value dinner time the most. That's when taste buds are sharpest. Come back tonight.",
+      },
+      fisherman: {
+        zh: "渔人最懂得等待的艺术。耐心等到晚餐时分，我们再好好聊聊。",
+        en: "Fishermen understand the art of waiting. Wait patiently until dinner time, then we'll have a good chat.",
+      },
+      old_friend: {
+        zh: "老朋友之间的深谈，总是在晚餐时最有意义。今晚见？",
+        en: "Deep conversations between old friends are always most meaningful at dinner. See you tonight?",
+      },
+      secret_apprentice: {
+        zh: "师傅说过，最重要的话要在一天结束时说。晚餐后，我会告诉你更多。",
+        en: "Master said the most important words should be spoken at day's end. After dinner, I'll tell you more.",
+      },
+    };
+
+    const responses = npcVagueResponses[npcId];
+    if (!responses) {
+      return language === "zh"
+        ? "记录得不错。不过晚餐时分再来，我可能会有更多话要说。"
+        : "Good record. But come back at dinner time, I might have more to say.";
+    }
+
+    return responses[language] || responses.en;
   }
 
   extractClueKeywords(fullClue) {
     // 简化版关键词提取
+    //
     const sentences = fullClue.split(/[.。]/);
     return sentences[0] + "...";
   }
 
+  // 获取线索的方法 - 确保根据当前语言返回正确的线索
   getClueForNPC(npcId) {
     const language = this.playerData.language;
 
@@ -1621,61 +2054,7 @@ I believe those records hold the key.`,
           2: "I remember he always visited a woman...\nHmm, who was she again?\nGive me a bit more time — let's talk again after you've finished your last meal of the day.",
         },
       },
-      shop_owner: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },spice_woman: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },restaurant_owner: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },fisherman: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },old_friend: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },secret_apprentice: {
-      zh: {
-        1: "他买东西时总念叨一个名字... 叫什么来着？等你下次吃饭后来问我吧。",
-        2: "那天他买完东西说要去河边... 具体做什么来着？记不清了..."
-      },
-      en: {
-        1: "He mumbled a name when buying supplies... What was it? Come back after your next meal.",
-        2: "He said he was going to the river after shopping... What for? Can't recall..."
-      }
-    },
+      // 可以为其他 NPC 添加更多响应
     };
 
     const npcResponses = npcVagueResponses[npcId];
@@ -1743,15 +2122,15 @@ I believe those records hold the key.`,
   }
 
   // 添加窗口大小变化监听，动态调整布局
-  resize(gameSize, baseSize, displaySize, resolution) {
-    const { width, height } = this.scale;
-    this.isMobile = width < 768;
+  // resize(gameSize, baseSize, displaySize, resolution) {
+  //   const { width, height } = this.scale;
+  //   this.isMobile = width < 768;
 
-    // 重新调整UI元素位置
-    if (this.dialogBg) {
-      this.setupUI();
-    }
-  }
+  //   // 重新调整UI元素位置
+  //   if (this.dialogBg) {
+  //     this.setupUI();
+  //   }
+  // }
 
   // 更新状态显示
   updateStatus(text) {
@@ -1766,9 +2145,6 @@ I believe those records hold the key.`,
       }
     }
   }
-
-  // 删除不需要的方法
-  // createFixedQuestionButtons 方法已删除，现在使用 showAllFixedQuestions
 
   // 清理所有按钮
   clearAllButtons() {
@@ -1802,10 +2178,9 @@ I believe those records hold the key.`,
     }
   }
 
-  // 开始 Groq 自由问答
-  startGroqChat() {
+  startGeminiChat() {
     if (this.debugMode) {
-      console.log("=== 开始 Groq 对话 ===");
+      console.log("=== 开始 Gemini 对话 ===");
       console.log("餐食类型:", this.selectedMealType);
       console.log("固定答案:", this.mealAnswers);
     }
@@ -1813,27 +2188,26 @@ I believe those records hold the key.`,
     this.clearAllButtons();
     this.dialogPhase = "meal_recording";
 
+    // 新增：初始化 Gemini 对话轮数
+    this.geminiTurnCount = 0;
+    this.maxGeminiTurns = 5; // 最多5轮对话
+
     // 检查用餐时间是否异常
     const needTimeQuestion = this.checkUnusualMealTime();
 
     let startMessage;
 
     if (needTimeQuestion) {
-      // 如果用餐时间异常，先询问时间原因
       startMessage =
         this.playerData.language === "zh"
           ? "我注意到你在一个不寻常的时间用餐。为什么你选择在这个时间而不是更早或更晚用餐呢？"
           : "I notice you had your meal at an unusual time. Why did you eat at this time rather than earlier or later?";
-
-      // 设置标记，表示下一步需要询问详细描述
       this.needDetailedDescription = true;
     } else {
-      // 正常时间用餐，直接询问详细描述
       startMessage =
         this.playerData.language === "zh"
           ? `谢谢你的回答。接下来我可以问问你有什么其他特别的感受吗？`
-          : `Thank you for your answers. Now please describe your ${this.selectedMealType} in detail: what did you eat, how did it taste, and how did it make you feel?`;
-
+          : `Thank you for your answers. Could I ask you more?`;
       this.needDetailedDescription = false;
     }
 
@@ -1842,7 +2216,6 @@ I believe those records hold the key.`,
     });
   }
 
-  // 新增：检查用餐时间是否异常
   checkUnusualMealTime() {
     const mealTime = this.mealAnswers.mealTime;
     const mealType = this.selectedMealType.toLowerCase();
