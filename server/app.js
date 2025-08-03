@@ -61,16 +61,18 @@ const gameRoutes = require("./routes/gameRoutes");
 const geminiRoutes = require("./routes/geminiRoutes");
 const convaiRoutes = require("./routes/convaiRoutes");
 
-// 注册API路由
-app.use("/api", gameRoutes);
-app.use("/api", geminiRoutes);
-app.use("/api", convaiRoutes);
 
 // 新增：前端静态资源路由配置
 const frontendBuildPath = path.join(__dirname, "../public");
 
 // 提供前端静态文件（CSS、JS、图片等）
 app.use(express.static(frontendBuildPath));
+
+// 注册API路由
+app.use("/api", gameRoutes);
+app.use("/api", geminiRoutes);
+app.use("/api", convaiRoutes);
+
 
 // 修复后的通配符路由
 app.get("/*path", (req, res) => {
