@@ -730,19 +730,39 @@ export default class DialogScene extends Phaser.Scene {
 
     forceEndGeminiDialog() {
         console.log("强制结束 Gemini 对话");
+        const language = this.playerData.language;
 
         const endMessage =
             this.playerData.language === "zh"
                 ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
                 : "Thank you for sharing your meal with me! I have recorded your meal information.";
 
-        this.showSingleMessage("npc", endMessage, () => {
+        this.showSingleMessage("npc", endMessage, async () => {
+            // 1. 先标记状态为已记录
             this.mealRecorded = true;
             this.currentDialogState = "completion_check";
             this.dialogPhase = "completed";
+
+            // 2. 强制提交记录到数据库（关键：确保recordMeal被调用）
+            console.log("强制提交餐食记录到数据库...");
+            const dialogResult = this.dialogSystem.getDialogResult();
+            const mealContent = this.extractMealContentFromHistory();
+            if (dialogResult && this.selectedMealType) {
+                // 调用NPCManager的recordMeal方法提交数据
+                const recordResult = await this.npcManager.recordMeal(
+                    this.currentNPC,
+                    this.selectedMealType,
+                    this.mealAnswers,
+                    this.dialogHistory,
+                    mealContent
+                );
+                console.log("数据库提交结果:", recordResult);
+            }
+
+            // 3. 处理完成后的UI反馈（原有逻辑保留）
             this.handleMealCompletion({
                 success: true,
-                shouldGiveClue: this.selectedMealType === "dinner",
+                shouldGiveClue: this.selectedMealType === "dinner", // 按原逻辑判断是否给线索
                 error: null
             });
         });
@@ -1947,7 +1967,9 @@ I believe those records hold the key.`,
 
         // 将用户的餐食描述合并
         const mealDescriptions = mealPhaseHistory.map((entry) => entry.content);
-        return mealDescriptions.join(" ");
+        const mealDescription = mealDescriptions.join(" "); // 变量名修改
+        console.log("提取的餐食描述:", mealDescription); // 日志更新
+        return mealDescription; // 返回值命名统一
     }
 
     // 新增：判断是否是固定问题的答案
