@@ -28,26 +28,36 @@ export default class MainScene extends Phaser.Scene {
     }
 
     init(data) {
-        this.playerId = data.playerId;
-        this.playerData = data.playerData;
-        this.updatePlayerdata = data.updatePlayerdata;
+        // 1. 优先从本地存储获取playerId（核心修改：持久化身份）
+        const storedPlayerId = localStorage.getItem('village_player_id');
 
-        // 确保 playerId 存在
+        // 2. 其次从传入的data中获取（兼容场景跳转时的传递）
+        this.playerId = data?.playerId || storedPlayerId;
+
+        // 3. 如果都没有，生成新ID并存储到本地（仅首次进入游戏时）
         if (!this.playerId) {
-            console.error("PlayerId not provided to MainScene");
-            this.playerId = "default-player-" + Date.now(); // 临时生成ID
+            this.playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).slice(-6);
+            localStorage.setItem('village_player_id', this.playerId); // 存入本地存储
+            console.log('首次进入游戏，生成新PlayerId:', this.playerId);
+        } else {
+            console.log('使用已有PlayerId:', this.playerId);
         }
 
+        // 玩家数据初始化（保持原有逻辑）
+        this.playerData = data?.playerData || {};
+        this.updatePlayerdata = data?.updatePlayerdata;
+
+        // 玩家位置初始化（保持原有逻辑）
         try {
             this.playerLoc = {
-                x: data.playerData?.playLoc[0] || 5,
-                y: data.playerData?.playLoc[1] || 5,
+                x: this.playerData?.playLoc?.[0] || 5,
+                y: this.playerData?.playLoc?.[1] || 5,
             };
         } catch {
             this.playerLoc = {x: 5, y: 5};
         }
 
-        console.log("MainScene initialized with playerId:", this.playerId);
+        console.log("MainScene初始化完成，PlayerId:", this.playerId);
     }
 
     preload() {
