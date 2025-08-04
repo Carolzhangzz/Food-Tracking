@@ -49,7 +49,6 @@ async function checkAndUnlockNextNPC(playerId, currentDay) {
     }
 
     const npcMap = {
-        1: "village_head",
         2: "shop_owner",
         3: "spice_woman",
         4: "restaurant_owner",

@@ -502,7 +502,6 @@ export default class MainScene extends Phaser.Scene {
         }
 
         this.dialogSystem = dialogScene;
-
         // 创建NPCManager，传入正确的playerId
         this.npcManager = new NPCManager(this, this.mapScale);
         this.uiManager = new UIManager(this);
@@ -581,6 +580,7 @@ export default class MainScene extends Phaser.Scene {
     // 处理玩家记录餐食事件
     onMealRecorded() {
         this.uiManager?.updateProgress();
+        console.log("餐食记录完成，等待NPCManager同步状态...");
 
         // 检查是否解锁了新的一天
         const progress = this.npcManager?.getDailyProgress();
