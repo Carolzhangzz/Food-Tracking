@@ -8,6 +8,7 @@ const GameSession = require("../models/GameSession");
 const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
+const sequelize = require('../models').sequelize; // 假设从模型入口文件导出
 
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
@@ -24,18 +25,11 @@ function calculateCurrentDay(firstLoginDate) {
 }
 
 async function hasCompletedTodaysMeals(playerId, day) {
-    const todayMeals = await MealRecord.findAll({
-        where: {
-            playerId,
-            day,
-            recordedAt: {
-                [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)),
-            },
-        },
+    const mealRecords = await MealRecord.findAll({
+        where: { playerId, day: day } // 使用传入的day参数
     });
-
-    const mealTypes = new Set(todayMeals.map((meal) => meal.mealType));
-    return mealTypes.size >= 3;
+    const recordedTypes = mealRecords.map(rec => rec.mealType);
+    return recordedTypes.includes('lunch') && recordedTypes.includes('dinner');
 }
 
 async function checkAndUnlockNextNPC(playerId, currentDay) {
@@ -55,6 +49,7 @@ async function checkAndUnlockNextNPC(playerId, currentDay) {
     }
 
     const npcMap = {
+        1: "village_head",
         2: "shop_owner",
         3: "spice_woman",
         4: "restaurant_owner",
@@ -345,8 +340,7 @@ async function getPlayerFullStatus(playerId) {
     const availableNPCs = progressRecords.map((progress) => {
         const dayMeals = dailyMealCounts[progress.day] || new Set();
         const mealsCount = dayMeals.size;
-        const hasCompletedDay = mealsCount >= 3;
-
+        const hasCompletedDay = dayMeals.has('lunch') && dayMeals.has('dinner');
         return {
             day: progress.day,
             npcId: progress.npcId,
@@ -592,7 +586,7 @@ router.post("/record-meal", async (req, res) => {
 
         // 如果应该给出线索，自动保存线索到数据库
         if (shouldGiveClue) {
-            const clueText = getClueForNPC(npcId); // 需要实现这个函数
+            const clueText = getClueForNPC(npcId, player.language);
             await saveClueToDatabase(playerId, npcId, clueText, day);
         }
 
@@ -659,7 +653,7 @@ router.post("/update-current-day", async (req, res) => {
         }
 
         // 3. 校验当前天数是否已完成所有餐食
-        const hasCompleted = await hasCompletedTodaysMeals(playerId, currentDay, transaction);
+        const hasCompleted = await hasCompletedTodaysMeals(playerId, currentDay);
         if (!hasCompleted) {
             await transaction.rollback();
             return res.status(400).json({
@@ -747,7 +741,6 @@ function getClueForNPC(npcId, language = 'zh') {
 router.post("/complete-npc-interaction", async (req, res) => {
     try {
         const {playerId, day, npcId} = req.body;
-
         if (!playerId || !day || !npcId) {
             return res.status(400).json({
                 success: false,
