@@ -448,19 +448,33 @@ export default class NPCManager {
                 this.mealRecords.push({ /* ... */});
 
                 const availableNPC = this.availableNPCs.find((n) => n.npcId === npcId);
+                console.log(`=== 检查availableNPC ===`);
+                console.log(`npcId: ${npcId}`);
+                console.log(`找到的availableNPC:`, availableNPC);
                 if (availableNPC) {
                     availableNPC.hasRecordedMeal = true;
                     availableNPC.mealsRecorded = (availableNPC.mealsRecorded || 0) + 1;
+                    console.log(`过滤前availableMealTypes:`, availableNPC.availableMealTypes);
                     availableNPC.availableMealTypes = availableNPC.availableMealTypes.filter(
                         (type) => type !== mealType
                     );
+                    console.log(`当前记录的mealType: ${mealType}`);
+                    console.log(`过滤后availableMealTypes:`, availableNPC.availableMealTypes);
                     // 仅当服务器返回完成时，才标记本地完成
                     availableNPC.hasCompletedDay = data.hasCompletedDay || false;
-                }
+                }else {
+    console.warn(`未找到NPC: ${npcId} 在availableNPCs中`);
+}
 
                 // 延迟检查天数更新（确保服务器数据同步）
                 setTimeout(async () => {
+                    console.log(`=== 拉取服务器数据前 ===`);
+    console.log(`本地availableMealTypes:`, this.availableNPCs.find(n => n.npcId === npcId)?.availableMealTypes);
+
                     await this.loadPlayerStatus();
+                    console.log(`=== 拉取服务器数据后 ===`);
+    console.log(`服务器返回的availableMealTypes:`, this.availableNPCs.find(n => n.npcId === npcId)?.availableMealTypes);
+
                     await this.checkAndUpdateCurrentDay();
                 }, 1500);
 

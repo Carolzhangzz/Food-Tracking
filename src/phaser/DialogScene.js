@@ -65,6 +65,9 @@ export default class DialogScene extends Phaser.Scene {
         this.availableMealTypes = availableNPC
             ? availableNPC.availableMealTypes || []
             : [];
+        console.log(`=== DialogScene初始化 - availableMealTypes ===`);
+        console.log(`当前NPC: ${this.currentNPC}`);
+        console.log(`获取到的availableMealTypes:`, this.availableMealTypes);
 
         // 检测是否为移动端
         this.isMobile = this.scale.width < 768;
