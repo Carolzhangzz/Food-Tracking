@@ -331,9 +331,9 @@ async function getPlayerFullStatus(playerId) {
 
     const currentDay = calculateCurrentDay(player.firstLoginDate);
 
-    if (currentDay !== player.currentDay) {
-        await player.update({currentDay});
-    }
+    // if (currentDay !== player.currentDay) {
+    //     await player.update({currentDay});
+    // } // CurrentDay又从2变1的原因
 
     const progressRecords = await PlayerProgress.findAll({
         where: {playerId},
@@ -388,7 +388,7 @@ async function getPlayerFullStatus(playerId) {
             playerId: player.playerId,
             nickname: player.nickname,
             firstLoginDate: player.firstLoginDate,
-            currentDay,
+            currentDay: currentDay,
             gameCompleted: player.gameCompleted,
             language: player.language,
             progress: player.progress,
