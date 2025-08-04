@@ -6,10 +6,10 @@ async function testConnection() {
   try {
     console.log('🔗 正在测试 PostgreSQL 连接...');
     console.log('📋 数据库配置:');
-    console.log('  - Host:', process.env.DB_HOST || 'localhost');
-    console.log('  - Port:', process.env.DB_PORT || 5432);
-    console.log('  - Database:', process.env.DB_NAME || 'rpg_game_db');
-    console.log('  - User:', process.env.DB_USER || 'postgres');
+    console.log('  - Host:', process.env.DB_HOST);
+    console.log('  - Port:', process.env.DB_PORT);
+    console.log('  - Database:', process.env.DB_NAME);
+    console.log('  - User:', process.env.DB_USER);
     console.log('  - Password:', process.env.DB_PASS ? '***' : '未设置');
 
     // 测试连接
