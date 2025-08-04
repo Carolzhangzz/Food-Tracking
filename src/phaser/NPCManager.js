@@ -210,7 +210,7 @@ export default class NPCManager {
             npc.sprite.setVisible(false);
             this.removeNPCHighlight(npc);
         });
-
+        console.log(`=== 更新NPC状态，当前天数：${this.playerStatus.currentDay} ===`); // 新增日志
         // 根据服务器数据更新NPC状态
         this.availableNPCs.forEach((availableNPC) => {
             const npc = this.npcs.get(availableNPC.npcId);
