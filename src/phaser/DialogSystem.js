@@ -1,6 +1,5 @@
 // DialogSystem.js - 修复后的移动端对话系统
 import Phaser from "phaser";
-import {Model as Math} from "sequelize";
 
 export default class DialogSystem {
     constructor(scene) {
@@ -25,12 +24,30 @@ export default class DialogSystem {
         this.curText = "";
         this.isMealDialog = false; // 新增：标记是否为餐食相关对话
         this.currentMealType = null; // 新增：记录当前是早餐/午餐/晚餐
+        this.eventListeners = new Map();
 
         // 监听窗口大小变化
         this.resizeHandler = () => this.handleResize();
         window.addEventListener("resize", this.resizeHandler);
         window.addEventListener("orientationchange", this.resizeHandler);
     }
+
+    // 新增：注册事件监听的方法
+on(eventName, callback) {
+    if (!this.eventListeners.has(eventName)) {
+        this.eventListeners.set(eventName, []);
+    }
+    this.eventListeners.get(eventName).push(callback);
+}
+
+// 新增：触发事件的方法
+emit(eventName, ...args) {
+    const callbacks = this.eventListeners.get(eventName);
+    if (callbacks) {
+        callbacks.forEach(callback => callback.apply(this, args));
+    }
+}
+
 
     handleResize() {
         if (this.isActive) {
@@ -655,35 +672,6 @@ export default class DialogSystem {
         this.destroyInputElements();
         this.destroyUIElements();
 
-
-        if (this.isMealDialog && this.currentMealType && this.npcManager) {
-            console.log(`提交${this.currentMealType}记录到服务器`, {
-                npcId: this.currentNPC,
-                responses: this.mealResponses
-            });
-
-            try {
-                // 调用NPCManager的记录方法，等待服务器确认
-                const result = await this.npcManager.recordMeal(
-                    this.currentNPC,
-                    this.currentMealType,
-                    this.mealResponses
-                );
-
-                if (result.success) {
-                    console.log(`${this.currentMealType}记录提交成功`);
-                    // 提交成功后，触发天数检查（确保及时更新状态）
-                    await this.npcManager.checkAndUpdateCurrentDay();
-                } else {
-                    console.warn("餐食记录提交失败", result.error);
-                    // 可在这里添加重试逻辑或提示用户
-                }
-            } catch (error) {
-                console.error("提交餐食记录时发生错误", error);
-            }
-        }
-
-
         // 重置状态
         this.isActive = false;
         this.currentNPC = null;
@@ -710,17 +698,17 @@ export default class DialogSystem {
         }
 
         console.log("Dialog ended successfully");
+        this.emit("dialogEnded", this.getDialogResult());
     }
 
-    // 获取当前对话进度
-    getDialogProgress() {
-        return {
-            currentNPC: this.currentNPC,
-            questionIndex: this.questionIndex,
-            currentMeal: this.currentMeal,
-            responses: this.mealResponses,
-        };
-    }
+    getDialogResult() {
+    return {
+        isMealDialog: this.isMealDialog,
+        currentMealType: this.currentMealType,
+        currentNPC: this.currentNPC,
+        mealResponses: this.mealResponses
+    };
+}
 
     // 清理资源
     destroy() {

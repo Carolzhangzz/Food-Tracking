@@ -96,7 +96,50 @@ export default class DialogScene extends Phaser.Scene {
     this.setupUI();
     this.setupControls();
     this.startConversation();
+    this.dialogSystem = new DialogSystem(this);
+    this.dialogSystem.setNPCManager(this.npcManager);
+
+    // 👇 新增：监听对话结束事件（需要在DialogSystem中触发）
+    this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
   }
+
+  async handleDialogEnded() {
+    // 获取对话结果
+    const dialogResult = this.dialogSystem.getDialogResult();
+    console.log("对话结束，准备处理结果:", dialogResult);
+
+    // 如果是餐食对话，调用recordMeal
+    if (dialogResult.isMealDialog && dialogResult.currentMealType) {
+        try {
+            console.log(`在场景中提交${dialogResult.currentMealType}记录`);
+
+            // 调用npcManager的recordMeal
+            const result = await this.npcManager.recordMeal(
+                dialogResult.currentNPC,
+                dialogResult.currentMealType,
+                dialogResult.mealResponses,
+                this.dialogHistory, // 假设场景中维护了对话历史
+                "" // 餐食内容，根据实际情况补充
+            );
+
+            if (result.success) {
+                console.log(`${dialogResult.currentMealType}记录提交成功`);
+                // 触发天数检查
+                this.npcManager.checkAndUpdateCurrentDay();
+                this.handleMealCompletion(result);
+            } else {
+                console.warn("餐食记录提交失败", result.error);
+            }
+        } catch (error) {
+            console.error("提交餐食记录时发生错误", error);
+        }
+    }
+
+    // 其他对话结束后的逻辑（如返回主场景等）
+    this.returnToMainScene();
+}
+
+
 
   setupBackground() {
     const { width, height } = this.scale;
@@ -1797,27 +1840,11 @@ I believe those records hold the key.`,
     }
   }
   // 修复：添加线索到NPC管理器时确保使用当前语言
-  async handleMealCompletion() {
+  async handleMealCompletion(recordResult) {
     try {
       if (this.debugMode) {
-        console.log("=== 处理食物记录完成 ===");
-        console.log("餐食类型:", this.selectedMealType);
-        console.log("固定答案:", this.mealAnswers);
-        console.log("对话历史:", this.dialogHistory);
-      }
-
-      // 提取餐食内容（从对话历史中提取用户的餐食描述）
-      const mealContent = this.extractMealContentFromHistory();
-
-      // 记录餐食到数据库
-      const recordResult = await this.npcManager.recordMeal(
-        this.currentNPC,
-        this.selectedMealType,
-        this.mealAnswers,
-        this.dialogHistory,
-        mealContent
-      );
-
+      console.log("记录结果:", recordResult); // 使用传递过来的真实结果
+    }
       if (!recordResult.success) {
         throw new Error(recordResult.error || "Failed to record meal");
       }
@@ -2243,3 +2270,4 @@ I believe those records hold the key.`,
     return !normalTimeRange.includes(timeIndex);
   }
 }
+
