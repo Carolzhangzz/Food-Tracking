@@ -7,7 +7,8 @@ import npc4bg from "../assets/npc/npc4bg.png";
 import npc5bg from "../assets/npc/npc5bg.png";
 import npc6bg from "../assets/npc/npc6bg.png";
 import npc7bg from "../assets/npc/npc7bg.png";
-
+// 在其他 import 语句后添加
+import DialogSystem from './DialogSystem.js'; // 假设 DialogSystem 在同一目录下
 import {
   createDialogBox,
   createReturnButton,
