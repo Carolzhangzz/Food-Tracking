@@ -1,5 +1,6 @@
 // NPCManager.js - 更新线索和对话存储版本
 import Phaser from "phaser";
+
 const API_URL = process.env.REACT_APP_API_URL;
 
 export default class NPCManager {
@@ -104,9 +105,18 @@ export default class NPCManager {
 
             if (response.ok) {
                 const data = await response.json();
-                this.playerStatus = data.player;
-                this.availableNPCs = data.availableNPCs;
-                this.mealRecords = data.mealRecords;
+                this.playerStatus = data.player || {  // 确保playerStatus有默认值
+                    playerId: this.scene.playerId,
+                    currentDay: 1,
+                    gameCompleted: false
+                };
+
+                // 1. 确保availableNPCs是数组
+                this.availableNPCs = Array.isArray(data.availableNPCs) ? data.availableNPCs : [];
+                // 2. 确保mealRecords是数组，过滤无效记录
+                this.mealRecords = Array.isArray(data.mealRecords)
+                    ? data.mealRecords.filter(r => r && r.npcId && r.mealType)  // 仅保留有效记录
+                    : [];
                 this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
 
                 // 修复：加载线索记录时转换为当前语言
@@ -129,6 +139,12 @@ export default class NPCManager {
                 // 新增：加载完状态后检查是否需要更新天数（关键修改）
                 await this.checkAndUpdateCurrentDay();
 
+                // 4. 强化调试日志：明确记录加载数量和关键信息
+                console.log(`✅ 餐食记录加载完成：共 ${this.mealRecords.length} 条有效记录`);
+                console.log("最近3条记录：", this.mealRecords.slice(-3)); // 打印最近3条便于调试
+                console.log("当前天剩余餐食：", this.currentDayMealsRemaining);
+
+
                 // 补充调试信息：检查第一天完成状态和当前天数
                 const firstDayNPC = this.availableNPCs.find(npc => npc.day === 1);
                 console.log("自动跳转调试信息：", {
@@ -138,6 +154,10 @@ export default class NPCManager {
                     currentDayMealsRemaining: this.currentDayMealsRemaining.length, // 当前天剩余餐数
                     hasNextDayNPC: this.availableNPCs.some(npc => npc.day === this.playerStatus.currentDay + 1) // 是否有下一天NPC
                 });
+                // 3. 通知UI刷新（关键）
+                if (this.scene.events) {
+                    this.scene.events.emit('mealRecordsLoaded', this.mealRecords);
+                }
 
                 console.log(`Player status loaded:`, {
                     playerId: this.playerStatus.playerId,

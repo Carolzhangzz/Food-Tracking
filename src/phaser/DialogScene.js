@@ -100,9 +100,21 @@ export default class DialogScene extends Phaser.Scene {
         this.startConversation();
         this.dialogSystem = new DialogSystem(this);
         this.dialogSystem.setNPCManager(this.npcManager);
+        this.loadAndShowHistory();
 
         // 👇 新增：监听对话结束事件（需要在DialogSystem中触发）
         this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
+    }
+
+    async loadAndShowHistory() {
+        // 从 NPCManager 中获取已保存的记录
+        const history = this.npcManager.mealRecords.filter(
+            record => record.npcId === this.currentNPC
+        );
+        if (history.length > 0) {
+            console.log("该NPC的历史记录:", history);
+            // 这里可以添加显示逻辑（如在UI中列出）
+        }
     }
 
     async handleDialogEnded() {
@@ -114,6 +126,7 @@ export default class DialogScene extends Phaser.Scene {
         if (dialogResult.isMealDialog && dialogResult.currentMealType) {
             try {
                 console.log(`在场景中提交${dialogResult.currentMealType}记录`);
+                const mealContent = this.extractMealContentFromHistory();
 
                 // 调用npcManager的recordMeal
                 const result = await this.npcManager.recordMeal(
@@ -121,23 +134,24 @@ export default class DialogScene extends Phaser.Scene {
                     dialogResult.currentMealType,
                     dialogResult.mealResponses,
                     this.dialogHistory, // 假设场景中维护了对话历史
-                    "" // 餐食内容，根据实际情况补充
+                    mealContent// 餐食内容，根据实际情况补充
                 );
 
                 if (result.success) {
-                    console.log(`${dialogResult.currentMealType}记录提交成功`);
-                    // 触发天数检查
-                    this.npcManager.checkAndUpdateCurrentDay();
-                    this.handleMealCompletion(result);
-                } else {
-                    console.warn("餐食记录提交失败", result.error);
+                    // 关键：同步更新本地缓存的餐食记录
+                    this.npcManager.mealRecords.push({
+                        day: this.npcManager.getCurrentDay(),
+                        npcId: dialogResult.currentNPC,
+                        mealType: dialogResult.currentMealType,
+                        mealContent: mealContent,
+                        recordedAt: new Date()
+                    });
+                    console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
                 }
             } catch (error) {
-                console.error("提交餐食记录时发生错误", error);
+                console.error("提交记录失败:", error);
             }
         }
-
-        // 其他对话结束后的逻辑（如返回主场景等）
         this.returnToMainScene();
     }
 
