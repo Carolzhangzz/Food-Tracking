@@ -105,6 +105,7 @@ export default class NPCManager {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log(`=== 服务器返回的mealRecords ===`, data.mealRecords);
                 this.playerStatus = data.player || {  // 确保playerStatus有默认值
                     playerId: this.scene.playerId,
                     currentDay: 1,
@@ -447,7 +448,25 @@ export default class NPCManager {
 
             if (data.success) {
                 // 仅在服务器保存成功后，才更新本地状态
-                this.mealRecords.push({ /* ... */});
+                this.mealRecords.push({
+                    day: currentDay,
+                    npcId: npcId,
+                    npcName: npc ? npc.name : "Unknown NPC",
+                    mealType: mealType,
+                    mealContent: mealContent,
+                    mealAnswers: mealAnswers,
+                    timestamp: new Date().toISOString()
+                    // （保留原代码中已有的其他字段）
+                });
+                // 新增日志：打印前端本地新增的记录信息
+                console.log(`=== 前端新增记录 ===`);
+                console.log({
+                    day: currentDay,       // 记录的天数
+                    npcId: npcId,          // NPC ID
+                    mealType: mealType,    // 餐食类型（重点看是否为'dinner'）
+                    status: "已添加到本地mealRecords"
+                });
+
 
                 const availableNPC = this.availableNPCs.find((n) => n.npcId === npcId);
                 console.log(`=== 检查availableNPC ===`);
@@ -491,8 +510,6 @@ export default class NPCManager {
         }
     }
 
-// 在NPCManager类中添加
-
 
     async checkAndUpdateCurrentDay() {
         const now = Date.now();
@@ -509,12 +526,11 @@ export default class NPCManager {
         // 从服务器数据中获取当前天的NPC状态（而非本地缓存）
         const currentNPC = this.availableNPCs.find(npc => npc.day === currentDay);
         if (!currentNPC) return;
-
-        // 关键：必须同时满足「服务器标记为已完成」和「本地计算已完成」才触发更新
-        // 避免仅依赖本地状态（服务器可能未同步）
+// 核心逻辑：仅检查午餐和晚餐是否已记录（忽略早餐）
+        // 判定标准：availableMealTypes中不包含午餐和晚餐，即视为已记录
         const hasRecordedLunch = !currentNPC.availableMealTypes.includes('lunch');
         const hasRecordedDinner = !currentNPC.availableMealTypes.includes('dinner');
-        const isLocalCompleted = hasRecordedLunch && hasRecordedDinner;
+        const isLocalCompleted = hasRecordedLunch && hasRecordedDinner; // 仅依赖午餐+晚餐
         const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认的完成状态
         const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
 
