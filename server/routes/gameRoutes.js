@@ -25,39 +25,39 @@ function calculateCurrentDay(firstLoginDate) {
 }
 
 async function hasCompletedTodaysMeals(playerId, currentDay) {
-  // 1. 入参校验（防止无效查询）
-  if (!playerId || currentDay === undefined || currentDay < 1) {
-    console.error(`[hasCompletedTodaysMeals] 无效参数: playerId=${playerId}, currentDay=${currentDay}`);
-    return false;
-  }
+    // 1. 入参校验（防止无效查询）
+    if (!playerId || currentDay === undefined || currentDay < 1) {
+        console.error(`[hasCompletedTodaysMeals] 无效参数: playerId=${playerId}, currentDay=${currentDay}`);
+        return false;
+    }
 
-  try {
-    // 2. 仅查询当天的午餐和晚餐（减少数据传输）
-    const mealRecords = await MealRecord.findAll({
-      where: {
-        playerId,
-        day: currentDay,
-        mealType: ['lunch', 'dinner'] // 明确过滤，只关注需要的餐型
-      },
-      attributes: ['mealType'] // 只返回需要的字段，优化性能
-    });
+    try {
+        // 2. 仅查询当天的午餐和晚餐（减少数据传输）
+        const mealRecords = await MealRecord.findAll({
+            where: {
+                playerId,
+                day: currentDay,
+                mealType: ['lunch', 'dinner'] // 明确过滤，只关注需要的餐型
+            },
+            attributes: ['mealType'] // 只返回需要的字段，优化性能
+        });
 
-    // 3. 打印关键日志（方便调试）
-    console.log(`[hasCompletedTodaysMeals] 检查结果: playerId=${playerId}, day=${currentDay}`, {
-      记录数量: mealRecords.length,
-      实际餐型: mealRecords.map(r => r.mealType)
-    });
+        // 3. 打印关键日志（方便调试）
+        console.log(`[hasCompletedTodaysMeals] 检查结果: playerId=${playerId}, day=${currentDay}`, {
+            记录数量: mealRecords.length,
+            实际餐型: mealRecords.map(r => r.mealType)
+        });
 
-    // 4. 去重后检查是否包含两种必需餐型
-    const recordedTypes = new Set(mealRecords.map(record => record.mealType));
-    const isCompleted = recordedTypes.has('lunch') && recordedTypes.has('dinner');
+        // 4. 去重后检查是否包含两种必需餐型
+        const recordedTypes = new Set(mealRecords.map(record => record.mealType));
+        const isCompleted = recordedTypes.has('lunch') && recordedTypes.has('dinner');
 
-    return isCompleted;
-  } catch (error) {
-    // 5. 异常处理（避免整个流程崩溃）
-    console.error(`[hasCompletedTodaysMeals] 数据库查询失败: playerId=${playerId}, day=${currentDay}`, error);
-    return false; // 异常时默认视为未完成，保证安全性
-  }
+        return isCompleted;
+    } catch (error) {
+        // 5. 异常处理（避免整个流程崩溃）
+        console.error(`[hasCompletedTodaysMeals] 数据库查询失败: playerId=${playerId}, day=${currentDay}`, error);
+        return false; // 异常时默认视为未完成，保证安全性
+    }
 }
 
 
@@ -642,11 +642,14 @@ router.post("/record-meal", async (req, res) => {
 // 处理客户端的天数更新请求（修复版）
 router.post("/update-current-day", async (req, res) => {
     // 使用事务确保数据一致性
+    console.log(`=== 进入 update-current-day 接口 ===`); // 新增：确认接口被调用
+    console.log(`接收参数：playerId=${req.body.playerId}, currentDay=${req.body.currentDay}`); // 新增：确认参数
+
     const transaction = await sequelize.transaction();
 
     try {
         const {playerId, currentDay} = req.body;
-
+        console.log(`=== 步骤1：参数校验 ===`);
         if (!playerId || currentDay === undefined) {
             return res.status(400).json({
                 success: false,
@@ -655,6 +658,7 @@ router.post("/update-current-day", async (req, res) => {
         }
 
         // 1. 查找玩家（加锁防止并发修改）
+        console.log(`=== 步骤2：查询玩家 ===`);
         const player = await Player.findOne({
             where: {playerId},
             lock: transaction.LOCK.UPDATE, // 悲观锁防止并发问题
@@ -662,6 +666,7 @@ router.post("/update-current-day", async (req, res) => {
         });
 
         if (!player) {
+            console.log(`玩家不存在：playerId=${playerId}`);
             await transaction.rollback();
             return res.status(404).json({
                 success: false,
@@ -671,7 +676,10 @@ router.post("/update-current-day", async (req, res) => {
 
         // 2. 校验当前请求的天数是否与服务器记录一致（关键修复）
         // 防止旧请求覆盖新数据（例如客户端重复提交）
+        console.log(`=== 步骤3：天数校验 ===`); // 新增
+        console.log(`服务器记录的currentDay=${player.currentDay}，请求传递的currentDay=${currentDay}`); // 新增
         if (player.currentDay !== currentDay) {
+            console.log(`天数不匹配，回滚事务`); // 新增
             await transaction.rollback();
             return res.status(409).json({
                 success: false,
@@ -681,14 +689,16 @@ router.post("/update-current-day", async (req, res) => {
         }
 
         // 3. 校验当前天数是否已完成所有餐食
+        console.log(`=== 步骤4：检查当天是否完成 ===`); // 新增
         const hasCompleted = await hasCompletedTodaysMeals(playerId, currentDay);
         console.log(`[DayCheck] Player ${playerId} day ${currentDay} completion check:`, {
-  hasCompleted,
-  // 可补充查询到的餐食记录，进一步确认
-  recordedMeals: await MealRecord.count({ where: { playerId, day: currentDay } })
-});
+            hasCompleted,
+            // 可补充查询到的餐食记录，进一步确认
+            recordedMeals: await MealRecord.count({where: {playerId, day: currentDay}})
+        });
 
         if (!hasCompleted) {
+            console.log(`当天未完成，回滚事务`); // 新增
             await transaction.rollback();
             return res.status(400).json({
                 success: false,
@@ -697,19 +707,19 @@ router.post("/update-current-day", async (req, res) => {
             });
         }
 
-        // 4. 计算新天数（不超过7天）
+        console.log(`=== 步骤5：计算新天数 ===`); // 新增
         const newDay = Math.min(currentDay + 1, 7);
+        console.log(`计算新天数：${currentDay} → ${newDay}`); // 新增
 
-        // 5. 更新玩家的currentDay
-        console.log(`[SQL] 更新玩家${playerId}的currentDay：从${currentDay}到${newDay}`);
+        console.log(`=== 步骤6：执行更新 ===`); // 新增
+        console.log(`[SQL] 更新玩家${playerId}的currentDay：从${currentDay}到${newDay}`); // 你的日志
         await player.update({currentDay: newDay}, {transaction});
 
-        // 6. 强制刷新数据，确保更新成功
+        console.log(`=== 步骤7：刷新数据 ===`); // 新增
         await player.reload({transaction});
         console.log(`[SQL] 刷新后玩家${playerId}的currentDay：${player.currentDay}`); // 关键验证
 
-
-        // 7. 提交事务
+        console.log(`=== 步骤8：提交事务 ===`); // 新增
         await transaction.commit();
 
         // 记录关键日志（方便排查问题）
@@ -723,7 +733,8 @@ router.post("/update-current-day", async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
-        console.error(`[DayUpdateError] Player ${req.body.playerId}:`, error);
+        console.log(`=== 接口进入catch块 ===`); // 新增：确认是否报错
+        console.error(`[Error] 更新失败：`, error); // 新增：打印错误详情
         res.status(500).json({
             success: false,
             error: "Failed to update current day",
