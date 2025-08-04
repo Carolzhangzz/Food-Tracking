@@ -102,9 +102,13 @@ export default class NPCManager {
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({playerId: this.scene.playerId}),
             });
-
+            console.log(`=== loadPlayerStatus 响应状态 ===`, response.status);
             if (response.ok) {
                 const data = await response.json();
+                console.log(`=== 服务器返回的完整data ===`, data); // 新增：打印完整data
+                console.log(`=== 服务器返回的data.player ===`, data.player); // 新增：确认player是否存在
+                console.log(`=== 服务器返回的currentDay ===`, data.player?.currentDay); // 你的日志
+
                 console.log(`=== 服务器返回的mealRecords ===`, data.mealRecords);
                 this.playerStatus = data.player || {  // 确保playerStatus有默认值
                     playerId: this.scene.playerId,
@@ -173,7 +177,7 @@ export default class NPCManager {
                 throw new Error("Failed to load player status");
             }
         } catch (error) {
-            console.error("Error loading player status:", error);
+            console.error(`=== loadPlayerStatus 进入catch块 ===`, error);
             // 使用默认状态
             this.playerStatus = {
                 playerId: this.scene.playerId,
