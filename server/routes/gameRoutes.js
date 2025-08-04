@@ -617,6 +617,55 @@ router.post("/record-meal", async (req, res) => {
   }
 });
 
+// 新增：处理客户端的天数更新请求
+router.post("/update-current-day", async (req, res) => {
+  try {
+    const { playerId, currentDay } = req.body;
+
+    if (!playerId || !currentDay) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing playerId or currentDay"
+      });
+    }
+
+    // 查找玩家
+    const player = await Player.findOne({ where: { playerId } });
+    if (!player) {
+      return res.status(404).json({
+        success: false,
+        error: "Player not found"
+      });
+    }
+
+    // 校验当前天数是否已完成所有餐食
+    const hasCompleted = await hasCompletedTodaysMeals(playerId, currentDay);
+    if (!hasCompleted) {
+      return res.status(400).json({
+        success: false,
+        error: "Current day is not completed"
+      });
+    }
+
+    // 计算新天数（不超过7天）
+    const newDay = Math.min(currentDay + 1, 7);
+    // 更新玩家的currentDay
+    await player.update({ currentDay: newDay });
+
+    res.json({
+      success: true,
+      newDay: newDay
+    });
+
+  } catch (error) {
+    console.error("Error updating current day:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update current day"
+    });
+  }
+});
+
 // 获取NPC线索文本的函数
 function getClueForNPC(npcId, language = 'zh') {
   const clues = {

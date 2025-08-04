@@ -124,6 +124,9 @@ export default class NPCManager {
                 // 更新NPC状态
                 this.updateNPCStates();
 
+                // 新增：加载完状态后检查是否需要更新天数（关键修改）
+                await this.checkAndUpdateCurrentDay();
+
                 console.log(`Player status loaded:`, {
                     playerId: this.playerStatus.playerId,
                     currentDay: this.playerStatus.currentDay,
@@ -436,16 +439,23 @@ export default class NPCManager {
                     // 检查是否完成了一天的所有餐食
                     if (availableNPC.mealsRecorded >= 3) {
                         availableNPC.hasCompletedDay = true;
+
+                        // 关键修改：记录完3餐后，延迟1秒检查是否需要更新天数
+                        // 延迟是为了确保服务器数据已同步
+                        setTimeout(async () => {
+                            // 重新加载最新状态
+                            await this.loadPlayerStatus();
+                            // 检查并更新天数（需要配合之前添加的checkAndUpdateCurrentDay方法）
+                            await this.checkAndUpdateCurrentDay();
+                        }, 1000);
                     }
                 }
 
                 // 如果是晚餐且给出了线索，自动添加到本地线索记录
                 if (data.shouldGiveClue && mealType === "dinner") {
-                    // 线索已经在服务器端保存，这里只需要更新UI
                     await this.loadPlayerStatus(); // 重新加载以获取新线索
                 } else {
-                    // 重新加载状态以获取最新信息
-                    await this.loadPlayerStatus();
+                    await this.loadPlayerStatus(); // 重新加载状态以获取最新信息
                 }
 
                 // 如果解锁了下一天，显示通知
@@ -472,6 +482,53 @@ export default class NPCManager {
             return {success: false, error: error.message};
         }
     }
+
+// 在NPCManager类中添加
+
+
+    async checkAndUpdateCurrentDay() {
+        if (!this.playerStatus) return;
+
+        const currentDay = this.playerStatus.currentDay;
+        // 检查当前天是否已完成所有餐食（无剩余可记录餐食）
+        const isCurrentDayCompleted = this.currentDayMealsRemaining.length === 0;
+
+        // 检查是否存在下一天的NPC（说明服务器已默认解锁下一天，但currentDay未更新）
+        const hasNextDayNPC = this.availableNPCs.some(npc => npc.day === currentDay + 1);
+
+        // 如果：当天已完成 + 存在下一天NPC + currentDay未变 → 强制更新天数
+        if (isCurrentDayCompleted && hasNextDayNPC) {
+            console.log(`检测到当天已完成但天数未更新，尝试强制更新...`);
+            await this.forceUpdateCurrentDay();
+        }
+    }
+
+
+// 在NPCManager类中添加
+    async forceUpdateCurrentDay() {
+        try {
+            const response = await fetch(`${API_URL}/update-current-day`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    playerId: this.scene.playerId,
+                    currentDay: this.playerStatus.currentDay // 发送当前天数，让服务器校验是否需要+1
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                console.log(`天数已更新为: ${data.newDay}`);
+                // 重新加载玩家状态，同步最新的currentDay
+                await this.loadPlayerStatus();
+                return true;
+            }
+        } catch (error) {
+            console.error("强制更新天数失败:", error);
+        }
+        return false;
+    }
+
 
     // 获取每日进度
     getDailyProgress() {
