@@ -556,16 +556,14 @@ export default class NPCManager {
                 // 1. 强制同步服务器返回的新天数（避免本地状态滞后）
                 this.playerStatus.currentDay = data.newDay;
 
-                // 2. 重新加载完整状态（确保NPC列表等数据同步）
-                await this.loadPlayerStatus();
+                // 2. 延迟重新加载（确保服务器数据已持久化）
+                setTimeout(async () => {
+                    await this.loadPlayerStatus(); // 此时应从服务器获取到新值
+                    this.updateNPCStates();
+                }, 1000); // 增加1秒延迟，确保服务器写入完成
 
-                // 3. 手动触发NPC状态更新（立即刷新UI）
-                this.updateNPCStates();
-
-                // 4. 显示跳转通知（增强用户感知）
-                const language = this.scene.playerData.language;
                 this.scene.showNotification(
-                    language === "zh"
+                    this.scene.playerData.language === "zh"
                         ? `已进入第${data.newDay}天！`
                         : `Day ${data.newDay} started!`,
                     3000
