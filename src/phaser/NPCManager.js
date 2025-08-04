@@ -42,14 +42,14 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 12, y: 5},
+                position: {x: 3, y: 1.2},
                 day: 2,
             },
             {
                 id: "spice_woman",
                 name:
                     this.scene.playerData.language === "zh" ? "香料婆婆" : "Spice Woman",
-                position: {x: 8, y: 12},
+                position: {x: 0.8, y: 1.7},
                 day: 3,
             },
             {
@@ -561,6 +561,8 @@ export default class NPCManager {
 
         try {
             const originalDay = this.playerStatus.currentDay;
+            console.log(`=== 调用update-current-day接口 ===`);
+            console.log(`传递的currentDay: ${originalDay}（服务器当前天数）`); // 新增日志
             const response = await fetch(`${API_URL}/update-current-day`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},

@@ -24,13 +24,42 @@ function calculateCurrentDay(firstLoginDate) {
     return Math.min(diffDays + 1, 7);
 }
 
-async function hasCompletedTodaysMeals(playerId, day) {
+async function hasCompletedTodaysMeals(playerId, currentDay) {
+  // 1. 入参校验（防止无效查询）
+  if (!playerId || currentDay === undefined || currentDay < 1) {
+    console.error(`[hasCompletedTodaysMeals] 无效参数: playerId=${playerId}, currentDay=${currentDay}`);
+    return false;
+  }
+
+  try {
+    // 2. 仅查询当天的午餐和晚餐（减少数据传输）
     const mealRecords = await MealRecord.findAll({
-        where: { playerId, day: day } // 使用传入的day参数
+      where: {
+        playerId,
+        day: currentDay,
+        mealType: ['lunch', 'dinner'] // 明确过滤，只关注需要的餐型
+      },
+      attributes: ['mealType'] // 只返回需要的字段，优化性能
     });
-    const recordedTypes = mealRecords.map(rec => rec.mealType);
-    return recordedTypes.includes('lunch') && recordedTypes.includes('dinner');
+
+    // 3. 打印关键日志（方便调试）
+    console.log(`[hasCompletedTodaysMeals] 检查结果: playerId=${playerId}, day=${currentDay}`, {
+      记录数量: mealRecords.length,
+      实际餐型: mealRecords.map(r => r.mealType)
+    });
+
+    // 4. 去重后检查是否包含两种必需餐型
+    const recordedTypes = new Set(mealRecords.map(record => record.mealType));
+    const isCompleted = recordedTypes.has('lunch') && recordedTypes.has('dinner');
+
+    return isCompleted;
+  } catch (error) {
+    // 5. 异常处理（避免整个流程崩溃）
+    console.error(`[hasCompletedTodaysMeals] 数据库查询失败: playerId=${playerId}, day=${currentDay}`, error);
+    return false; // 异常时默认视为未完成，保证安全性
+  }
 }
+
 
 async function checkAndUnlockNextNPC(playerId, currentDay) {
     const completedToday = await hasCompletedTodaysMeals(playerId, currentDay);
@@ -653,6 +682,12 @@ router.post("/update-current-day", async (req, res) => {
 
         // 3. 校验当前天数是否已完成所有餐食
         const hasCompleted = await hasCompletedTodaysMeals(playerId, currentDay);
+        console.log(`[DayCheck] Player ${playerId} day ${currentDay} completion check:`, {
+  hasCompleted,
+  // 可补充查询到的餐食记录，进一步确认
+  recordedMeals: await MealRecord.count({ where: { playerId, day: currentDay } })
+});
+
         if (!hasCompleted) {
             await transaction.rollback();
             return res.status(400).json({
