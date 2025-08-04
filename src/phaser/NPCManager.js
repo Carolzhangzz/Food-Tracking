@@ -13,6 +13,7 @@ export default class NPCManager {
         this.availableNPCs = [];
         this.mealRecords = [];
         this.clueRecords = []; // 从服务器加载的线索记录
+        this.isUpdatingDay = false;
 
         this.initializeNPCs();
     }
@@ -528,27 +529,60 @@ export default class NPCManager {
 
 // 在NPCManager类中添加
     async forceUpdateCurrentDay() {
+        // 防止重复调用：如果正在更新，直接返回
+        if (this.isUpdatingDay) {
+            console.log("正在更新天数中，跳过重复调用");
+            return false;
+        }
+        this.isUpdatingDay = true; // 加锁
+
         try {
+            // 保存当前天数用于校验（防止旧请求覆盖新状态）
+            const originalDay = this.playerStatus.currentDay;
+
             const response = await fetch(`${API_URL}/update-current-day`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({
                     playerId: this.scene.playerId,
-                    currentDay: this.playerStatus.currentDay // 发送当前天数，让服务器校验是否需要+1
+                    currentDay: originalDay // 仅基于当前真实天数请求更新
                 })
             });
 
             const data = await response.json();
             if (data.success) {
-                console.log(`天数已更新为: ${data.newDay}`);
-                // 重新加载玩家状态，同步最新的currentDay
+                console.log(`服务器确认天数更新：从${originalDay}→${data.newDay}`);
+
+                // 1. 强制同步服务器返回的新天数（避免本地状态滞后）
+                this.playerStatus.currentDay = data.newDay;
+
+                // 2. 重新加载完整状态（确保NPC列表等数据同步）
                 await this.loadPlayerStatus();
+
+                // 3. 手动触发NPC状态更新（立即刷新UI）
+                this.updateNPCStates();
+
+                // 4. 显示跳转通知（增强用户感知）
+                const language = this.scene.playerData.language;
+                this.scene.showNotification(
+                    language === "zh"
+                        ? `已进入第${data.newDay}天！`
+                        : `Day ${data.newDay} started!`,
+                    3000
+                );
+
                 return true;
+            } else {
+                console.error("服务器拒绝更新天数：", data.error || "未知错误");
+                return false;
             }
         } catch (error) {
-            console.error("强制更新天数失败:", error);
+            console.error("天数更新请求失败：", error);
+            return false;
+        } finally {
+            // 无论成功/失败，最终都释放锁
+            this.isUpdatingDay = false;
         }
-        return false;
     }
 
 
