@@ -127,6 +127,16 @@ export default class NPCManager {
                 // 新增：加载完状态后检查是否需要更新天数（关键修改）
                 await this.checkAndUpdateCurrentDay();
 
+                // 补充调试信息：检查第一天完成状态和当前天数
+                const firstDayNPC = this.availableNPCs.find(npc => npc.day === 1);
+                console.log("自动跳转调试信息：", {
+                    currentDay: this.playerStatus.currentDay, // 当前天数
+                    firstDayMealsRecorded: firstDayNPC?.mealsRecorded || 0, // 第一天已记录餐数
+                    firstDayIsCompleted: firstDayNPC?.hasCompletedDay || false, // 第一天是否完成
+                    currentDayMealsRemaining: this.currentDayMealsRemaining.length, // 当前天剩余餐数
+                    hasNextDayNPC: this.availableNPCs.some(npc => npc.day === this.playerStatus.currentDay + 1) // 是否有下一天NPC
+                });
+
                 console.log(`Player status loaded:`, {
                     playerId: this.playerStatus.playerId,
                     currentDay: this.playerStatus.currentDay,
@@ -490,19 +500,31 @@ export default class NPCManager {
         if (!this.playerStatus) return;
 
         const currentDay = this.playerStatus.currentDay;
-        // 检查当前天是否已完成所有餐食（无剩余可记录餐食）
-        const isCurrentDayCompleted = this.currentDayMealsRemaining.length === 0;
 
-        // 检查是否存在下一天的NPC（说明服务器已默认解锁下一天，但currentDay未更新）
+        // 关键优化：判断当前天是否真的完成（不仅要看剩余餐食为空，还要看已记录3餐）
+        const currentNPC = this.availableNPCs.find(npc => npc.day === currentDay);
+        const hasRecorded3Meals = currentNPC ? currentNPC.mealsRecorded >= 3 : false;
+
+        // 原条件：仅判断剩余餐食为空（容易误判）
+        // const isCurrentDayCompleted = this.currentDayMealsRemaining.length === 0;
+
+        // 新条件：剩余餐食为空 + 已记录3餐 → 才认为当前天已完成
+        const isCurrentDayCompleted = this.currentDayMealsRemaining.length === 0 && hasRecorded3Meals;
+
+        // 检查是否存在下一天的NPC
         const hasNextDayNPC = this.availableNPCs.some(npc => npc.day === currentDay + 1);
 
-        // 如果：当天已完成 + 存在下一天NPC + currentDay未变 → 强制更新天数
+        // 只有当前天确实完成，才触发更新
         if (isCurrentDayCompleted && hasNextDayNPC) {
-            console.log(`检测到当天已完成但天数未更新，尝试强制更新...`);
+            console.log(`检测到第${currentDay}天已完成，尝试更新到第${currentDay + 1}天...`);
             await this.forceUpdateCurrentDay();
+        } else {
+            // 新增：打印未触发更新的原因，方便调试
+            if (!isCurrentDayCompleted) {
+                console.log(`第${currentDay}天未完成（剩余餐食: ${this.currentDayMealsRemaining.length}，已记录: ${currentNPC?.mealsRecorded || 0}），不更新天数`);
+            }
         }
     }
-
 
 // 在NPCManager类中添加
     async forceUpdateCurrentDay() {
