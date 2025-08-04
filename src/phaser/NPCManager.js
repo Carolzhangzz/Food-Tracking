@@ -98,7 +98,7 @@ export default class NPCManager {
     async loadPlayerStatus() {
         try {
             // 1. 修复：接口路径添加 /api 前缀（关键！否则请求不到正确接口）
-            const response = await fetch(`${API_URL}/api/player-status`, {  // 新增 /api
+            const response = await fetch(`${API_URL}/player-status`, {  // 新增 /api
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({playerId: this.scene.playerId}),
