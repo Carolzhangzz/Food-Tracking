@@ -701,10 +701,13 @@ router.post("/update-current-day", async (req, res) => {
         const newDay = Math.min(currentDay + 1, 7);
 
         // 5. 更新玩家的currentDay
+        console.log(`[SQL] 更新玩家${playerId}的currentDay：从${currentDay}到${newDay}`);
         await player.update({currentDay: newDay}, {transaction});
 
         // 6. 强制刷新数据，确保更新成功
         await player.reload({transaction});
+        console.log(`[SQL] 刷新后玩家${playerId}的currentDay：${player.currentDay}`); // 关键验证
+
 
         // 7. 提交事务
         await transaction.commit();
