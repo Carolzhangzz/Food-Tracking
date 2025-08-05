@@ -9,6 +9,7 @@ const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../models').sequelize; // 假设从模型入口文件导出
+const NPC = require("../models/NPC");    // ← 加这一行，确保后面能用 NPC.findOne
 
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
@@ -491,15 +492,15 @@ router.post("/save-conversation", async (req, res) => {
             return res.status(400).json({success: false, error: "Conversation content cannot be empty"});
         }
 
-        // 2. 新增：检查NPC是否存在（解决"NPC数据有问题"的核心）
-        const npcExists = await NPC.findOne({where: {npcId}});
-        if (!npcExists) {
-            console.error(`Save conversation failed: NPC not found (npcId=${npcId})`);
-            return res.status(404).json({
-                success: false,
-                error: `NPC not found (npcId=${npcId})` // 明确告知前端NPC不存在
-            });
-        }
+        // // 2. 新增：检查NPC是否存在（解决"NPC数据有问题"的核心）
+        // const npcExists = await NPC.findOne({where: {npcId}});
+        // if (!npcExists) {
+        //     console.error(`Save conversation failed: NPC not found (npcId=${npcId})`);
+        //     return res.status(404).json({
+        //         success: false,
+        //         error: `NPC not found (npcId=${npcId})` // 明确告知前端NPC不存在
+        //     });
+        // } -- 避免 500
 
         // 3. 优化：记录详细日志，方便追踪问题
         console.log(`Saving conversation: playerId=${playerId}, npcId=${npcId}, day=${day}, content=${content.substring(0, 20)}...`);
