@@ -114,7 +114,7 @@ export default class NPCManager {
                 console.log(`=== 服务器返回的currentDay ===`, serverCurrentDay);
 
                 console.log(`=== 服务器返回的mealRecords ===`, data.mealRecords);
-
+                const prevCurrentDay = this.playerStatus?.currentDay;
                 // 3. 强制同步本地状态为服务器返回值（重点：确保 currentDay 被覆盖）
                 this.playerStatus = {
                     // 优先使用服务器返回的 player 数据
@@ -128,6 +128,13 @@ export default class NPCManager {
                     mealRecords: data.mealRecords?.length || 0,
                     clueRecords: data.clueRecords?.length || 0
                 };
+
+                if (prevCurrentDay === undefined || serverCurrentDay !== prevCurrentDay) {
+                    console.log(`天数变化（${prevCurrentDay} → ${serverCurrentDay}），触发检查更新`);
+                    await this.checkAndUpdateCurrentDay();
+                } else {
+                    console.log(`天数未变化（${serverCurrentDay}），不重复检查更新`);
+                }
 
                 // 4. 再次确认本地 currentDay 是否与服务器一致（关键日志）
                 console.log(`=== 本地同步后 currentDay ===`, this.playerStatus.currentDay);
@@ -523,12 +530,12 @@ export default class NPCManager {
                     console.log(`服务器返回的availableMealTypes:`, this.availableNPCs.find(n => n.npcId === npcId)?.availableMealTypes);
 
                     if (mealType === 'dinner') {
-                    console.log(`检测到晚餐记录，立即检查天数更新`);
-                    await this.checkAndUpdateCurrentDay();
-                } else {
-                    // 其他餐型按原逻辑
-                    await this.checkAndUpdateCurrentDay();
-                }
+                        console.log(`检测到晚餐记录，立即检查天数更新`);
+                        await this.checkAndUpdateCurrentDay();
+                    } else {
+                        // 其他餐型按原逻辑
+                        await this.checkAndUpdateCurrentDay();
+                    }
                 }, 1500);
 
                 return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
@@ -567,9 +574,9 @@ export default class NPCManager {
 // 核心逻辑：仅检查午餐和晚餐是否已记录（忽略早餐）
         // 判定标准：availableMealTypes中不包含午餐和晚餐，即视为已记录
         const hasRecordedDinner = !currentNPC.availableMealTypes.includes('dinner'); // 晚餐已记录
-    const isLocalCompleted = hasRecordedDinner; // 只要晚餐记录了，就视为本地完成
-    const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认状态
-    const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
+        const isLocalCompleted = hasRecordedDinner; // 只要晚餐记录了，就视为本地完成
+        const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认状态
+        const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
 
         const hasNextDayNPC = this.availableNPCs.some(npc => npc.day === currentDay + 1);
 
