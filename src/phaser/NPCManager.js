@@ -42,7 +42,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 3, y: 1.2},
+                position: {x: 5, y: 1.2},
                 day: 2,
             },
             {
@@ -522,7 +522,13 @@ export default class NPCManager {
                     console.log(`=== 拉取服务器数据后 ===`);
                     console.log(`服务器返回的availableMealTypes:`, this.availableNPCs.find(n => n.npcId === npcId)?.availableMealTypes);
 
+                    if (mealType === 'dinner') {
+                    console.log(`检测到晚餐记录，立即检查天数更新`);
                     await this.checkAndUpdateCurrentDay();
+                } else {
+                    // 其他餐型按原逻辑
+                    await this.checkAndUpdateCurrentDay();
+                }
                 }, 1500);
 
                 return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
@@ -560,11 +566,10 @@ export default class NPCManager {
         if (!currentNPC) return;
 // 核心逻辑：仅检查午餐和晚餐是否已记录（忽略早餐）
         // 判定标准：availableMealTypes中不包含午餐和晚餐，即视为已记录
-        const hasRecordedLunch = !currentNPC.availableMealTypes.includes('lunch');
-        const hasRecordedDinner = !currentNPC.availableMealTypes.includes('dinner');
-        const isLocalCompleted = hasRecordedLunch && hasRecordedDinner; // 仅依赖午餐+晚餐
-        const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认的完成状态
-        const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
+        const hasRecordedDinner = !currentNPC.availableMealTypes.includes('dinner'); // 晚餐已记录
+    const isLocalCompleted = hasRecordedDinner; // 只要晚餐记录了，就视为本地完成
+    const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认状态
+    const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
 
         const hasNextDayNPC = this.availableNPCs.some(npc => npc.day === currentDay + 1);
 
@@ -772,7 +777,7 @@ export default class NPCManager {
 
         // 使用正确的资源键创建精灵
         const npcSprite = this.scene.add.sprite(0, 0, assetKey);
-        npcSprite.setScale(this.mapScale * 0.15);
+        npcSprite.setScale(this.mapScale * 0.5);
         npcSprite.setDepth(5);
         npcSprite.setVisible(false);
 

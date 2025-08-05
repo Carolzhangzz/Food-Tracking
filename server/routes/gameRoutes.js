@@ -604,10 +604,12 @@ router.post("/record-meal", async (req, res) => {
             await progressRecord.update({
                 mealsRecorded: mealsCount,
                 hasRecordedMeal: true,
+                hasCompletedDay: mealType === 'dinner'
             });
         }
 
-        const shouldUnlockNext = await checkAndUnlockNextNPC(playerId, day);
+        const hasCompletedDay = mealType === 'dinner'; // 关键：晚餐时为true
+        const nextDayUnlocked = hasCompletedDay;
 
         // 检查是否应该给出线索（晚餐 + 是当前NPC对应的天数）
         const shouldGiveClue = mealType === "dinner" && day === currentDay;
@@ -626,7 +628,8 @@ router.post("/record-meal", async (req, res) => {
                 mealType: mealRecord.mealType,
                 recordedAt: mealRecord.recordedAt,
             },
-            nextDayUnlocked: shouldUnlockNext,
+            hasCompletedDay: hasCompletedDay,
+            nextDayUnlocked: nextDayUnlocked,
             shouldGiveClue: shouldGiveClue,
         });
     } catch (error) {
