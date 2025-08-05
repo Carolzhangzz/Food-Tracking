@@ -451,12 +451,20 @@ export default class NPCManager {
             // 先保存对话历史到数据库
             if (conversationHistory && Array.isArray(conversationHistory)) {
                 for (const dialog of conversationHistory) {
-                    await this.saveConversationToDatabase(
-                        npcId,
-                        dialog.type === "user" ? "player" : "npc",
-                        dialog.content,
-                        mealType
-                    );
+                    try {
+                        await this.saveConversationToDatabase(npcId,
+                            dialog.type === "user" ? "player" : "npc",
+                            dialog.content,
+                            mealType);
+                    } catch (error) {
+                        console.warn("跳过失败的对话记录:", error.message); // 仅警告，不阻断流程
+                    }
+                    // await this.saveConversationToDatabase(
+                    //     npcId,
+                    //     dialog.type === "user" ? "player" : "npc",
+                    //     dialog.content,
+                    //     mealType
+                    // );
                 }
             }
 
