@@ -527,7 +527,7 @@ export default class NPCManager {
                 } else {
                     console.warn(`未找到NPC: ${npcId} 在availableNPCs中`);
                 }
-
+                this.scene.events.emit('mealRecorded', { npcId, mealType });
                 // 延迟检查天数更新（确保服务器数据同步）
                 setTimeout(async () => {
                     console.log(`=== 拉取服务器数据前 ===`);

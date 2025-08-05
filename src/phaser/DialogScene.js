@@ -140,17 +140,17 @@ export default class DialogScene extends Phaser.Scene {
                     mealContent// 餐食内容，根据实际情况补充
                 );
 
-                if (result.success) {
+                // if (result.success) {
                     // 关键：同步更新本地缓存的餐食记录
-                    this.npcManager.mealRecords.push({
-                        day: this.npcManager.getCurrentDay(),
-                        npcId: dialogResult.currentNPC,
-                        mealType: dialogResult.currentMealType,
-                        mealContent: mealContent,
-                        recordedAt: new Date()
-                    });
-                    console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
-                }
+                    // this.npcManager.mealRecords.push({
+                    //     day: this.npcManager.getCurrentDay(),
+                    //     npcId: dialogResult.currentNPC,
+                    //     mealType: dialogResult.currentMealType,
+                    //     mealContent: mealContent,
+                    //     recordedAt: new Date()
+                    // });
+                    // console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
+                // }
             } catch (error) {
                 console.error("提交记录失败:", error);
             }
@@ -1935,7 +1935,7 @@ I believe those records hold the key.`,
 
                 this.showSingleMessage("npc", endMessage, () => {
                     this.dialogPhase = "completed";
-                    // 不标记为完成，玩家可以继续记录其他餐食
+                    this.notifyMealRecorded();
                 });
             }
         } catch (error) {

@@ -505,7 +505,7 @@ export default class MainScene extends Phaser.Scene {
         // 创建NPCManager，传入正确的playerId
         this.npcManager = new NPCManager(this, this.mapScale);
         this.uiManager = new UIManager(this);
-
+        this.events.on('mealRecorded', this.onMealRecorded, this);
         if (this.dialogSystem) {
             try {
                 this.npcManager.setDialogSystem(this.dialogSystem);
