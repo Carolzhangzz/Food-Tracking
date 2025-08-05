@@ -747,18 +747,12 @@ router.post("/update-current-day", async (req, res) => {
                 currentDay: player.currentDay
             });
         }
-
-        console.log(`=== 步骤5：计算新天数 ===`); // 新增
+// 5. 计算新天数
         const newDay = Math.min(currentDay + 1, 7);
-        console.log(`计算新天数：${currentDay} → ${newDay}`); // 新增
-
-        console.log(`=== 步骤6：执行更新 ===`); // 新增
-        console.log(`[SQL] 更新玩家${playerId}的currentDay：从${currentDay}到${newDay}`); // 你的日志
+        // 6. 更新玩家 currentDay
         await player.update({currentDay: newDay}, {transaction});
-
-        console.log(`=== 步骤7：刷新数据 ===`); // 新增
-        await player.reload({transaction});
-        console.log(`[SQL] 刷新后玩家${playerId}的currentDay：${player.currentDay}`); // 关键验证
+        // 7. 解锁下一个 NPC，写入 PlayerProgress
+        await checkAndUnlockNextNPC(playerId, currentDay);
 
         console.log(`=== 步骤8：提交事务 ===`); // 新增
         await transaction.commit();
