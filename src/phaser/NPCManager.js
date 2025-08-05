@@ -527,7 +527,7 @@ export default class NPCManager {
                 } else {
                     console.warn(`未找到NPC: ${npcId} 在availableNPCs中`);
                 }
-                this.scene.events.emit('mealRecorded', { npcId, mealType });
+                this.scene.events.emit('mealRecorded', {npcId, mealType});
                 // 延迟检查天数更新（确保服务器数据同步）
                 setTimeout(async () => {
                     console.log(`=== 拉取服务器数据前 ===`);
@@ -538,10 +538,11 @@ export default class NPCManager {
                     console.log(`服务器返回的availableMealTypes:`, this.availableNPCs.find(n => n.npcId === npcId)?.availableMealTypes);
 
                     if (mealType === 'dinner') {
-                        console.log(`检测到晚餐记录，立即检查天数更新`);
-                        await this.checkAndUpdateCurrentDay();
+                        console.log(`检测到晚餐记录，立即强制更新天数`);
+                        // 用 forceUpdateCurrentDay 绕过频率限制，保证当天结束能推进到下一天
+                        await this.forceUpdateCurrentDay();
                     } else {
-                        // 其他餐型按原逻辑
+                        // 其他餐型仍然用原来的检查逻辑
                         await this.checkAndUpdateCurrentDay();
                     }
                 }, 1500);
