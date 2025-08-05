@@ -9,7 +9,6 @@ const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../models').sequelize; // 假设从模型入口文件导出
-const NPC = require("../models/NPC");    // ← 加这一行，确保后面能用 NPC.findOne
 
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
