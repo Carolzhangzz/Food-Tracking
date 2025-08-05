@@ -329,7 +329,7 @@ async function getPlayerFullStatus(playerId) {
         throw new Error("Player not found");
     }
 
-    const currentDay = calculateCurrentDay(player.firstLoginDate);
+    const currentDay = player.currentDay;
 
     // if (currentDay !== player.currentDay) {
     //     await player.update({currentDay});
