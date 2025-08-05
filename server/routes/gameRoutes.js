@@ -474,28 +474,66 @@ router.post("/save-conversation", async (req, res) => {
     try {
         const {playerId, npcId, day, speaker, content, mealType, sessionId} = req.body;
 
-        if (!playerId || !npcId || !day || !speaker || !content) {
-            return res.status(400).json({
+        // 1. 增强参数校验（补充空值和格式检查）
+        if (!playerId || playerId.trim() === "") {
+            return res.status(400).json({success: false, error: "Missing or invalid playerId"});
+        }
+        if (!npcId || npcId.trim() === "") {
+            return res.status(400).json({success: false, error: "Missing or invalid npcId"});
+        }
+        if (!day || isNaN(day) || day < 1) { // 确保day是有效数字
+            return res.status(400).json({success: false, error: "Missing or invalid day (must be a positive number)"});
+        }
+        if (!speaker || !["player", "npc"].includes(speaker)) { // 限制speaker只能是player/npc
+            return res.status(400).json({success: false, error: "Invalid speaker (must be 'player' or 'npc')"});
+        }
+        if (!content || content.trim() === "") { // 禁止空内容
+            return res.status(400).json({success: false, error: "Conversation content cannot be empty"});
+        }
+
+        // 2. 新增：检查NPC是否存在（解决"NPC数据有问题"的核心）
+        const npcExists = await NPC.findOne({where: {npcId}});
+        if (!npcExists) {
+            console.error(`Save conversation failed: NPC not found (npcId=${npcId})`);
+            return res.status(404).json({
                 success: false,
-                error: "Missing required fields"
+                error: `NPC not found (npcId=${npcId})` // 明确告知前端NPC不存在
             });
         }
 
-        const result = await saveConversationHistory(playerId, npcId, day, speaker, content, mealType, sessionId);
+        // 3. 优化：记录详细日志，方便追踪问题
+        console.log(`Saving conversation: playerId=${playerId}, npcId=${npcId}, day=${day}, content=${content.substring(0, 20)}...`);
 
-        if (result) {
-            res.json({success: true});
-        } else {
-            res.status(500).json({
+        // 4. 处理 saveConversationHistory 可能的异常（而非仅依赖返回值）
+        try {
+            const result = await saveConversationHistory(
+                playerId, npcId, day, speaker, content, mealType, sessionId
+            );
+            if (result) {
+                console.log(`Conversation saved successfully: playerId=${playerId}, npcId=${npcId}`);
+                return res.json({success: true});
+            } else {
+                console.error(`saveConversationHistory returned false: playerId=${playerId}, npcId=${npcId}`);
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to save conversation (internal function returned false)"
+                });
+            }
+        } catch (historyError) {
+            // 捕获 saveConversationHistory 内部抛出的异常
+            console.error(`Error in saveConversationHistory:`, historyError.message, "Stack:", historyError.stack);
+            return res.status(500).json({
                 success: false,
-                error: "Failed to save conversation"
+                error: `Failed to save conversation: ${historyError.message}`
             });
         }
+
     } catch (error) {
-        console.error("Error saving conversation:", error);
+        // 捕获接口整体异常
+        console.error(`Critical error in /save-conversation:`, error.message, "Stack:", error.stack);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: `Server error: ${error.message}`
         });
     }
 });
