@@ -551,7 +551,7 @@ export default class NPCManager {
 
 
     async checkAndUpdateCurrentDay() {
-        await this.loadPlayerStatus();
+        // await this.loadPlayerStatus();
 
         // 确认本地currentDay已更新为服务器的值（应为2）
         console.log(`=== 准备更新天数，当前本地currentDay ===`, this.playerStatus.currentDay);
