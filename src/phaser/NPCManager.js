@@ -545,7 +545,7 @@ export default class NPCManager {
                         // 其他餐型仍然用原来的检查逻辑
                         await this.checkAndUpdateCurrentDay();
                     }
-                }, 1500);
+                }, 5000);
 
                 return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
             } else {
