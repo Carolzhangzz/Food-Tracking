@@ -330,6 +330,7 @@ async function getPlayerFullStatus(playerId) {
     }
 
     const currentDay = player.currentDay;
+    await checkAndUnlockNextNPC(playerId, currentDay);
 
     // if (currentDay !== player.currentDay) {
     //     await player.update({currentDay});
