@@ -653,9 +653,8 @@ export default class NPCManager {
 
                 console.log(`服务器返回 newDay：${data.newDay}`);
                 this.playerStatus.currentDay = data.newDay;
-                if (this.scene.uiManager) {
-                    this.scene.uiManager.updateProgress();
-                }
+
+                this.scene.uiManager?.updateProgress();
 
                 // 延迟重新加载，确保服务器数据已写入
                 setTimeout(async () => {
