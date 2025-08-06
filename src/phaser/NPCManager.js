@@ -619,9 +619,13 @@ export default class NPCManager {
         //     return false;
         // }
         // this.isUpdatingDay = true;
-        const originalDay = this.playerStatus.currentDay;
-        const newDay = originalDay + 1;
-        console.log(`=== 即将调用更新接口，传递的currentDay ===`, newDay);
+        //----
+        // const originalDay = this.playerStatus.currentDay;
+        // const newDay = originalDay + 1;
+        // console.log(`=== 即将调用更新接口，传递的currentDay ===`, newDay);
+        //---
+        const currentDay = this.playerStatus.currentDay;    // 本地“当前天”
+        console.log(`=== 调用更新接口，传递 currentDay ===`, currentDay);
 
         try {
             // const originalDay = this.playerStatus.currentDay;
@@ -633,7 +637,7 @@ export default class NPCManager {
                 // body: JSON.stringify({playerId: this.scene.playerId, currentDay: originalDay})
                 body: JSON.stringify({
                     playerId: this.scene.playerId,
-                    currentDay: newDay
+                    currentDay: currentDay
                 })
             });
 
@@ -641,10 +645,14 @@ export default class NPCManager {
             if (data.success) {
                 // console.log(`服务器确认天数更新：从${originalDay}→${data.newDay}`);
                 // // 仅在服务器成功返回后，才更新本地天数
-                // this.playerStatus.currentDay = data.newDay;
-                console.log(`服务器确认天数更新：从 ${originalDay} → ${data.newDay}`);
+                // this.playerStatus.currentDay = data.newDay;---------------
+                // console.log(`服务器确认天数更新：从 ${originalDay} → ${data.newDay}`);--------------
                 // 更新本地天数为后端返回值（或 newDay）
-                this.playerStatus.currentDay = data.newDay ?? newDay;
+                // this.playerStatus.currentDay = data.newDay ?? newDay;-------------
+
+
+                console.log(`服务器返回 newDay：${data.newDay}`);
+                this.playerStatus.currentDay = data.newDay;
                 if (this.scene.uiManager) {
                     this.scene.uiManager.updateProgress();
                 }
@@ -664,13 +672,13 @@ export default class NPCManager {
             } else {
                 console.error("服务器拒绝更新天数：", data.error || "未知错误");
 
-                this.playerStatus.currentDay = newDay;
+                // this.playerStatus.currentDay = newDay;-------------
                 this.scene.uiManager?.updateProgress();
                 return false;
             }
         } catch (error) {
             console.error("天数更新请求失败：", error);
-            this.playerStatus.currentDay = newDay;
+            // this.playerStatus.currentDay = newDay; -----------
             this.scene.uiManager?.updateProgress();
             return false;
         } finally {
