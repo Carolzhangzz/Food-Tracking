@@ -90,14 +90,13 @@ export default class DialogScene extends Phaser.Scene {
         this.load.image('npc6bg', npc6bg);
         this.load.image('npc7bg', npc7bg);
 
-        this.load.on("complete", () => {
-            console.log("Preload complete, proceeding with dialog");
-        });
-
-        if (npc?.backgroundKey) {
-            const backgroundPath = imageName[npc.backgroundKey];
-            console.log(`Attempting to load background: ${backgroundPath}`);
-            this.load.image(npc.backgroundKey, backgroundPath);
+        const npc = this.npcManager.getNPCById(this.currentNPC);
+        const imageMap = {
+            npc1bg, npc2bg, npc3bg, npc4bg, npc5bg, npc6bg, npc7bg
+        };
+        if (npc?.backgroundKey && imageMap[npc.backgroundKey]) {
+            this.load.image(npc.backgroundKey, imageMap[npc.backgroundKey]);
+            console.log(`Attempting to load background: ${npc.backgroundKey}`);
         }
 
         this.load.on("complete", () => {
