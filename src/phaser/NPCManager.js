@@ -49,7 +49,7 @@ export default class NPCManager {
                 id: "spice_woman",
                 name:
                     this.scene.playerData.language === "zh" ? "香料婆婆" : "Spice Woman",
-                position: {x: 0.8, y: 1.7},
+                position: {x: 1, y: 1.7},
                 day: 3,
             },
             {
@@ -58,7 +58,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "餐厅店长老韩"
                         : "Han (Restaurant Owner)",
-                position: {x: 15, y: 8},
+                position: {x: 2, y: 3.7},
                 day: 4,
             },
             {
@@ -145,9 +145,9 @@ export default class NPCManager {
                 // }
 
                 if (serverCurrentDay != null && this.playerStatus.currentDay !== serverCurrentDay) {
-            console.log(`⚠️ 修正本地 currentDay：${this.playerStatus.currentDay} → ${serverCurrentDay}`);
-            this.playerStatus.currentDay = serverCurrentDay;
-        }
+                    console.log(`⚠️ 修正本地 currentDay：${this.playerStatus.currentDay} → ${serverCurrentDay}`);
+                    this.playerStatus.currentDay = serverCurrentDay;
+                }
 
                 // 确保 availableNPCs 是数组
                 this.availableNPCs = Array.isArray(data.availableNPCs) ? data.availableNPCs : [];
@@ -167,13 +167,13 @@ export default class NPCManager {
 
                 // 更新NPC状态/ui
                 this.updateNPCStates();
-        if (this.scene.uiManager) {
-            this.clueRecords.forEach(c => this.scene.uiManager.addClue(c));
-            this.scene.uiManager.updateProgressDisplay();
-        }
-        if (this.scene.events) {
-            this.scene.events.emit('mealRecordsLoaded', this.mealRecords);
-        }
+                if (this.scene.uiManager) {
+                    this.clueRecords.forEach(c => this.scene.uiManager.addClue(c));
+                    this.scene.uiManager.updateProgressDisplay();
+                }
+                if (this.scene.events) {
+                    this.scene.events.emit('mealRecordsLoaded', this.mealRecords);
+                }
 
                 // 5. 调用天数更新检查前，再次确认当前天数（避免旧值残留）
                 console.log(`=== 准备检查天数更新，当前本地 currentDay ===`, this.playerStatus.currentDay);
@@ -193,7 +193,6 @@ export default class NPCManager {
                     currentDayMealsRemaining: this.currentDayMealsRemaining.length,
                     hasNextDayNPC: this.availableNPCs.some(npc => npc.day === this.playerStatus.currentDay + 1)
                 });
-
 
 
                 console.log(`Player status loaded:`, {
@@ -532,24 +531,20 @@ export default class NPCManager {
                 }
                 this.scene.events.emit('mealRecorded', {npcId, mealType});
                 // 延迟检查天数更新（确保服务器数据同步）
+                console.log(`记录 ${mealType} 成功，5 秒后同步最新状态${mealType === 'dinner' ? ' 并推进到下一天' : ''}`);
                 setTimeout(async () => {
-
-                    // 先用“记录时的” currentDay 去更新
-
+                    // 如果是晚餐，先强制更新到下一天（forceUpdateCurrentDay 中不要做任何限频判断）
                     if (mealType === 'dinner') {
-                        console.log(`检测到晚餐记录，先强制更新天数`);
-                        await this.forceUpdateCurrentDay();
-                    } else {
-                        await this.checkAndUpdateCurrentDay();
+                        try {
+                            await this.forceUpdateCurrentDay();
+                        } catch (e) {
+                            console.error('自动更新天数失败', e);
+                        }
                     }
-                    // 再统一重新从服务器拉取，拿到最新的 availableNPCs、mealRecords、clues……
-                    // 关键修复1：无论早/午/晚餐，更新天数后都刷新 UI
+
+                    // 再拉取最新的玩家状态、NPC 状态，并刷新 UI
                     this.scene.uiManager.updateProgressDisplay();
-
-                    // 拉取最新数据（包含最新的 mealRecords、currentDay 等）
                     await this.loadPlayerStatus();
-
-                    // 关键修复2：拉取最新数据后，再次刷新 UI（确保与服务器数据完全同步）
                     this.scene.uiManager.updateProgressDisplay();
                 }, 5000);
 
@@ -557,7 +552,8 @@ export default class NPCManager {
             } else {
                 throw new Error(data.error || "Failed to record meal");
             }
-        } catch (error) {
+        } catch
+            (error) {
             console.error("Error recording meal:", error);
             // 保存失败时，不更新本地状态，保持与服务器一致
             return {success: false, error: error.message};
