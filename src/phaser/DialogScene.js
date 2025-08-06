@@ -81,10 +81,19 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     preload() {
-        const npc = this.npcManager.getNPCById(this.currentNPC);
-        const imageName = {
-            npc1bg: npc1bg,
-        };
+
+        this.load.image('npc1bg', npc1bg);
+        this.load.image('npc2bg', npc2bg);
+        this.load.image('npc3bg', npc3bg);
+        this.load.image('npc4bg', npc4bg);
+        this.load.image('npc5bg', npc5bg);
+        this.load.image('npc6bg', npc6bg);
+        this.load.image('npc7bg', npc7bg);
+
+        this.load.on("complete", () => {
+            console.log("Preload complete, proceeding with dialog");
+        });
+
         if (npc?.backgroundKey) {
             const backgroundPath = imageName[npc.backgroundKey];
             console.log(`Attempting to load background: ${backgroundPath}`);
@@ -141,15 +150,15 @@ export default class DialogScene extends Phaser.Scene {
                 );
 
                 // if (result.success) {
-                    // 关键：同步更新本地缓存的餐食记录
-                    // this.npcManager.mealRecords.push({
-                    //     day: this.npcManager.getCurrentDay(),
-                    //     npcId: dialogResult.currentNPC,
-                    //     mealType: dialogResult.currentMealType,
-                    //     mealContent: mealContent,
-                    //     recordedAt: new Date()
-                    // });
-                    // console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
+                // 关键：同步更新本地缓存的餐食记录
+                // this.npcManager.mealRecords.push({
+                //     day: this.npcManager.getCurrentDay(),
+                //     npcId: dialogResult.currentNPC,
+                //     mealType: dialogResult.currentMealType,
+                //     mealContent: mealContent,
+                //     recordedAt: new Date()
+                // });
+                // console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
                 // }
             } catch (error) {
                 console.error("提交记录失败:", error);
@@ -168,31 +177,35 @@ export default class DialogScene extends Phaser.Scene {
         }
     }
 
-
+// DialogScene.js
     setupBackground() {
         const {width, height} = this.scale;
         const npc = this.npcManager.getNPCById(this.currentNPC);
+        const key = npc?.backgroundKey;
 
-        // 添加默认背景色
+        // 先画一个灰色底，以防背景图未加载或缺失
         this.add.rectangle(width / 2, height / 2, width, height, 0x2a2a2a);
 
-        if (npc?.backgroundKey) {
-            if (this.textures.exists(npc.backgroundKey)) {
+        if (key) {
+            if (this.textures.exists(key)) {
+                // 纹理存在时加载背景
                 this.add
-                    .image(width / 2, height / 2, npc.backgroundKey)
-                    .setDisplaySize(width, height);
-                console.log(
-                    `Background set for NPC ${this.currentNPC}: ${npc.backgroundKey}`
-                );
+                    .image(width / 2, height / 2, key)
+                    .setDisplaySize(width, height)
+                    .setOrigin(0.5);
+                console.log(`Background set for NPC ${this.currentNPC}: ${key}`);
             } else {
-                console.warn(`Background texture not found: ${npc.backgroundKey}`);
+                // key 不在 textures 里时用深色底替代
+                console.warn(`Background texture not found: ${key}`);
                 this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
             }
         } else {
+            // 没有配置 backgroundKey 时也用深色底
             console.warn("No backgroundKey found for NPC:", npc);
             this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
         }
     }
+
 
     setupUI() {
         const {width, height} = this.scale;
@@ -1274,8 +1287,13 @@ I believe those records hold the key.`,
 
         this.npcMap = new Map();
         this.npcMap.set("village_head", "d38ecac8-5c6b-11f0-946c-42010a7be01f");
-        this.npcMap.set("shop_owner", "abc123-shop-owner-id");
-        this.npcMap.set("spice_woman", "abc456-spice-woman-id");
+        this.npcMap.set("shop_owner", "902b34ac-6b65-11f0-a142-42010a7be01f");
+        this.npcMap.set("spice_woman", "529a416e-6b65-11f0-af2e-42010a7be01f");
+        this.npcMap.set("restaurant_owner", "6c4ed624-4b26-11f0-854d-42010a7be01f");
+        this.npcMap.set("fisherman", "2e287d62-4b28-11f0-b155-42010a7be01f");
+        this.npcMap.set("old_friend", "abc629d8-6b65-11f0-bc84-42010a7be01f");
+        this.npcMap.set("secret_apprentice", "a9394c0e-4d88-11f0-b18a-42010a7be01f");
+
 
         const charID = this.npcMap.get(this.currentNPC);
 

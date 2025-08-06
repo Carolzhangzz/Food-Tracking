@@ -275,6 +275,7 @@ export default class UIManager {
     if (!this.scene.npcManager) return;
 
     const progress = this.scene.npcManager.getDailyProgress();
+    console.log("当前进度的currentDay:", progress.currentDay);
     const language = this.scene.playerData.language;
 
     // 更新天数指示器
@@ -287,6 +288,7 @@ export default class UIManager {
     const currentDayMeals = this.scene.npcManager.mealRecords
       .filter(meal => meal.day === progress.currentDay)
       .map(meal => meal.mealType);
+      console.log("当天已记录的餐食:", currentDayMeals, "当前天数:", progress.currentDay); // 新增日志
 
     // 更新简约的三餐进度指示器
     this.mealProgressIndicators.forEach(indicator => {
