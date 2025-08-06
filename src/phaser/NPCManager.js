@@ -530,10 +530,15 @@ export default class NPCManager {
                     console.warn(`未找到NPC: ${npcId} 在availableNPCs中`);
                 }
                 this.scene.events.emit('mealRecorded', {npcId, mealType});
+                if (this.scene.uiManager) {
+                    console.log('recordMeal：立刻刷新进度');
+                    this.scene.uiManager.updateProgressDisplay();
+                }
+
                 // 延迟检查天数更新（确保服务器数据同步）
                 console.log(`记录 ${mealType} 成功，5 秒后同步最新状态${mealType === 'dinner' ? ' 并推进到下一天' : ''}`);
                 setTimeout(async () => {
-                    // 如果是晚餐，先强制更新到下一天（forceUpdateCurrentDay 中不要做任何限频判断）
+                    // 如果是晚餐，先强制推进天数
                     if (mealType === 'dinner') {
                         try {
                             await this.forceUpdateCurrentDay();
@@ -541,11 +546,12 @@ export default class NPCManager {
                             console.error('自动更新天数失败', e);
                         }
                     }
-
-                    // 再拉取最新的玩家状态、NPC 状态，并刷新 UI
-                    this.scene.uiManager.updateProgressDisplay();
+                    // 再拉最新状态并刷新一次 UI
                     await this.loadPlayerStatus();
-                    this.scene.uiManager.updateProgressDisplay();
+                    if (this.scene.uiManager) {
+                        console.log('5 秒后拉最新状态并刷新进度');
+                        this.scene.uiManager.updateProgressDisplay();
+                    }
                 }, 5000);
 
                 return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
