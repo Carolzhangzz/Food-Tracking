@@ -1,13 +1,12 @@
-// models/AllowedId.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 const AllowedId = sequelize.define('AllowedId', {
-  playerId: {                 // 代码里用 camelCase
+  playerId: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    field: 'player_id',       // 表里是 snake_case
+    field: 'player_id',
   },
   used: {
     type: DataTypes.BOOLEAN,
@@ -15,7 +14,7 @@ const AllowedId = sequelize.define('AllowedId', {
     field: 'used',
   },
 }, {
-  tableName: 'allowed_ids',   // 按你的真实表名来
+  tableName: 'allowed_ids',   // 按你的实际表名
   timestamps: false,
   underscored: true,
 });

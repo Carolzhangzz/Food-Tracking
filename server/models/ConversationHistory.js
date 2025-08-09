@@ -12,12 +12,9 @@ const ConversationHistory = sequelize.define('ConversationHistory', {
   content:   { type: DataTypes.TEXT, allowNull: false, field: 'content' },
   mealType:  { type: DataTypes.ENUM('breakfast','lunch','dinner'), field: 'meal_type' },
   timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'timestamp' },
-
-  createdAt: { type: DataTypes.DATE, field: 'created_at' },
-  updatedAt: { type: DataTypes.DATE, field: 'updated_at' },
 }, {
   tableName: 'conversation_history',
-  timestamps: true,
+  timestamps: false,   // 先关
   underscored: true,
   indexes: [
     { fields: ['playerId'], name: 'idx_convhist_player_id' },
