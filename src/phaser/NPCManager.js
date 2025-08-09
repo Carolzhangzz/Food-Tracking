@@ -444,11 +444,15 @@ export default class NPCManager {
             if (data.newDay) {
                 this.playerStatus.currentDay = data.newDay;
                 this.scene.showNotification(
-                    this.scene.playerData.language === "zh"
+                    this.scene.playerData.language === 'zh'
                         ? `已进入第${data.newDay}天！`
                         : `Day ${data.newDay} started!`,
                     2500
                 );
+            } else {
+                // ✅ 兜底：如果服务端没直接+1天，这里主动请求跨天
+                this.forceUpdateCurrentDay().catch(() => {
+                });
             }
 
             // 稍后再全量刷新一次，保证与服务端完全一致
