@@ -1,7 +1,7 @@
 // UIManager.js - 完整修复版本：移除餐食名称文本，修复线索语言问题
 import Phaser from "phaser";
 
-export class UIManager {
+export default class UIManager {
     constructor(scene) {
         this.scene = scene;
         this.clues = [];
