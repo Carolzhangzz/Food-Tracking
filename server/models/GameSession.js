@@ -14,8 +14,7 @@ const GameSession = sequelize.define('GameSession', {
 }, {
   tableName: 'game_sessions',
   indexes: [
-    { fields: ['playerId'] },
-    { fields: ['sessionStart'] },
+    { fields: ['playerId'], name: 'idx_game_sessions_player_id' }, // ✅ 改名
   ],
 });
 
