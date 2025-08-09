@@ -489,9 +489,9 @@ export default class NPCManager {
 
         // 关键：必须同时满足「服务器标记为已完成」和「本地计算已完成」才触发更新
         // 避免仅依赖本地状态（服务器可能未同步）
-        const hasRecordedLunch = !currentNPC.availableMealTypes.includes('lunch');
+        // const hasRecordedLunch = !currentNPC.availableMealTypes.includes('lunch');
         const hasRecordedDinner = !currentNPC.availableMealTypes.includes('dinner');
-        const isLocalCompleted = hasRecordedLunch && hasRecordedDinner;
+        const isLocalCompleted = hasRecordedDinner;
         const isServerCompleted = currentNPC.hasCompletedDay; // 服务器确认的完成状态
         const isCurrentDayCompleted = isLocalCompleted && isServerCompleted;
 
