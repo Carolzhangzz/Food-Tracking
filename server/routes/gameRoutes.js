@@ -194,9 +194,9 @@ router.post('/login', async (req, res) => {
 
         console.log("检查允许列表中的玩家ID:", playerId);
 
-        const allowed = await AllowedId.findOne({
-            where: {playerId: String(playerId)},
-        });
+        const allowedRecord = await AllowedId.findOne({
+      where: { playerId: String(playerId) },
+    });
 
         if (!allowedRecord) {
             console.log("登录失败: 玩家ID不在允许列表中");
@@ -206,8 +206,11 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        console.log("玩家ID验证通过，标记为已使用");
-        await allowedRecord.update({used: true});
+        if (!allowedRecord.used) {
+      console.log("玩家ID验证通过，标记为已使用");
+      allowedRecord.used = true;
+      await allowedRecord.save();
+    }
 
         let player = await Player.findOne({where: {playerId}});
 
