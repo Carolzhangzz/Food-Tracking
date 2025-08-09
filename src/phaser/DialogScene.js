@@ -990,6 +990,18 @@ I believe those records hold the key.`,
             if (this.debugMode) {
                 console.log("ConvAI 响应数据:", data);
             }
+            if (data && data.skipToMeal) {
+                return {
+                    success: true,
+                    message: data.text || (
+                        this.playerData.language === "zh"
+                            ? "今天先跳过对话，直接去记录你的餐食吧。"
+                            : "We’ll skip the dialogue for now and go straight to logging your meal."
+                    ),
+                    skipToMeal: true,
+                };
+            }
+
             if (data.sessionID) {
                 this.convaiSessionId = data.sessionID;
             }
@@ -1002,11 +1014,12 @@ I believe those records hold the key.`,
             console.error("Error calling ConvAI API:", error);
             return {
                 success: false,
+                skipToMeal: true, // ← 出错也跳
                 error: error.message || "ConvAI API call failed",
                 message:
                     this.playerData.language === "zh"
-                        ? "对不起，发生了错误。请稍后再试。"
-                        : "Sorry, an error occurred. Please try again later.",
+                        ? "对不起，发生了错误。我们直接开始记录你的餐食吧。"
+                        : "Sorry, something went wrong. Let’s go ahead and log your meal.",
             };
         }
     }
@@ -1760,6 +1773,23 @@ I believe those records hold the key.`,
                 ? await this.callGeminiAPI(msg)
                 : await this.callConvaiAPI(msg);
 
+            if (apiResp?.skipToMeal) {
+                // 不要触发返回主场景
+                this._suppressReturnOnce = true;
+                if (this.dialogSystem?.isDialogActive()) {
+                    this.dialogSystem.endDialog();
+                }
+                this.proceedToMealSelection();
+                // 给一条占位回复，让 UI 有反馈
+                return {
+                    next: false,
+                    response: apiResp.message || (
+                        this.playerData.language === "zh"
+                            ? "今天先跳过对话，直接去记录你的餐食吧。"
+                            : "We’ll skip the dialogue for now and go straight to logging your meal."
+                    )
+                };
+            }
             if (!apiResp?.success) {
                 return {
                     next: false,

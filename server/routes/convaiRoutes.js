@@ -17,12 +17,16 @@ router.post('/convai-chat', async (req, res) => {
   const apiKey = process.env.CONVAI_API_KEY;
   if (!apiKey) {
     console.error('❌ 缺少 CONVAI_API_KEY');
-    return res.status(500).json({ error: 'Server missing CONVAI_API_KEY' });
+    // ▶️ 直接降级，别让前端卡住
+    return res.json({
+      text: '（NPC占位）今天先跳过对话，直接去记录你的餐食吧。',
+      isFallback: true,
+      skipToMeal: true,
+    });
   }
 
   // 规范化参数
   sessionID = typeof sessionID === 'string' ? sessionID.trim() : '';
-  // 有些服务不喜欢 "-1"；让它自行分配：不传或传空
   const basePayload = {
     userText: String(userText).trim(),
     charID: String(charID).trim(),
@@ -44,7 +48,7 @@ router.post('/convai-chat', async (req, res) => {
         'CONVAI-API-KEY': apiKey,
       },
       timeout: 15000,
-      validateStatus: () => true, // 不抛异常，自己判断
+      validateStatus: () => true,
     });
   };
 
@@ -60,6 +64,17 @@ router.post('/convai-chat', async (req, res) => {
     });
   };
 
+  // ✅ 统一的降级返回
+  const returnFallback = (why) => {
+    console.warn('⚠️ ConvAI 降级启用：', why);
+    return res.json({
+      text: '（NPC占位）今天先跳过对话，直接去记录你的餐食吧。',
+      isFallback: true,
+      skipToMeal: true,
+      reason: why, // 便于前端/日志定位
+    });
+  };
+
   try {
     console.log('➡️ 调用 ConvAI(表单/KEY) payload=', {
       ...basePayload,
@@ -70,37 +85,43 @@ router.post('/convai-chat', async (req, res) => {
     let bodyText = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
     console.log(`⬅️ ConvAI(表单/KEY) status=${resp.status} body~=${bodyText.slice(0, 200)}`);
 
+    // 如果配额/权限问题，直接降级；否则再试 JSON/Bearer
     if (resp.status === 401 || resp.status === 403) {
-      console.warn('⚠️ 表单+CONVAI-API-KEY 被拒，改用 JSON+Bearer 兜底重试…');
+      return returnFallback(`status=${resp.status}`);
+    }
 
+    // 非 2xx 再试一次 JSON + Bearer
+    if (!(resp.status >= 200 && resp.status < 300)) {
+      console.warn('⚠️ 表单方式非2xx，改用 JSON+Bearer 重试…');
       resp = await tryJsonBearer();
       bodyText = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
       console.log(`⬅️ ConvAI(JSON/Bearer) status=${resp.status} body~=${bodyText.slice(0, 200)}`);
+
+      if (resp.status === 401 || resp.status === 403) {
+        return returnFallback(`status=${resp.status}`);
+      }
     }
 
     if (resp.status >= 200 && resp.status < 300) {
       return res.json(resp.data);
     }
 
-    // 非 2xx：把 ConvAI 的返回透出一点，便于前端提示/排错
-    return res.status(502).json({
-      error: 'ConvAI error',
-      status: resp.status,
-      details: resp.data || null,
-    });
+    // 其它非2xx：统一走降级
+    return returnFallback(`non-2xx=${resp.status}`);
+
   } catch (err) {
-    // 网络/超时等
     if (err.code === 'ECONNABORTED') {
-      console.error('❌ ConvAI 超时');
-      return res.status(504).json({ error: 'ConvAI timeout' });
+      return returnFallback('timeout');
     }
     if (err.response) {
-      console.error('❌ ConvAI 响应错误：', err.response.status, err.response.data);
-      return res.status(502).json({ error: 'ConvAI bad response', status: err.response.status, details: err.response.data });
+      // 服务返回了响应，但不是 2xx
+      const st = err.response.status;
+      if (st === 401 || st === 403) {
+        return returnFallback(`status=${st}`);
+      }
+      return returnFallback(`bad-response=${st}`);
     }
-    console.error('❌ ConvAI 请求异常：', err.message);
-    return res.status(500).json({ error: 'ConvAI request failed', details: err.message });
+    // 网络/未知异常
+    return returnFallback(`exception=${err.message}`);
   }
 });
-
-module.exports = router;
