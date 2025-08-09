@@ -18,9 +18,9 @@ const MealRecord = sequelize.define('MealRecord', {
 }, {
   tableName: 'meal_records',
   indexes: [
-    { unique: true, fields: ['playerId', 'day', 'mealType'], name: 'unique_player_day_mealType' },
-    { fields: ['playerId', 'day'] },
-    { fields: ['playerId', 'recordedAt'] },
+    { unique: true, fields: ['playerId', 'day', 'mealType'], name: 'uniq_player_day_mealType' },
+    { fields: ['playerId', 'idx_day'] },
+    { fields: ['playerId', 'idx_recordedAt'] },
   ],
 });
 

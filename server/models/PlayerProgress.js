@@ -16,7 +16,7 @@ const PlayerProgress = sequelize.define('PlayerProgress', {
 }, {
   tableName: 'player_progress',
   indexes: [
-    { unique: true, fields: ['playerId', 'day'], name: 'unique_player_day' },
+    { unique: true, fields: ['playerId', 'day'], name: 'uniq_player_day' },
     { fields: ['playerId'] },
   ],
 });
