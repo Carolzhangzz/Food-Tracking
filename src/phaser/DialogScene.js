@@ -22,6 +22,8 @@ export default class DialogScene extends Phaser.Scene {
         this.currentNPC = null;
         this.npcManager = null;
         this.isTyping = false;
+        this.isSubmittingMeal = false;   // 防重入：是否正在提交
+        this.mealSubmitted = false;      // 是否已提交成功（本局对话）
         this.currentDialogState = "waiting_for_api";
         this.mealType = null;
         this.mealRecorded = false;
@@ -113,35 +115,6 @@ export default class DialogScene extends Phaser.Scene {
         if (this.dialogPhase === "meal_recording") return;
         const dialogResult = this.dialogSystem.getDialogResult();
         console.log("对话结束，准备处理结果:", dialogResult);
-
-        // 如果是餐食对话，调用recordMeal
-        if (dialogResult.isMealDialog && dialogResult.currentMealType) {
-            try {
-                console.log(`在场景中提交${dialogResult.currentMealType}记录`);
-
-                // 调用npcManager的recordMeal
-                const result = await this.npcManager.recordMeal(
-                    dialogResult.currentNPC,
-                    dialogResult.currentMealType,
-                    dialogResult.mealResponses,
-                    this.dialogHistory, // 假设场景中维护了对话历史
-                    "" // 餐食内容，根据实际情况补充
-                );
-
-                if (result.success) {
-                    console.log(`${dialogResult.currentMealType}记录提交成功`);
-                    // 触发天数检查
-                    this.npcManager.checkAndUpdateCurrentDay();
-                    this.handleMealCompletion(result);
-                } else {
-                    console.warn("餐食记录提交失败", result.error);
-                }
-            } catch (error) {
-                console.error("提交餐食记录时发生错误", error);
-            }
-        }
-
-        // 其他对话结束后的逻辑（如返回主场景等）
         this.returnToMainScene();
     }
 
@@ -537,85 +510,6 @@ export default class DialogScene extends Phaser.Scene {
         }
     }
 
-    // 用户输入处理
-    // async handleUserInput(input) {
-    //   if (this.debugMode) {
-    //     console.log("=== 处理用户输入开始 ===");
-    //     console.log("输入内容:", input);
-    //     console.log("当前对话阶段:", this.dialogPhase);
-    //   }
-
-    //   // 立即清理输入框，避免重复提交
-    //   this.clearTextInput();
-
-    //   this.dialogTurnCount++;
-
-    //   console.log("=== 对话调试信息 ===");
-    //   console.log("当前对话阶段:", this.dialogPhase);
-    //   console.log("对话轮数:", this.dialogTurnCount);
-    //   console.log("用户输入:", input);
-
-    //   // 添加到对话历史
-    //   this.addToConversationHistory("player", input);
-    //   this.dialogHistory.push({
-    //     type: "user",
-    //     content: input,
-    //   });
-
-    //   // 显示"正在思考..."状态
-    //   this.updateStatus("正在思考...");
-
-    //   try {
-    //     let response;
-
-    //     // 根据当前状态选择正确的 API
-    //     switch (this.dialogPhase) {
-    //       case "continuing":
-    //         if (this.debugMode) {
-    //           console.log("调用 ConvAI API");
-    //         }
-    //         response = await this.callConvaiAPI(input);
-    //         break;
-    //       case "meal_recording":
-    //         if (this.debugMode) {
-    //           console.log("调用 Gemini API"); // 修改日志信息
-    //         }
-    //         response = await this.callGeminiAPI(input); // 调用新的 Gemini API 方法
-    //         break;
-    //       default:
-    //         throw new Error(`Unknown dialog phase: ${this.dialogPhase}`);
-    //     }
-
-    //     if (this.debugMode) {
-    //       console.log("API响应:", response);
-    //     }
-
-    //     if (response && response.success) {
-    //       console.log("NPC回复:", response.message);
-
-    //       // 添加到对话历史
-    //       this.dialogHistory.push({
-    //         type: "assistant",
-    //         content: response.message,
-    //       });
-
-    //       // 清除"正在思考..."状态
-    //       this.updateStatus("");
-
-    //       await this.processResponse(response);
-    //     } else {
-    //       // 清除"正在思考..."状态
-    //       this.updateStatus("");
-    //       await this.handleResponseError(response);
-    //     }
-    //   } catch (error) {
-    //     console.error("Error in handleUserInput:", error);
-    //     // 清除"正在思考..."状态
-    //     this.updateStatus("");
-    //     await this.handleError(error);
-    //   }
-    // }
-
     async handleUserInput(input) {
         if (this.debugMode) {
             console.log("=== 处理用户输入开始 ===");
@@ -709,37 +603,44 @@ export default class DialogScene extends Phaser.Scene {
 
     async forceEndGeminiDialog() {
         console.log("强制结束 Gemini 对话");
+        const endMessage = this.playerData.language === "zh"
+            ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
+            : "Thank you for sharing your meal with me! I have recorded your meal information.";
 
-        const endMessage =
-            this.playerData.language === "zh"
-                ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
-                : "Thank you for sharing your meal with me! I have recorded your meal information.";
-        const recordResult = await this.saveMealRecord();
-        this.showSingleMessage("npc", endMessage, async () => {
-            try {
-                // 1) 从对话历史中抽取一段餐食内容（如果你已有更好的内容来源就替换它）
-                const mealContent = this.extractMealContentFromHistory() || (this.playerData.language === "zh" ? "未填写具体餐食" : "No detailed meal provided");
-
-                // 2) 调用后端真正落库
-                const result = await this.npcManager.recordMeal(
-                    this.currentNPC,
-                    this.selectedMealType,
-                    this.mealAnswers,
-                    this.dialogHistory,
-                    mealContent
-                );
-
-                // 3) 统一走完成流程（一定要把 result 传进去）
-                this.mealRecorded = true;
-                this.currentDialogState = "completion_check";
-                this.dialogPhase = "completed";
-                this.handleMealCompletion(result);
-            } catch (e) {
-                console.error("强制结束时落库失败：", e);
-                this.dialogPhase = "completed";
-            }
+        this.showSingleMessage("npc", endMessage, () => {
+            this.dialogPhase = "completed";
+            this.submitMealOnce(); // ✅ 统一提交入口（带防重入）
         });
     }
+
+    // DialogScene.js
+    async submitMealOnce() {
+        if (this.isSubmittingMeal || this.mealSubmitted) {
+            console.log("已在提交/已提交过，本次跳过");
+            return;
+        }
+        this.isSubmittingMeal = true;
+
+        try {
+            const mealContent = this.extractMealContentFromHistory() || ""; // 兜底
+            const result = await this.npcManager.recordMeal(
+                this.currentNPC,
+                this.selectedMealType,
+                this.mealAnswers,
+                this.dialogHistory,
+                mealContent
+            );
+
+            this.mealSubmitted = true;
+            await this.handleMealCompletion(result); // ✅ 用真实 result
+        } catch (err) {
+            console.error("提交餐食记录失败:", err);
+            await this.handleMealCompletion({success: false, error: err.message || String(err)});
+        } finally {
+            this.isSubmittingMeal = false;
+        }
+    }
+
 
     // 增强结束检测
     async processResponse(response) {
@@ -773,34 +674,15 @@ export default class DialogScene extends Phaser.Scene {
                         }, 500);
                     }
                 } else if (this.dialogPhase === "meal_recording") {
-                    // Gemini 对话结束检测 - 增强版
-                    if (this.detectThankYouMessage(response.message)) {
-                        console.log("检测到Gemini对话结束消息，准备保存餐食并结束");
-                        this.mealRecorded = true;
-                        this.currentDialogState = "completion_check";
+                    if (this.detectThankYouMessage(response.message) || this.geminiTurnCount >= this.maxGeminiTurns) {
+                        console.log("Gemini 对话结束，准备提交餐食记录");
                         this.dialogPhase = "completed";
-
-                        (async () => {
-                            const recordResult = await this.saveMealRecord();
-                            this.handleMealCompletion(recordResult);
-                        })();
-                    }
-                    // 新增：轮数限制检查（保持原有逻辑）
-                    else if (this.geminiTurnCount >= this.maxGeminiTurns) {
-                        console.log("Gemini 对话达到最大轮数，结束对话");
-                        this.forceEndGeminiDialog();
-                    } else {
-                        console.log(
-                            "继续Gemini食物记录对话（轮数:",
-                            this.geminiTurnCount,
-                            "）"
-                        );
-                        setTimeout(() => {
-                            this.waitForUserInput();
-                        }, 500);
+                        // ✅ 统一走一个提交函数，带防重入
+                        this.submitMealOnce();
+                        return resolve();
                     }
                 }
-                // resolve();
+
             });
         });
     }
