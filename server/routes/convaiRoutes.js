@@ -1,94 +1,105 @@
+// routes/convaiRoutes.js
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
 router.post('/convai-chat', async (req, res) => {
-  try {
-    // 1. 提取并校验必填参数
-    const { userText, charID, sessionID, voiceResponse } = req.body;
+  const { userText, charID } = req.body || {};
+  let { sessionID, voiceResponse } = req.body || {};
 
-    // 检查关键参数是否存在
-    if (!userText || userText.trim() === '') {
-      console.error("ConvAI请求失败：缺少userText或内容为空");
-      return res.status(400).json({
-        error: "Missing required field: userText (cannot be empty)",
-        detail: "用户输入内容不能为空"
-      });
-    }
+  // 基本校验
+  if (!userText || !String(userText).trim()) {
+    return res.status(400).json({ error: 'Missing userText' });
+  }
+  if (!charID || !String(charID).trim()) {
+    return res.status(400).json({ error: 'Missing charID' });
+  }
+  const apiKey = process.env.CONVAI_API_KEY;
+  if (!apiKey) {
+    console.error('❌ 缺少 CONVAI_API_KEY');
+    return res.status(500).json({ error: 'Server missing CONVAI_API_KEY' });
+  }
 
-    if (!charID || charID.trim() === '') {
-      console.error("ConvAI请求失败：缺少charID或内容为空");
-      return res.status(400).json({
-        error: "Missing required field: charID (cannot be empty)",
-        detail: "NPC角色ID不能为空"
-      });
-    }
+  // 规范化参数
+  sessionID = typeof sessionID === 'string' ? sessionID.trim() : '';
+  // 有些服务不喜欢 "-1"；让它自行分配：不传或传空
+  const basePayload = {
+    userText: String(userText).trim(),
+    charID: String(charID).trim(),
+    ...(sessionID ? { sessionID } : {}),
+    voiceResponse: !!voiceResponse,
+  };
 
-    // 2. 检查API密钥是否配置
-    if (!process.env.CONVAI_API_KEY) {
-      console.error("ConvAI请求失败：未配置CONVAI_API_KEY环境变量");
-      return res.status(500).json({
-        error: "Server configuration error",
-        detail: "ConvAI API密钥未配置"
-      });
-    }
+  // 第一次尝试：表单 + CONVAI-API-KEY
+  const tryForm = async () => {
+    const form = new URLSearchParams();
+    form.append('userText', basePayload.userText);
+    form.append('charID', basePayload.charID);
+    if (basePayload.sessionID) form.append('sessionID', basePayload.sessionID);
+    form.append('voiceResponse', basePayload.voiceResponse ? 'True' : 'False');
 
-    // 3. 构建请求参数（确保格式正确）
-    const formData = new URLSearchParams();
-    formData.append("userText", userText.trim()); // 去除首尾空格
-    formData.append("charID", charID.trim());
-    formData.append("sessionID", sessionID?.trim() || "-1"); // 处理可能的空值
-    formData.append("voiceResponse", voiceResponse === true ? "True" : "False");
-
-    console.log(`发送ConvAI请求：charID=${charID}, userText=${userText.substring(0, 30)}...`);
-
-    // 4. 调用ConvAI API
-    const response = await axios.post(
-      "https://api.convai.com/character/getResponse",
-      formData,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "CONVAI-API-KEY": process.env.CONVAI_API_KEY,
-        },
-        timeout: 10000, // 10秒超时，避免长期阻塞
-      }
-    );
-
-    console.log(`ConvAI响应成功：charID=${charID}, 响应长度=${response.data.length || '未知'}`);
-    res.json(response.data);
-
-  } catch (error) {
-    // 5. 精细化错误处理
-    let errorMsg = "ConvAI API call failed";
-    let errorDetail = "";
-    let statusCode = 500;
-
-    if (error.code === 'ECONNABORTED') {
-      // 超时错误
-      errorMsg = "ConvAI API request timed out";
-      errorDetail = "请求ConvAI服务超时，请稍后重试";
-    } else if (error.response) {
-      // 服务器返回错误响应（如401、403、404等）
-      statusCode = error.response.status;
-      errorDetail = error.response.data || `HTTP ${statusCode} response`;
-      console.error(`ConvAI API返回错误：status=${statusCode}, data=${JSON.stringify(errorDetail)}`);
-    } else if (error.request) {
-      // 无响应（网络问题）
-      errorDetail = "No response received from ConvAI API (network issue)";
-      console.error(`ConvAI API无响应：${error.message}`);
-    } else {
-      // 其他错误（如参数处理错误）
-      errorDetail = error.message;
-      console.error(`ConvAI请求准备失败：${error.message}`);
-    }
-
-    // 根据错误类型返回更准确的状态码
-    res.status(statusCode).json({
-      error: errorMsg,
-      detail: errorDetail,
-      charID: req.body.charID || "unknown" // 方便定位哪个NPC出错
+    return axios.post('https://api.convai.com/character/getResponse', form, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'CONVAI-API-KEY': apiKey,
+      },
+      timeout: 15000,
+      validateStatus: () => true, // 不抛异常，自己判断
     });
+  };
+
+  // 第二次兜底：JSON + Bearer
+  const tryJsonBearer = async () => {
+    return axios.post('https://api.convai.com/character/getResponse', basePayload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      timeout: 15000,
+      validateStatus: () => true,
+    });
+  };
+
+  try {
+    console.log('➡️ 调用 ConvAI(表单/KEY) payload=', {
+      ...basePayload,
+      userText: basePayload.userText.slice(0, 50) + (basePayload.userText.length > 50 ? '…' : '')
+    });
+
+    let resp = await tryForm();
+    let bodyText = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
+    console.log(`⬅️ ConvAI(表单/KEY) status=${resp.status} body~=${bodyText.slice(0, 200)}`);
+
+    if (resp.status === 401 || resp.status === 403) {
+      console.warn('⚠️ 表单+CONVAI-API-KEY 被拒，改用 JSON+Bearer 兜底重试…');
+
+      resp = await tryJsonBearer();
+      bodyText = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
+      console.log(`⬅️ ConvAI(JSON/Bearer) status=${resp.status} body~=${bodyText.slice(0, 200)}`);
+    }
+
+    if (resp.status >= 200 && resp.status < 300) {
+      return res.json(resp.data);
+    }
+
+    // 非 2xx：把 ConvAI 的返回透出一点，便于前端提示/排错
+    return res.status(502).json({
+      error: 'ConvAI error',
+      status: resp.status,
+      details: resp.data || null,
+    });
+  } catch (err) {
+    // 网络/超时等
+    if (err.code === 'ECONNABORTED') {
+      console.error('❌ ConvAI 超时');
+      return res.status(504).json({ error: 'ConvAI timeout' });
+    }
+    if (err.response) {
+      console.error('❌ ConvAI 响应错误：', err.response.status, err.response.data);
+      return res.status(502).json({ error: 'ConvAI bad response', status: err.response.status, details: err.response.data });
+    }
+    console.error('❌ ConvAI 请求异常：', err.message);
+    return res.status(500).json({ error: 'ConvAI request failed', details: err.message });
   }
 });
 
