@@ -3,21 +3,21 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 const AllowedId = sequelize.define('AllowedId', {
-  playerId: {  // ✅ 代码里统一用 camelCase
+  playerId: {                 // 代码里用 camelCase
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    field: 'player_id',  // ✅ 数据库里的实际列名
+    field: 'player_id',       // 表里是 snake_case
   },
   used: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
-    field: 'used', // 这里可写可不写，列名一致时可省略
+    field: 'used',
   },
 }, {
-  tableName: 'allowed_ids', // 确认数据库表名
-  timestamps: false,        // 如果表里没有 created_at/updated_at
-  underscored: true,        // 自动生成的字段会用 snake_case
+  tableName: 'allowed_ids',   // 按你的真实表名来
+  timestamps: false,
+  underscored: true,
 });
 
 module.exports = AllowedId;

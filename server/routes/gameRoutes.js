@@ -8,7 +8,7 @@ const GameSession = require("../models/GameSession");
 const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
-const sequelize = require('../models').sequelize; // 假设从模型入口文件导出
+const sequelize = require('../db');
 
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
@@ -187,9 +187,8 @@ router.post('/login', async (req, res) => {
         console.log("检查允许列表中的玩家ID:", playerId);
 
         const allowedRecord = await AllowedId.findOne({
-  where: { playerId }               // ✅ 交给模型的 field 去映射
+  where: { playerId }              // ✅ 用属性名；列名映射交给模型的 field
 });
-
         if (!allowedRecord) {
             console.log("登录失败: 玩家ID不在允许列表中");
             return res.status(404).json({

@@ -1,20 +1,20 @@
-const { DataTypes, Sequelize } = require('sequelize');
+// models/ConversationHistory.js
+const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 const ConversationHistory = sequelize.define('ConversationHistory', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  id:        { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+  playerId:  { type: DataTypes.STRING, allowNull: false, field: 'player_id' },
+  npcId:     { type: DataTypes.STRING, allowNull: false, field: 'npc_id' },
+  day:       { type: DataTypes.INTEGER, allowNull: false, field: 'day' },
+  sessionId: { type: DataTypes.STRING, field: 'session_id' },
+  speaker:   { type: DataTypes.ENUM('player','npc'), allowNull: false, field: 'speaker' },
+  content:   { type: DataTypes.TEXT, allowNull: false, field: 'content' },
+  mealType:  { type: DataTypes.ENUM('breakfast','lunch','dinner'), field: 'meal_type' },
+  timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW, field: 'timestamp' },
 
-  playerId: { type: DataTypes.STRING, allowNull: false, field: 'player_id' },
-  npcId:    { type: DataTypes.STRING, allowNull: false, field: 'npc_id' },
-  day:      { type: DataTypes.INTEGER, allowNull: false, field: 'day' },
-  sessionId:{ type: DataTypes.STRING, field: 'session_id' },
-  speaker:  { type: DataTypes.ENUM('player','npc'), allowNull: false, field: 'speaker' },
-  content:  { type: DataTypes.TEXT, allowNull: false, field: 'content' },
-  mealType: { type: DataTypes.ENUM('breakfast','lunch','dinner'), field: 'meal_type' },
-  timestamp:{ type: DataTypes.DATE, defaultValue: Sequelize.fn('NOW'), field: 'timestamp' },
-
-  createdAt:{ type: DataTypes.DATE, field: 'created_at' },
-  updatedAt:{ type: DataTypes.DATE, field: 'updated_at' },
+  createdAt: { type: DataTypes.DATE, field: 'created_at' },
+  updatedAt: { type: DataTypes.DATE, field: 'updated_at' },
 }, {
   tableName: 'conversation_history',
   timestamps: true,
