@@ -187,8 +187,8 @@ router.post('/login', async (req, res) => {
         console.log("检查允许列表中的玩家ID:", playerId);
 
         const allowedRecord = await AllowedId.findOne({
-            where: {player_id: playerId}
-        });
+  where: { playerId }               // ✅ 交给模型的 field 去映射
+});
 
         if (!allowedRecord) {
             console.log("登录失败: 玩家ID不在允许列表中");

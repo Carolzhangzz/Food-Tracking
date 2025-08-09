@@ -1,51 +1,26 @@
-// models/PlayerProgress.js - 修正后的版本
-const { DataTypes } = require('sequelize');
+const { DataTypes, Sequelize } = require('sequelize');
 const sequelize = require('../db');
 
 const PlayerProgress = sequelize.define('PlayerProgress', {
-  playerId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    references: {
-      model: 'Players',
-      key: 'playerId'
-    }
-  },
-  day: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  npcId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  unlockedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-  completedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  mealsRecorded: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
-  },
-  hasRecordedMeal: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  }
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+
+  playerId:      { type: DataTypes.STRING, allowNull: false, field: 'player_id' },
+  day:           { type: DataTypes.INTEGER, allowNull: false, field: 'day' },
+  npcId:         { type: DataTypes.STRING, allowNull: false, field: 'npc_id' },
+  unlockedAt:    { type: DataTypes.DATE, defaultValue: Sequelize.fn('NOW'), field: 'unlocked_at' },
+  completedAt:   { type: DataTypes.DATE, allowNull: true, field: 'completed_at' },
+  mealsRecorded: { type: DataTypes.INTEGER, defaultValue: 0, field: 'meals_recorded' },
+  hasRecordedMeal: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'has_recorded_meal' },
+
+  createdAt:     { type: DataTypes.DATE, field: 'created_at' },
+  updatedAt:     { type: DataTypes.DATE, field: 'updated_at' },
 }, {
-  // 在这里设置表级别的索引和约束
+  tableName: 'PlayerProgresses', // 或真实表名
+  timestamps: true,
+  underscored: true,
   indexes: [
-    {
-      unique: true,
-      fields: ['playerId', 'day'],
-      name: 'unique_player_day'
-    },
-    {
-      fields: ['playerId']
-    }
+    { unique: true, fields: ['playerId','day'], name: 'unique_player_day' },
+    { fields: ['playerId'] },
   ]
 });
 

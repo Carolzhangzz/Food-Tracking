@@ -1,46 +1,23 @@
-// models/Clue.js - 新建线索模型
+// models/AllowedId.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
-const Clue = sequelize.define('Clue', {
-  playerId: {
+const AllowedId = sequelize.define('AllowedId', {
+  playerId: {  // ✅ 代码里统一用 camelCase
     type: DataTypes.STRING,
     allowNull: false,
-    references: {
-      model: 'Players',
-      key: 'playerId'
-    }
+    unique: true,
+    field: 'player_id',  // ✅ 数据库里的实际列名
   },
-  npcId: {
-    type: DataTypes.STRING,
-    allowNull: false,
+  used: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'used', // 这里可写可不写，列名一致时可省略
   },
-  day: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  clueText: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-  },
-  receivedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  }
 }, {
-  indexes: [
-    {
-      unique: true,
-      fields: ['playerId', 'npcId', 'day'],
-      name: 'unique_player_npc_day_clue'
-    },
-    {
-      fields: ['playerId']
-    },
-    {
-      fields: ['day']
-    }
-  ]
+  tableName: 'allowed_ids', // 确认数据库表名
+  timestamps: false,        // 如果表里没有 created_at/updated_at
+  underscored: true,        // 自动生成的字段会用 snake_case
 });
 
-module.exports = Clue;
+module.exports = AllowedId;

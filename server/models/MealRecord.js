@@ -1,56 +1,28 @@
-// models/MealRecord.js - 修正后的餐食记录模型
-const { DataTypes } = require("sequelize");
+const { DataTypes, Sequelize } = require("sequelize");
 const sequelize = require("../db");
 
 const MealRecord = sequelize.define("MealRecord", {
-  playerId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    references: {
-      model: 'Players',
-      key: 'playerId'
-    }
-  },
-  day: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  npcId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  npcName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  mealType: {
-    type: DataTypes.ENUM("breakfast", "lunch", "dinner"),
-    allowNull: false,
-  },
-  mealAnswers: {
-    type: DataTypes.JSONB, // 存储固定问题的答案
-    allowNull: true,
-  },
-  conversationHistory: {
-    type: DataTypes.JSONB, // 存储对话历史
-    allowNull: true,
-  },
-  mealContent: {
-    type: DataTypes.TEXT, // 主要的餐食描述内容
-    allowNull: false,
-  },
-  recordedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+
+  playerId:  { type: DataTypes.STRING, allowNull: false, field: 'player_id' },
+  day:       { type: DataTypes.INTEGER, allowNull: false, field: 'day' },
+  npcId:     { type: DataTypes.STRING, allowNull: false, field: 'npc_id' },
+  npcName:   { type: DataTypes.STRING, allowNull: false, field: 'npc_name' },
+  mealType:  { type: DataTypes.ENUM("breakfast","lunch","dinner"), allowNull: false, field: 'meal_type' },
+  mealAnswers: { type: DataTypes.JSONB, allowNull: true, field: 'meal_answers' },
+  conversationHistory: { type: DataTypes.JSONB, allowNull: true, field: 'conversation_history' },
+  mealContent: { type: DataTypes.TEXT, allowNull: false, field: 'meal_content' },
+  recordedAt: { type: DataTypes.DATE, defaultValue: Sequelize.fn('NOW'), field: 'recorded_at' },
+
+  createdAt:  { type: DataTypes.DATE, field: 'created_at' },
+  updatedAt:  { type: DataTypes.DATE, field: 'updated_at' },
 }, {
+  tableName: 'MealRecords',
+  timestamps: true,
+  underscored: true,
   indexes: [
-    {
-      fields: ['playerId', 'day']
-    },
-    {
-      fields: ['playerId', 'recordedAt']
-    }
+    { fields: ['playerId','day'] },
+    { fields: ['playerId','recordedAt'] },
   ]
 });
 
