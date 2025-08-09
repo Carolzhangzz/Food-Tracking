@@ -1,13 +1,12 @@
 // NPCManager.js - 更新线索和对话存储版本
 import Phaser from "phaser";
 
-this.lastCheckDayTime = 0;
-this.checkDayInterval = 3000;
-
 const API_URL = process.env.REACT_APP_API_URL;
 
 export default class NPCManager {
     constructor(scene, mapScale) {
+    this.lastCheckDayTime = 0;
+      this.checkDayInterval = 3000;
         this.scene = scene;
         this.mapScale = mapScale;
         this.npcs = new Map();
