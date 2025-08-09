@@ -153,7 +153,8 @@ export default class NPCManager {
                 this.availableNPCs = Array.isArray(data.availableNPCs) ? data.availableNPCs : [];
                 // 确保 mealRecords 是数组并过滤无效记录
                 this.mealRecords = Array.isArray(data.mealRecords)
-                    ? data.mealRecords.filter(r => r && r.npcId && r.mealType)
+                    // 只保留有 day 和 mealType 的有效记录（这两个是更新进度的关键）
+                    ? data.mealRecords.filter(r => r && r.day != null && r.mealType)
                     : [];
                 this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
 
@@ -536,24 +537,16 @@ export default class NPCManager {
                 }
 
                 // 延迟检查天数更新（确保服务器数据同步）
-                console.log(`记录 ${mealType} 成功，5 秒后同步最新状态${mealType === 'dinner' ? ' 并推进到下一天' : ''}`);
+                console.log(`记录 ${mealType} 成功，5 秒后检查并更新天数`);
                 setTimeout(async () => {
-                    // 如果是晚餐，先强制推进天数
-                    if (mealType === 'dinner') {
-                        try {
-                            await this.forceUpdateCurrentDay();
-                        } catch (e) {
-                            console.error('自动更新天数失败', e);
-                        }
+                    try {
+                        await this.checkAndUpdateCurrentDay();
+                    } catch (e) {
+                        console.error('检查并更新天数失败', e);
                     }
-                    // 再拉最新状态并刷新一次 UI
                     await this.loadPlayerStatus();
-                    if (this.scene.uiManager) {
-                        console.log('5 秒后拉最新状态并刷新进度');
-                        this.scene.uiManager.updateProgressDisplay();
-                    }
+                    this.scene.uiManager?.updateProgressDisplay();
                 }, 5000);
-
                 return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
             } else {
                 throw new Error(data.error || "Failed to record meal");
