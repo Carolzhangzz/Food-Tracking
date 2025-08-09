@@ -5,15 +5,14 @@ require('dotenv').config();
 const sequelize = require('../db');
 
 // 导入模型
-require('../models/Player');
-require('../models/PlayerProgress');
-require('../models/MealRecord');
-require('../models/GameSession');
-require('../models/AllowedId');
-require('../models/Clue');
-require('../models/ConversationHistory');
 const Player = require('../models/Player');
 const PlayerProgress = require('../models/PlayerProgress');
+const MealRecord = require('../models/MealRecord');
+const GameSession = require('../models/GameSession');
+const AllowedId = require('../models/AllowedId');
+const Clue = require('../models/Clue');
+const ConversationHistory = require('../models/ConversationHistory')
+
 
 async function initDatabase() {
   try {
@@ -25,6 +24,12 @@ async function initDatabase() {
     console.log('🏗️ 同步数据库模型...');
     await sequelize.sync({ alter: true });  // 第一次重建用 force:true，确认结构没问题后改成 alter:true 或去掉
     console.log('✅ 数据库表创建/更新完成');
+
+     const allow129 = await AllowedId.findOne({ where: { playerId: '129' } });
+    if (!allow129) {
+      await AllowedId.create({ playerId: '129', used: false });
+      console.log('🌱 已插入 AllowedId: 129');
+    }
 
     // 种一点测试数据（可选）
     const existingPlayer = await Player.findOne({ where: { playerId: 'test-player-001' } });
