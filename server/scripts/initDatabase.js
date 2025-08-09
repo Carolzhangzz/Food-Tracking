@@ -5,34 +5,32 @@ require('dotenv').config();
 const sequelize = require('../db');
 
 // 导入模型
+require('../models/Player');
+require('../models/PlayerProgress');
+require('../models/MealRecord');
+require('../models/GameSession');
+require('../models/AllowedId');
+require('../models/Clue');
+require('../models/ConversationHistory');
 const Player = require('../models/Player');
 const PlayerProgress = require('../models/PlayerProgress');
-const MealRecord = require('../models/MealRecord');
-const GameSession = require('../models/GameSession');
 
 async function initDatabase() {
   try {
     console.log('🔄 开始初始化数据库...');
-
-    // 测试连接
     await sequelize.authenticate();
     console.log('✅ 数据库连接成功');
 
-    // 同步模型（创建表）
-    console.log('🏗️  同步数据库模型...');
-    await sequelize.sync({ force: false, alter: true });
+    // 空库建议：先 force: true 第一次全量建表；后续再改回 alter: true 或去掉
+    console.log('🏗️ 同步数据库模型...');
+    await sequelize.sync({ alter: true });  // 第一次重建用 force:true，确认结构没问题后改成 alter:true 或去掉
     console.log('✅ 数据库表创建/更新完成');
 
-    // 检查是否已有测试数据
-    const existingPlayer = await Player.findOne({
-      where: { playerId: 'test-player-001' }
-    });
-
+    // 种一点测试数据（可选）
+    const existingPlayer = await Player.findOne({ where: { playerId: 'test-player-001' } });
     if (!existingPlayer) {
       console.log('🌱 创建测试数据...');
-
-      // 创建测试玩家
-      const testPlayer = await Player.create({
+      await Player.create({
         playerId: 'test-player-001',
         nickname: 'Test Player',
         firstLoginDate: new Date(),
@@ -41,8 +39,6 @@ async function initDatabase() {
         language: 'en',
         progress: {}
       });
-
-      // 为测试玩家创建第一天的进度
       await PlayerProgress.create({
         playerId: 'test-player-001',
         day: 1,
@@ -52,23 +48,18 @@ async function initDatabase() {
         mealsRecorded: 0,
         hasRecordedMeal: false
       });
-
       console.log('✅ 测试数据创建完成');
-      console.log('📊 测试玩家ID:', testPlayer.playerId);
     } else {
-      console.log('ℹ️  测试数据已存在，跳过创建');
+      console.log('ℹ️ 测试数据已存在，跳过创建');
     }
 
-    // 显示所有表
-    const queryInterface = sequelize.getQueryInterface();
-    const tables = await queryInterface.showAllTables();
-    console.log('📋 数据库中的表:', tables);
+    const qi = sequelize.getQueryInterface();
+    const tables = await qi.showAllTables();
+    console.log('📋 当前数据表：', tables);
 
     console.log('🎉 数据库初始化完成！');
-
-  } catch (error) {
-    console.error('❌ 数据库初始化失败:', error);
-    console.error('错误详情:', error.message);
+  } catch (err) {
+    console.error('❌ 数据库初始化失败:', err);
   } finally {
     await sequelize.close();
     console.log('🔌 数据库连接已关闭');
@@ -76,18 +67,5 @@ async function initDatabase() {
   }
 }
 
-// 运行初始化
 console.log('🚀 启动数据库初始化...');
 initDatabase();
-
-
-// # 检查文件是否创建成功
-// ls -la scripts/
-// # 应该看到 initDatabase.js
-
-// # 检查文件内容
-// head -5 scripts/initDatabase.js
-// # 应该看到文件开头几行
-
-// # 运行初始化
-// node scripts/initDatabase.js
