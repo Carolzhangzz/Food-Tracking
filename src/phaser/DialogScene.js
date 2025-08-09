@@ -7,7 +7,7 @@ import npc4bg from "../assets/npc/npc4bg.png";
 import npc5bg from "../assets/npc/npc5bg.png";
 import npc6bg from "../assets/npc/npc6bg.png";
 import npc7bg from "../assets/npc/npc7bg.png";
-
+import DialogSystem from "./DialogSystem";
 import {
   createDialogBox,
   createReturnButton,
@@ -96,6 +96,8 @@ export default class DialogScene extends Phaser.Scene {
     this.setupUI();
     this.setupControls();
     this.startConversation();
+    this.dialogSystem = new DialogSystem(this);
+this.dialogSystem.setNPCManager(this.npcManager);
     this.dialogSystem = new DialogSystem(this);
     this.dialogSystem.setNPCManager(this.npcManager);
 
