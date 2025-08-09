@@ -1,17 +1,27 @@
-// models/AllowedId.js - 保留用于登录验证
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
-const AllowedId = sequelize.define('AllowedId', {
-  player_id: {
+const ConversationHistory = sequelize.define('ConversationHistory', {
+  playerId: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+    references: { model: 'players', key: 'playerId' },
   },
-  used: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-  },
+  npcId: { type: DataTypes.STRING, allowNull: false },
+  day: { type: DataTypes.INTEGER, allowNull: false },
+  sessionId: { type: DataTypes.STRING },
+  speaker: { type: DataTypes.ENUM('player', 'npc'), allowNull: false },
+  content: { type: DataTypes.TEXT, allowNull: false },
+  mealType: { type: DataTypes.ENUM('breakfast', 'lunch', 'dinner') },
+  timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'conversation_history',
+  indexes: [
+    { fields: ['playerId'] },
+    { fields: ['npcId', 'day'] },
+    { fields: ['timestamp'] },
+    { fields: ['playerId', 'day', 'mealType'] },
+  ],
 });
 
-module.exports = AllowedId;
+module.exports = ConversationHistory;
