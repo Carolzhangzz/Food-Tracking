@@ -1,22 +1,46 @@
-// 原来是 player_id: {...}
+// models/Clue.js - 新建线索模型
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
-const AllowedId = sequelize.define('AllowedId', {
-  playerId: {                   // ✅ 用驼峰
+const Clue = sequelize.define('Clue', {
+  playerId: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
-    field: 'playerId',          // ✅ 显式映射到表里的列名（可省，但更稳）
+    references: {
+      model: 'Players',
+      key: 'playerId'
+    }
   },
-  used: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
+  npcId: {
+    type: DataTypes.STRING,
+    allowNull: false,
   },
+  day: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  clueText: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  receivedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  }
 }, {
-  tableName: 'allowed_ids',     // ✅ 指定真实表名
-  underscored: false,           // ✅ 不自动转蛇形
-  freezeTableName: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['playerId', 'npcId', 'day'],
+      name: 'unique_player_npc_day_clue'
+    },
+    {
+      fields: ['playerId']
+    },
+    {
+      fields: ['day']
+    }
+  ]
 });
 
-module.exports = AllowedId;
+module.exports = Clue;

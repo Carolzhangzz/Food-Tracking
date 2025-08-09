@@ -13,7 +13,7 @@ export default class DialogSystem {
         this.questionIndex = 0;
         this.currentMeal = null;
         this.mealResponses = {};
-        this.hintTween = null;
+
         // UI元素
         this.dialogBox = null;
         this.speakerName = null;
@@ -30,28 +30,24 @@ export default class DialogSystem {
         this.resizeHandler = () => this.handleResize();
         window.addEventListener("resize", this.resizeHandler);
         window.addEventListener("orientationchange", this.resizeHandler);
-        this.requestHandler = null;
     }
 
     // 新增：注册事件监听的方法
-    on(eventName, callback) {
-        if (!this.eventListeners.has(eventName)) {
-            this.eventListeners.set(eventName, []);
-        }
-        this.eventListeners.get(eventName).push(callback);
+on(eventName, callback) {
+    if (!this.eventListeners.has(eventName)) {
+        this.eventListeners.set(eventName, []);
     }
+    this.eventListeners.get(eventName).push(callback);
+}
 
 // 新增：触发事件的方法
-    emit(eventName, ...args) {
-        const callbacks = this.eventListeners.get(eventName);
-        if (callbacks) {
-            callbacks.forEach(callback => callback.apply(this, args));
-        }
+emit(eventName, ...args) {
+    const callbacks = this.eventListeners.get(eventName);
+    if (callbacks) {
+        callbacks.forEach(callback => callback.apply(this, args));
     }
+}
 
-    setRequestHandler(fn) {
-        this.requestHandler = fn;
-    }
 
     handleResize() {
         if (this.isActive) {
@@ -120,7 +116,6 @@ export default class DialogSystem {
     }
 
     createDialogUI() {
-        this.scene.input.off("pointerdown", this.handlePointerDown, this);
         console.log("Creating dialog UI...");
 
         const {width, height} = this.scene.scale;
@@ -214,14 +209,8 @@ export default class DialogSystem {
             this.continueHint.setDepth(51);
             this.continueHint.setVisible(false);
 
-            // 如果之前有残留，先停掉
-            if (this.hintTween) {
-                this.hintTween.stop();
-                this.hintTween.remove();
-                this.hintTween = null;
-            }
-
-            this.hintTween = this.scene.tweens.add({
+            // 提示符动画
+            this.scene.tweens.add({
                 targets: this.continueHint,
                 alpha: {from: 1, to: 0.3},
                 duration: 1000,
@@ -295,54 +284,65 @@ export default class DialogSystem {
     }
 
     async nextLine() {
-        if (!this.isActive) return;
+        if (!this.isActive) {
+            console.log("Dialog not active, ignoring nextLine");
+            return;
+        }
+
+        console.log("Processing next line...");
 
         if (this.isTyping) {
             this.skipTyping();
             return;
         }
 
-        const userInput = this.inputBox ? String(this.inputBox.value).trim() : "";
+        // 收集用户输入
+        const userInput = this.inputBox ? this.inputBox.value.trim() : "";
         this.destroyInputElements();
-        if (userInput) {
-            this.questionIndex = (this.questionIndex || 0) + 1;
+
+        // 如果有输入，保存到响应中
+        if (userInput && this.questionIndex > 0) {
             this.mealResponses[`q${this.questionIndex}`] = userInput;
         }
+
         try {
-            const ask = this.requestHandler
-                ? this.requestHandler
-                : (npcId, msg) => {
-                    // 没有处理器也没有 NPCManager 适配器就抛错
-                    if (!this.npcManager || typeof this.npcManager.handleNPCDialog !== "function") {
-                        throw new Error("No request handler provided and npcManager.handleNPCDialog not found");
+            // 处理NPC对话
+            const result = await this.npcManager.handleNPCDialog(this.currentNPC, userInput);
+            console.log("Dialog result:", result);
+
+            if (result.next) {
+                this.typeText(result.response, () => {
+                    if (result.buttons && result.buttons.length > 0) {
+                        this.createButtonOptions(result.buttons);
+                    } else if (result.requireInput) {
+                        this.createTextInput();
+                    } else {
+                        // 自动继续到下一个问题
+                        this.scene.time.delayedCall(1000, () => {
+                            this.nextLine();
+                        });
                     }
-                    return this.npcManager.handleNPCDialog(npcId, msg);
-                };
-
-            const result = await ask(this.currentNPC, userInput);
-
-            // 期望结构：{ next:boolean, response:string, buttons?:string[], requireInput?:boolean }
-            const {next, response, buttons = [], requireInput = false} = result || {};
-
-            this.typeText(response || "", () => {
-                if (buttons.length) {
-                    this.createButtonOptions(buttons);
-                } else if (requireInput) {
-                    this.createTextInput();
-                } else if (next) {
-                    this.scene.time.delayedCall(800, () => this.nextLine());
-                } else {
-                    // 结束
-                    this.scene.time.delayedCall(1200, () => this.endDialog());
-                }
-            });
-        } catch (err) {
-            console.error("Dialog request error:", err);
+                });
+            } else {
+                // 对话结束
+                this.typeText(result.response, () => {
+                    this.scene.time.delayedCall(2000, () => {
+                        this.endDialog();
+                    });
+                });
+            }
+        } catch (error) {
+            console.error("Error in nextLine:", error);
+            // 显示错误信息并结束对话
             this.typeText(
                 this.scene.playerData.language === "zh"
-                    ? "对话出现错误，请稍后重试。"
-                    : "A dialog error occurred. Please try again later.",
-                () => this.scene.time.delayedCall(1200, () => this.endDialog())
+                    ? "对话出现错误，请重试。"
+                    : "Dialog error occurred, please try again.",
+                () => {
+                    this.scene.time.delayedCall(2000, () => {
+                        this.endDialog();
+                    });
+                }
             );
         }
     }
@@ -363,11 +363,6 @@ export default class DialogSystem {
 
         let currentChar = 0;
         const totalChars = text.length;
-
-        if (this.typewriterTween) {
-        this.typewriterTween.stop();
-        this.typewriterTween = null;
-    }
 
         this.typewriterTween = this.scene.tweens.add({
             targets: {value: 0},
@@ -392,7 +387,6 @@ export default class DialogSystem {
     skipTyping() {
         if (this.isTyping && this.typewriterTween) {
             this.typewriterTween.stop();
-            this.typewriterTween = null;
             this.textObject.setText(this.curText);
             this.isTyping = false;
             this.continueHint.setVisible(true);
@@ -642,23 +636,9 @@ export default class DialogSystem {
             this.inputBg.parentNode.removeChild(this.inputBg);
             this.inputBg = null;
         }
-        this.inputBox = null;
-        this.sendBtn = null;
-        this.inputBg = null;
     }
 
     destroyUIElements() {
-        if (this.typewriterTween) {
-            this.typewriterTween.stop();
-            this.typewriterTween = null;
-        }
-        if (this.hintTween) {
-            this.hintTween.stop();
-            this.hintTween.remove();
-            this.hintTween = null;
-        }
-
-        // 再销毁可视对象
         if (this.dialogBox) {
             this.dialogBox.destroy();
             this.dialogBox = null;
@@ -679,49 +659,56 @@ export default class DialogSystem {
             this.hint.destroy();
             this.hint = null;
         }
+        if (this.typewriterTween) {
+            this.typewriterTween.stop();
+            this.typewriterTween = null;
+        }
     }
 
     async endDialog() {
+        console.log("Ending dialog...");
+
         this.cleanupButtons();
         this.destroyInputElements();
         this.destroyUIElements();
 
-        // 先取结果 & 卸载监听
-        const result = this.getDialogResult();
-        this.scene.input.off("pointerdown", this.handlePointerDown, this);
-
-        // ✅ 先 emit（让外部能拿到正确的 currentNPC/mealType）
-        this.emit("dialogEnded", result);
-
-        // 再清空状态
+        // 重置状态
         this.isActive = false;
         this.currentNPC = null;
         this.questionIndex = 0;
         this.mealResponses = {};
-        this.isMealDialog = false;
+        this.isMealDialog = false; // 重置标记
         this.currentMealType = null;
 
-        // 更新玩家位置（原逻辑保留）
-        try {
-            const playerPos = this.scene.gridEngine?.getPosition("player");
-            if (playerPos && this.scene.updatePlayerdata) {
-                this.scene.updatePlayerdata({playLoc: [playerPos.x, playerPos.y]});
+        // 移除事件监听
+        this.scene.input.off("pointerdown", this.handlePointerDown, this);
+
+        // 更新玩家数据
+        if (this.scene.gridEngine) {
+            try {
+                const playerPos = this.scene.gridEngine.getPosition("player");
+                if (playerPos && this.scene.updatePlayerdata) {
+                    this.scene.updatePlayerdata({
+                        playLoc: [playerPos.x, playerPos.y],
+                    });
+                }
+            } catch (error) {
+                console.warn("Error updating player position:", error);
             }
-        } catch (e) {
-            console.warn("Error updating player position:", e);
         }
 
         console.log("Dialog ended successfully");
+        this.emit("dialogEnded", this.getDialogResult());
     }
 
     getDialogResult() {
-        return {
-            isMealDialog: this.isMealDialog,
-            currentMealType: this.currentMealType,
-            currentNPC: this.currentNPC,
-            mealResponses: this.mealResponses
-        };
-    }
+    return {
+        isMealDialog: this.isMealDialog,
+        currentMealType: this.currentMealType,
+        currentNPC: this.currentNPC,
+        mealResponses: this.mealResponses
+    };
+}
 
     // 清理资源
     destroy() {
@@ -729,18 +716,6 @@ export default class DialogSystem {
 
         window.removeEventListener("resize", this.resizeHandler);
         window.removeEventListener("orientationchange", this.resizeHandler);
-        if (this.isActive) this.endDialog();
+        this.endDialog();
     }
-
-    // 在 on/emit 旁边加一个 off
-    off(eventName, callback) {
-        const arr = this.eventListeners.get(eventName);
-        if (!arr) return;
-        if (callback) {
-            this.eventListeners.set(eventName, arr.filter(fn => fn !== callback));
-        } else {
-            this.eventListeners.delete(eventName);
-        }
-    }
-
 }

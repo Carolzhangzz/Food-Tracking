@@ -1,4 +1,4 @@
-// server/db.js - 单一 Sequelize 实例
+// server/db.js - PostgreSQL 配置
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
@@ -6,7 +6,10 @@ const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, {
       dialect: 'postgres',
       dialectOptions: {
-        ssl: { require: true, rejectUnauthorized: false }
+        ssl: {
+          require: true,
+          rejectUnauthorized: false // Heroku 可能需要关闭严格 SSL 验证
+        }
       }
     })
   : new Sequelize(
@@ -16,7 +19,7 @@ const sequelize = process.env.DATABASE_URL
       {
         host: process.env.DB_HOST,
         port: process.env.DB_PORT,
-        dialect: 'postgres',
+        dialect: 'postgres'
       }
     );
 
