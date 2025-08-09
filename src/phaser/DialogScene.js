@@ -14,6 +14,8 @@ import {
     showChoiceButtons,
 } from "./DialogUI.js";
 
+const MAX_TURNS_MEAL = 5;      // 记录餐食阶段
+const MAX_TURNS_NPC = 3;     // 普通闲聊阶段
 const API_URL = process.env.REACT_APP_API_URL;
 
 export default class DialogScene extends Phaser.Scene {
@@ -523,15 +525,6 @@ export default class DialogScene extends Phaser.Scene {
         // 根据对话阶段增加相应的轮数计数
         if (this.dialogPhase === "continuing") {
             this.dialogTurnCount++;
-        } else if (this.dialogPhase === "meal_recording") {
-            this.geminiTurnCount++; // 新增：Gemini 轮数计数
-
-            // 强制结束检测：超过最大轮数
-            if (this.geminiTurnCount >= this.maxGeminiTurns) {
-                console.log("Gemini 对话达到最大轮数，强制结束");
-                this.forceEndGeminiDialog();
-                return;
-            }
         }
 
         console.log("=== 对话调试信息 ===");
@@ -646,44 +639,72 @@ export default class DialogScene extends Phaser.Scene {
     async processResponse(response) {
         return new Promise((resolve) => {
             this.showSingleMessage("npc", response.message, () => {
-                if (this.debugMode) {
-                    console.log("=== 响应处理完成 ===");
-                    console.log("当前阶段:", this.dialogPhase);
-                    console.log("Gemini轮数:", this.geminiTurnCount || 0);
-                    console.log(
-                        "检查结束消息:",
-                        this.detectThankYouMessage(response.message)
-                    );
-                }
-
-                if (this.dialogPhase === "continuing") {
-                    // ConvAI 对话逻辑保持不变
-                    if (this.checkForTriggerPhrase(response.message)) {
-                        console.log("检测到触发短语，直接进入食物选择");
-                        this.proceedToMealSelection();
-                    } else if (this.dialogTurnCount >= 4) {
-                        console.log("对话轮数>=4，自动进入食物选择");
-                        this.proceedToMealSelection();
-                    } else if (this.dialogTurnCount >= 2) {
-                        console.log("对话轮数>=2，显示继续/跳过选择按钮");
-                        this.showContinueOrSkipChoice();
-                    } else {
-                        console.log("继续下一轮对话（轮数:", this.dialogTurnCount, "）");
-                        setTimeout(() => {
-                            this.waitForUserInput();
-                        }, 500);
+                    if (this.debugMode) {
+                        console.log("=== 响应处理完成 ===");
+                        console.log("当前阶段:", this.dialogPhase);
+                        console.log("Gemini轮数:", this.geminiTurnCount || 0);
+                        console.log(
+                            "检查结束消息:",
+                            this.detectThankYouMessage(response.message)
+                        );
                     }
-                } else if (this.dialogPhase === "meal_recording") {
-                    if (this.detectThankYouMessage(response.message) || this.geminiTurnCount >= this.maxGeminiTurns) {
-                        console.log("Gemini 对话结束，准备提交餐食记录");
-                        this.dialogPhase = "completed";
-                        // ✅ 统一走一个提交函数，带防重入
-                        this.submitMealOnce();
-                        return resolve();
-                    }
-                }
 
-            });
+                    if (this.dialogPhase === "continuing") {
+                        // ConvAI 对话逻辑保持不变
+                        if (this.checkForTriggerPhrase(response.message)) {
+                            console.log("检测到触发短语，直接进入食物选择");
+                            this.proceedToMealSelection();
+                        } else if (this.dialogTurnCount >= 4) {
+                            console.log("对话轮数>=4，自动进入食物选择");
+                            this.proceedToMealSelection();
+                        } else if (this.dialogTurnCount >= 2) {
+                            console.log("对话轮数>=2，显示继续/跳过选择按钮");
+                            this.showContinueOrSkipChoice();
+                        } else {
+                            console.log("继续下一轮对话（轮数:", this.dialogTurnCount, "）");
+                            setTimeout(() => {
+                                this.waitForUserInput();
+                            }, 500);
+                        }
+                    } else if (this.dialogPhase === "meal_recording") {
+                        // ✅ 渲染完助手回复后再计数
+                        this.geminiTurnCount = (this.geminiTurnCount || 0) + 1;
+                        console.log("[Gemini] 轮数+1 =>", this.geminiTurnCount, "/", this.maxGeminiTurns);
+
+                        const assistantEnds = this.detectThankYouMessage(response.message);
+                        const isQuestion = /\?\s*$/.test(response.message.trim()); // 结尾是问号 -> 不是结束
+                        const reachedCap = this.geminiTurnCount >= this.maxGeminiTurns;
+
+                        // 是否已有用户有效餐食文本
+                        const mealText = this.extractMealContentFromHistory();
+                        const hasMeaningfulMeal = !!(mealText && mealText.trim().length >= 3);
+
+                        if (!isQuestion && (assistantEnds || (reachedCap && hasMeaningfulMeal))) {
+                            console.log("Gemini 对话结束，准备提交餐食记录");
+                            this.dialogPhase = "completed";
+                            this.submitMealOnce();
+                            return resolve();
+                        }
+
+                        // 达上限但还没采到有效餐食 -> 给引导，再给一次输入机会
+                        if (reachedCap && !hasMeaningfulMeal) {
+                            const tip = this.playerData.language === "zh"
+                                ? "我还没听到你这餐具体吃了什么哦～随便写几样：比如“米饭、土豆牛肉、青菜”。"
+                                : "I still didn't catch what exactly you had. For example: 'rice, beef & potato, greens'.";
+                            this.showSingleMessage("npc", tip, () => {
+                                this.waitForUserInput();
+                                return resolve();
+                            });
+                            return;
+                        }
+
+                        // 正常继续
+                        setTimeout(() => this.waitForUserInput(), 200);
+                    }
+
+                }
+            )
+            ;
         });
     }
 
@@ -1495,7 +1516,7 @@ I believe those records hold the key.`,
     detectThankYouMessage(text) {
         const lowerText = text.toLowerCase();
         console.log("检测结束消息:", lowerText); // 添加调试日志
-
+        if (/\?\s*$/.test(lowerText)) return false;
         return (
             // Gemini 系统提示词中的准确结束语
             lowerText.includes("thanks for sharing your meal with me") ||
@@ -1510,9 +1531,7 @@ I believe those records hold the key.`,
             lowerText.includes("take it one meal at a time") ||
             // 添加更通用的结束检测
             (lowerText.includes("thanks") && lowerText.includes("meal")) ||
-            (lowerText.includes("thank you") && lowerText.includes("sharing")) ||
-            // 对话轮数限制作为后备检测
-            this.geminiTurnCount >= 5 // 新增：最多5轮Gemini对话
+            (lowerText.includes("thank you") && lowerText.includes("sharing"))
         );
     }
 
@@ -1932,7 +1951,7 @@ I believe those records hold the key.`,
 
         // 新增：初始化 Gemini 对话轮数
         this.geminiTurnCount = 0;
-        this.maxGeminiTurns = 5; // 最多5轮对话
+        this.maxGeminiTurns = MAX_TURNS_MEAL;
 
         // 检查用餐时间是否异常
         const needTimeQuestion = this.checkUnusualMealTime();
