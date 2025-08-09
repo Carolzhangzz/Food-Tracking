@@ -1,4 +1,3 @@
-// models/Clue.js - 新建线索模型
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
@@ -31,15 +30,11 @@ const Clue = sequelize.define('Clue', {
   indexes: [
     {
       unique: true,
-      fields: ['playerId', 'npcId', 'day'],
+      fields: ['playerId', 'npcId', 'day'], // 🔹 保证一个玩家每天一个 NPC 只能有一条线索
       name: 'unique_player_npc_day_clue'
     },
-    {
-      fields: ['playerId']
-    },
-    {
-      fields: ['day']
-    }
+    { fields: ['playerId'] },
+    { fields: ['day'] }
   ]
 });
 

@@ -34,6 +34,7 @@ export default class DialogScene extends Phaser.Scene {
 
         // 对话状态管理
         this.dialogPhase = "initial";
+        this._suppressReturnOnce = false;
         this.canSkipToMeal = false;
         this.dialogTurnCount = 0;
         this.maxDialogTurns = 5;
@@ -49,6 +50,9 @@ export default class DialogScene extends Phaser.Scene {
         // 添加调试标志
         this.debugMode = true;
         this.dynamicButtons = [];
+        this._mealAlreadyRecorded = false;
+        this.scrollOffset = 0;
+        this._endingGemini = false;
     }
 
     init(data) {
@@ -106,15 +110,72 @@ export default class DialogScene extends Phaser.Scene {
 
     create() {
         this.setupBackground();
-        this.setupUI();
-        this.setupControls();
-        this.startConversation();
+        // ---- DialogSystem 单轨 UI ----
         this.dialogSystem = new DialogSystem(this);
         this.dialogSystem.setNPCManager(this.npcManager);
-        this.loadAndShowHistory();
 
-        // 👇 新增：监听对话结束事件（需要在DialogSystem中触发）
-        this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
+        // 建议：接收事件参数，避免以后内部改动拿不到结果
+        this.dialogSystem.on("dialogEnded", (dialogResult) => this.handleDialogEnded(dialogResult));
+
+        // 注入 requestHandler：首轮优先吐 geminiStarterMessage（仅 meal_recording 阶段生效）
+        this.dialogSystem.setRequestHandler(async (npcId, userText) => {
+            const phase = this.dialogPhase;
+            if (userText && userText.trim()) {
+                this.dialogHistory.push({type: "user", content: userText.trim()});
+                this.addToConversationHistory("player", userText.trim());
+            }
+            // 如果刚刚切到 meal_recording，并且我们为首句准备了 starter，就先发它
+            if (phase === "meal_recording" && this.geminiStarterMessage) {
+                const first = this.geminiStarterMessage;
+                this.geminiStarterMessage = null; // 只用一次
+                return {next: true, response: first, requireInput: true, buttons: []};
+            }
+
+            // 正常走 API
+            const msg = userText && userText.trim() ? userText.trim() : "hello";
+            const apiResp = (phase === "meal_recording")
+                ? await this.callGeminiAPI(msg)
+                : await this.callConvaiAPI(msg);
+
+            if (!apiResp?.success) {
+                return {
+                    next: false,
+                    response: apiResp?.message || (
+                        this.playerData.language === "zh"
+                            ? "抱歉，暂时无法继续对话。"
+                            : "Sorry, I can't continue the conversation right now."
+                    ),
+                };
+            }
+            this.dialogHistory.push({type: "assistant", content: apiResp.message});
+            this.addToConversationHistory("npc", apiResp.message);
+            if (this.dialogPhase === "continuing") {
+                this.dialogTurnCount = (this.dialogTurnCount || 0) + 1;
+                const shouldSkip = this.checkForTriggerPhrase(apiResp.message) || this.dialogTurnCount >= 3;
+                if (shouldSkip) {
+                    this._suppressReturnOnce = true;
+                    if (this.dialogSystem?.isDialogActive()) {
+                        this.dialogSystem.endDialog();
+                    }
+                    this.proceedToMealSelection();
+                    return {next: false, response: apiResp.message};
+                }
+            }
+            return {next: true, response: apiResp.message, requireInput: true, buttons: []};
+        });
+
+        // 启动闲聊阶段（也可按你的逻辑，等玩家触发再开）
+        this.dialogSystem.startDialog(this.currentNPC, {
+            isMealDialog: false,
+            mealType: null,
+        });
+        this.dialogPhase = "continuing";
+        this.dialogTurnCount = 0;
+        this.canSkipToMeal = false;
+        // （可选）显示历史
+        this.loadAndShowHistory();
+        this.setupUI();
+        this.setupControls();
     }
 
     async loadAndShowHistory() {
@@ -128,53 +189,73 @@ export default class DialogScene extends Phaser.Scene {
         }
     }
 
-    async handleDialogEnded() {
-        // 获取对话结果
-        const dialogResult = this.dialogSystem.getDialogResult();
+    sayOnceViaDS(text, {isMealDialog = false, mealType = null} = {}) {
+        // 临时请求处理器：只回一条然后结束
+        this.dialogSystem.setRequestHandler(async () => ({
+            next: false,
+            response: text
+        }));
+        this.dialogSystem.startDialog(this.currentNPC, {isMealDialog, mealType});
+    }
+
+    async handleDialogEnded(dialogResultFromDS) {
+        // 优先使用事件带来的结果（更稳定），回退到 getDialogResult()
+        const dialogResult = dialogResultFromDS || this.dialogSystem.getDialogResult();
         console.log("对话结束，准备处理结果:", dialogResult);
 
+
+        // 如果是“切到餐食选择”而触发的结束，跳过返回
+        if (this._suppressReturnOnce) {
+            this._suppressReturnOnce = false;
+            return;
+        }
+
+        if (!dialogResult.isMealDialog || !dialogResult.currentMealType) {
+            this.returnToMainScene();
+            return;
+        }
+        if (!this.mealRecorded || this.dialogPhase !== "completed") {
+            // 可选：给个温和提示（不写入记录）
+            this.sayOnceViaDS(
+                this.playerData.language === "zh"
+                    ? "这次餐食记录未完成，下次我们再试一次吧。"
+                    : "This meal log wasn’t completed. Let’s try again next time.",
+                {isMealDialog: false, mealType: null}
+            );
+            this.time.delayedCall(800, () => this.returnToMainScene());
+            return;
+        }
+        if (this._mealAlreadyRecorded) {
+            this.returnToMainScene();
+            return;
+        }
         // 如果是餐食对话，调用recordMeal
-        if (dialogResult.isMealDialog && dialogResult.currentMealType) {
-            try {
-                console.log(`在场景中提交${dialogResult.currentMealType}记录`);
-                const mealContent = this.extractMealContentFromHistory();
+        try {
+            const mealContent = this.extractMealContentFromHistory();
+            const result = await this.npcManager.recordMeal(
+                dialogResult.currentNPC,
+                dialogResult.currentMealType,
+                dialogResult.mealResponses,
+                this.dialogHistory,
+                mealContent
+            );
+            this._mealAlreadyRecorded = true;
 
-                // 调用npcManager的recordMeal
-                const result = await this.npcManager.recordMeal(
-                    dialogResult.currentNPC,
-                    dialogResult.currentMealType,
-                    dialogResult.mealResponses,
-                    this.dialogHistory, // 假设场景中维护了对话历史
-                    mealContent// 餐食内容，根据实际情况补充
-                );
-
-                // if (result.success) {
-                // 关键：同步更新本地缓存的餐食记录
-                // this.npcManager.mealRecords.push({
-                //     day: this.npcManager.getCurrentDay(),
-                //     npcId: dialogResult.currentNPC,
-                //     mealType: dialogResult.currentMealType,
-                //     mealContent: mealContent,
-                //     recordedAt: new Date()
-                // });
-                // console.log("本地缓存已更新，记录数:", this.npcManager.mealRecords.length);
-                // }
-            } catch (error) {
-                console.error("提交记录失败:", error);
-            }
-        }
-        this.returnToMainScene();
-    }
-
-    checkAndUpdateCurrentDay() {
-        const hasLunch = this.mealResults.some(r => r.mealType === 'lunch');
-        const hasDinner = this.mealResults.some(r => r.mealType === 'dinner');
-        console.log("是否有午餐:", hasLunch, "是否有晚餐:", hasDinner); // 关键日志
-        if (hasLunch && hasDinner) {
-            this.currentDay += 1; // 推进天数
-            console.log("开启第二天，当前天数:", this.currentDay);
+            // 把后续的线索/收尾统一放到这里（见第3点）
+            await this.handleMealCompletion(result);
+        } catch (e) {
+            console.error("提交记录失败:", e);
+            this.returnToMainScene();
         }
     }
+
+    // checkAndUpdateCurrentDay() {
+    //     const hasDinner = this.mealResults && this.mealResults.some(r => r.mealType === 'dinner');
+    //     if (hasDinner) {
+    //         this.currentDay += 1;
+    //     }
+    // }
+
 
 // DialogScene.js
     setupBackground() {
@@ -210,6 +291,7 @@ export default class DialogScene extends Phaser.Scene {
         const {width, height} = this.scale;
 
         createDialogBox(this);
+        if (this.dialogText) this.dialogText.setDepth(10);
         createReturnButton(this);
         this.updateStatus("");
 
@@ -225,31 +307,6 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     setupControls() {
-        // 点击屏幕继续对话 - 移动端优化触摸区域
-        const pointerHandler = (pointer) => {
-            const topAreaHeight = this.isMobile
-                ? this.scale.height * 0.25
-                : this.scale.height * 0.15;
-            if (pointer.y > topAreaHeight && !this.isWaitingForInput) {
-                this.handleContinue();
-            }
-        };
-
-        this.input.on("pointerdown", pointerHandler);
-        this.eventListeners.push({event: "pointerdown", handler: pointerHandler});
-
-        // 键盘支持
-        const keyHandler = () => {
-            if (!this.isWaitingForInput) {
-                this.handleContinue();
-            }
-        };
-
-        this.input.keyboard.on("keydown-SPACE", keyHandler);
-        this.eventListeners.push({event: "keydown-SPACE", handler: keyHandler});
-
-        // 滚动控制
-        this.scrollOffset = 0;
 
         // 鼠标滚轮支持
         const wheelHandler = (pointer, gameObjects, deltaX, deltaY) => {
@@ -311,23 +368,23 @@ export default class DialogScene extends Phaser.Scene {
 
     // 改进的Continue处理逻辑
     handleContinue() {
-        if (this.isTyping) return;
-
-        switch (this.dialogPhase) {
-            case "initial":
-                // 初始状态，不做任何处理
-                break;
-            case "continuing":
-                // 继续对话状态，检查是否需要显示跳过选项
-                this.checkForSkipOption();
-                break;
-            case "meal_selection":
-                // 已经在食物选择阶段，不需要继续
-                break;
-            case "completed":
-                // 对话已完成
-                break;
-        }
+        // if (this.isTyping) return;
+        //
+        // switch (this.dialogPhase) {
+        //     case "initial":
+        //         // 初始状态，不做任何处理
+        //         break;
+        //     case "continuing":
+        //         // 继续对话状态，检查是否需要显示跳过选项
+        //         this.checkForSkipOption();
+        //         break;
+        //     case "meal_selection":
+        //         // 已经在食物选择阶段，不需要继续
+        //         break;
+        //     case "completed":
+        //         // 对话已完成
+        //         break;
+        // }
     }
 
     // 检查是否显示跳过到食物选择的选项
@@ -361,13 +418,18 @@ export default class DialogScene extends Phaser.Scene {
 
     // 进入食物选择阶段
     proceedToMealSelection() {
+        if (this.dialogSystem?.isDialogActive()) {
+            // 标记这次 endDialog 是为了切到餐食选择，不要触发返回主场景
+            this._suppressReturnOnce = true;
+            this.dialogSystem.endDialog();
+        }
         if (this.debugMode) {
             console.log("=== 进入食物选择阶段 ===");
             console.log("清理输入框和按钮");
         }
 
         // 清理输入框
-        this.clearTextInput();
+        this.clearTextInput?.();
         this.clearAllButtons();
         this.dialogPhase = "meal_selection";
 
@@ -380,12 +442,6 @@ export default class DialogScene extends Phaser.Scene {
     // 修改：显示餐食选择按钮 - 只显示可选择的餐食类型
     showMealSelectionButtons() {
         console.log("当前可选择的餐食:", this.availableMealTypes);
-        // 额外彻底清理所有残留按钮
-        this.children.list.forEach((child) => {
-            if (child.type === Phaser.GameObjects.Text && child.input?.enabled) {
-                child.destroy();
-            }
-        });
 
         if (this.debugMode) {
             console.log("=== 显示餐食选择按钮 ===");
@@ -394,16 +450,14 @@ export default class DialogScene extends Phaser.Scene {
 
         // 检查是否有可选择的餐食类型
         if (!this.availableMealTypes || this.availableMealTypes.length === 0) {
-            this.showSingleMessage(
-                "npc",
+            this.dialogPhase = "completed";
+            this.sayOnceViaDS(
                 this.playerData.language === "zh"
                     ? "今天的餐食已经全部记录完了，明天再来吧！"
                     : "All meals for today have been recorded, come back tomorrow!",
-                () => {
-                    this.dialogPhase = "completed";
-                    this.returnToMainScene();
-                }
+                {isMealDialog: false, mealType: null}
             );
+            this.time.delayedCall(900, () => this.returnToMainScene());
             return;
         }
 
@@ -542,312 +596,56 @@ export default class DialogScene extends Phaser.Scene {
 
     // 改进的等待用户输入逻辑
     waitForUserInput() {
-        if (this.debugMode) {
-            console.log("=== 等待用户输入 ===");
-            console.log("当前对话阶段:", this.dialogPhase);
-        }
-
-        this.enableInputBox();
-
-        // 设置用户提交回调函数
-        this.onUserSubmit = async (userMessage) => {
-            if (this.debugMode) {
-                console.log("=== 用户提交消息 ===");
-                console.log("消息内容:", userMessage);
-                console.log("当前是否等待输入:", this.isWaitingForInput);
-            }
-
-            try {
-                await this.handleUserInput(userMessage);
-            } catch (error) {
-                console.error("Error in user submit handler:", error);
-                await this.handleError(error);
-            }
-        };
-
-        if (this.debugMode) {
-            console.log(
-                "onUserSubmit 回调已设置:",
-                this.onUserSubmit ? "存在" : "不存在"
-            );
-        }
     }
-
-    // 用户输入处理
-    // async handleUserInput(input) {
-    //   if (this.debugMode) {
-    //     console.log("=== 处理用户输入开始 ===");
-    //     console.log("输入内容:", input);
-    //     console.log("当前对话阶段:", this.dialogPhase);
-    //   }
-
-    //   // 立即清理输入框，避免重复提交
-    //   this.clearTextInput();
-
-    //   this.dialogTurnCount++;
-
-    //   console.log("=== 对话调试信息 ===");
-    //   console.log("当前对话阶段:", this.dialogPhase);
-    //   console.log("对话轮数:", this.dialogTurnCount);
-    //   console.log("用户输入:", input);
-
-    //   // 添加到对话历史
-    //   this.addToConversationHistory("player", input);
-    //   this.dialogHistory.push({
-    //     type: "user",
-    //     content: input,
-    //   });
-
-    //   // 显示"正在思考..."状态
-    //   this.updateStatus("正在思考...");
-
-    //   try {
-    //     let response;
-
-    //     // 根据当前状态选择正确的 API
-    //     switch (this.dialogPhase) {
-    //       case "continuing":
-    //         if (this.debugMode) {
-    //           console.log("调用 ConvAI API");
-    //         }
-    //         response = await this.callConvaiAPI(input);
-    //         break;
-    //       case "meal_recording":
-    //         if (this.debugMode) {
-    //           console.log("调用 Gemini API"); // 修改日志信息
-    //         }
-    //         response = await this.callGeminiAPI(input); // 调用新的 Gemini API 方法
-    //         break;
-    //       default:
-    //         throw new Error(`Unknown dialog phase: ${this.dialogPhase}`);
-    //     }
-
-    //     if (this.debugMode) {
-    //       console.log("API响应:", response);
-    //     }
-
-    //     if (response && response.success) {
-    //       console.log("NPC回复:", response.message);
-
-    //       // 添加到对话历史
-    //       this.dialogHistory.push({
-    //         type: "assistant",
-    //         content: response.message,
-    //       });
-
-    //       // 清除"正在思考..."状态
-    //       this.updateStatus("");
-
-    //       await this.processResponse(response);
-    //     } else {
-    //       // 清除"正在思考..."状态
-    //       this.updateStatus("");
-    //       await this.handleResponseError(response);
-    //     }
-    //   } catch (error) {
-    //     console.error("Error in handleUserInput:", error);
-    //     // 清除"正在思考..."状态
-    //     this.updateStatus("");
-    //     await this.handleError(error);
-    //   }
-    // }
 
     async handleUserInput(input) {
-        if (this.debugMode) {
-            console.log("=== 处理用户输入开始 ===");
-            console.log("输入内容:", input);
-            console.log("当前对话阶段:", this.dialogPhase);
-        }
-
-        // 立即清理输入框，避免重复提交
-        this.clearTextInput();
-
-        // 根据对话阶段增加相应的轮数计数
-        if (this.dialogPhase === "continuing") {
-            this.dialogTurnCount++;
-        } else if (this.dialogPhase === "meal_recording") {
-            this.geminiTurnCount++; // 新增：Gemini 轮数计数
-
-            // 强制结束检测：超过最大轮数
-            if (this.geminiTurnCount >= this.maxGeminiTurns) {
-                console.log("Gemini 对话达到最大轮数，强制结束");
-                this.forceEndGeminiDialog();
-                return;
-            }
-        }
-
-        console.log("=== 对话调试信息 ===");
-        console.log("当前对话阶段:", this.dialogPhase);
-        console.log("ConvAI轮数:", this.dialogTurnCount);
-        console.log("Gemini轮数:", this.geminiTurnCount || 0);
-        console.log("用户输入:", input);
-
-        // 添加到对话历史
-        this.addToConversationHistory("player", input);
-        this.dialogHistory.push({
-            type: "user",
-            content: input,
-        });
-
-        // 显示"正在思考..."状态
-        this.updateStatus("正在思考...");
-
-        try {
-            let response;
-
-            // 根据当前状态选择正确的 API
-            switch (this.dialogPhase) {
-                case "continuing":
-                    if (this.debugMode) {
-                        console.log("调用 ConvAI API");
-                    }
-                    response = await this.callConvaiAPI(input);
-                    break;
-                case "meal_recording":
-                    if (this.debugMode) {
-                        console.log("调用 Gemini API (轮数: " + this.geminiTurnCount + ")");
-                    }
-                    response = await this.callGeminiAPI(input);
-                    break;
-                default:
-                    throw new Error(`Unknown dialog phase: ${this.dialogPhase}`);
-            }
-
-            if (this.debugMode) {
-                console.log("API响应:", response);
-            }
-
-            if (response && response.success) {
-                console.log("NPC回复:", response.message);
-
-                // 添加到对话历史
-                this.dialogHistory.push({
-                    type: "assistant",
-                    content: response.message,
-                });
-
-                // 清除"正在思考..."状态
-                this.updateStatus("");
-
-                await this.processResponse(response);
-            } else {
-                // 清除"正在思考..."状态
-                this.updateStatus("");
-                await this.handleResponseError(response);
-            }
-        } catch (error) {
-            console.error("Error in handleUserInput:", error);
-            // 清除"正在思考..."状态
-            this.updateStatus("");
-            await this.handleError(error);
-        }
+        return;
     }
 
-    forceEndGeminiDialog() {
-        console.log("强制结束 Gemini 对话");
-        const language = this.playerData.language;
+    async forceEndGeminiDialog() {
+        this.mealRecorded = true;
+        this.currentDialogState = "completion_check";
+        this.dialogPhase = "completed";
 
-        const endMessage =
+        // 不要在这里再 recordMeal —— 让 handleDialogEnded 统一提交
+        // 这里只负责让 DS 正常收尾一句提示，然后 DS 会触发 handleDialogEnded
+        this.sayOnceViaDS(
             this.playerData.language === "zh"
                 ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
-                : "Thank you for sharing your meal with me! I have recorded your meal information.";
-
-        this.showSingleMessage("npc", endMessage, async () => {
-            // 1. 先标记状态为已记录
-            this.mealRecorded = true;
-            this.currentDialogState = "completion_check";
-            this.dialogPhase = "completed";
-
-            // 2. 强制提交记录到数据库（关键：确保recordMeal被调用）
-            console.log("强制提交餐食记录到数据库...");
-            const dialogResult = this.dialogSystem.getDialogResult();
-            const mealContent = this.extractMealContentFromHistory();
-            if (dialogResult && this.selectedMealType) {
-                // 调用NPCManager的recordMeal方法提交数据
-                const recordResult = await this.npcManager.recordMeal(
-                    this.currentNPC,
-                    this.selectedMealType,
-                    this.mealAnswers,
-                    this.dialogHistory,
-                    mealContent
-                );
-                console.log("数据库提交结果:", recordResult);
-            }
-
-            // 3. 处理完成后的UI反馈（原有逻辑保留）
-            this.handleMealCompletion({
-                success: true,
-                shouldGiveClue: this.selectedMealType === "dinner", // 按原逻辑判断是否给线索
-                error: null
-            });
-        });
+                : "Thank you for sharing your meal with me! I have recorded your meal information.",
+            // 这里要传 isMealDialog: true，确保 handleDialogEnded 才会走记录逻辑
+            {isMealDialog: true, mealType: this.selectedMealType}
+        );
     }
 
-    // 增强结束检测
+// 增强结束检测
     async processResponse(response) {
-        return new Promise((resolve) => {
-            this.showSingleMessage("npc", response.message, () => {
-                if (this.debugMode) {
-                    console.log("=== 响应处理完成 ===");
-                    console.log("当前阶段:", this.dialogPhase);
-                    console.log("Gemini轮数:", this.geminiTurnCount || 0);
-                    console.log(
-                        "检查结束消息:",
-                        this.detectThankYouMessage(response.message)
-                    );
-                }
-
-                if (this.dialogPhase === "continuing") {
-                    // ConvAI 对话逻辑保持不变
-                    if (this.checkForTriggerPhrase(response.message)) {
-                        console.log("检测到触发短语，直接进入食物选择");
-                        this.proceedToMealSelection();
-                    } else if (this.dialogTurnCount >= 4) {
-                        console.log("对话轮数>=4，自动进入食物选择");
-                        this.proceedToMealSelection();
-                    } else if (this.dialogTurnCount >= 2) {
-                        console.log("对话轮数>=2，显示继续/跳过选择按钮");
-                        this.showContinueOrSkipChoice();
-                    } else {
-                        console.log("继续下一轮对话（轮数:", this.dialogTurnCount, "）");
-                        setTimeout(() => {
-                            this.waitForUserInput();
-                        }, 500);
-                    }
-                } else if (this.dialogPhase === "meal_recording") {
-                    // Gemini 对话结束检测 - 增强版
-                    if (this.detectThankYouMessage(response.message)) {
-                        console.log("检测到Gemini对话结束消息，准备获取线索/模糊回复");
-                        this.mealRecorded = true;
-                        this.currentDialogState = "completion_check";
-                        this.dialogPhase = "completed";
-                        this.handleMealCompletion({
-                            success: true,
-                            shouldGiveClue: this.selectedMealType === "dinner",
-                            error: null
-                        });
-                    }
-                    // 新增：轮数限制检查
-                    else if (this.geminiTurnCount >= this.maxGeminiTurns) {
-                        console.log("Gemini 对话达到最大轮数，结束对话");
-                        this.forceEndGeminiDialog();
-                    } else {
-                        console.log(
-                            "继续Gemini食物记录对话（轮数:",
-                            this.geminiTurnCount,
-                            "）"
-                        );
-                        setTimeout(() => {
-                            this.waitForUserInput();
-                        }, 500);
-                    }
-                }
-                resolve();
-            });
-        });
+        if (this.dialogPhase === "continuing") {
+            if (this.checkForTriggerPhrase(response.message)) {
+                this.proceedToMealSelection();
+            } else if (this.dialogTurnCount >= 4) {
+                this.proceedToMealSelection();
+            } else if (this.dialogTurnCount >= 2) {
+                this.showContinueOrSkipChoice();
+            }
+        } else if (this.dialogPhase === "meal_recording") {
+            if (this.detectThankYouMessage(response.message)) {
+                this.mealRecorded = true;
+                this.currentDialogState = "completion_check";
+                this.dialogPhase = "completed";
+                this.sayOnceViaDS(
+                    this.playerData.language === "zh"
+                        ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
+                        : "Thank you for sharing your meal with me! I have recorded your meal information.",
+                    {isMealDialog: true, mealType: this.selectedMealType}
+                );
+            } else if (this.geminiTurnCount >= this.maxGeminiTurns) {
+                this.forceEndGeminiDialog();
+            }
+        }
     }
 
-    // 新增：处理响应错误
+// 新增：处理响应错误
     async handleResponseError(response) {
         const errorMessage = response?.error || "API调用失败";
         console.error("Response error:", errorMessage);
@@ -858,18 +656,15 @@ export default class DialogScene extends Phaser.Scene {
                     ? "让我们开始记录你的食物吧。"
                     : "Let's start recording your meal.";
 
-            return new Promise((resolve) => {
-                this.showSingleMessage("npc", fallbackMessage, () => {
-                    this.proceedToMealSelection();
-                    resolve();
-                });
-            });
+            this.sayOnceViaDS(fallbackMessage, {isMealDialog: false, mealType: null});
+            this.proceedToMealSelection();
+            return;
         } else {
             await this.handleError(new Error(errorMessage));
         }
     }
 
-    // 新增：通用错误处理
+// 新增：通用错误处理
     async handleError(error) {
         console.error("Dialog error:", error);
 
@@ -878,21 +673,19 @@ export default class DialogScene extends Phaser.Scene {
                 ? "抱歉，出现了一些问题。让我们继续其他话题吧。"
                 : "Sorry, something went wrong. Let's continue with other topics.";
 
-        return new Promise((resolve) => {
-            this.showSingleMessage("npc", errorMessage, () => {
-                if (this.dialogPhase === "continuing") {
-                    this.proceedToMealSelection();
-                } else {
-                    this.dialogPhase = "completed";
-                }
-                resolve();
-            });
-        });
+        this.sayOnceViaDS(errorMessage, {isMealDialog: false, mealType: null});
+        if (this.dialogPhase === "continuing") {
+            this.proceedToMealSelection();
+        } else {
+            this.dialogPhase = "completed";
+        }
+        return;
     }
 
-    // 显示继续对话或跳过的选择
+// 显示继续对话或跳过的选择
     showContinueOrSkipChoice() {
         //使用creatd button的方法来创建这两个按钮
+        if (this.dialogSystem?.isDialogActive()) return; // 避免叠 UI
         if (this.debugMode) {
             console.log("显示继续对话或跳过按钮");
         }
@@ -924,7 +717,7 @@ export default class DialogScene extends Phaser.Scene {
         });
     }
 
-    // 不同npc的触发短语
+// 不同npc的触发短语
     checkForTriggerPhrase(message) {
         const npcTriggerMap = {
             village_head: "I believe those records hold the key",
@@ -940,7 +733,7 @@ export default class DialogScene extends Phaser.Scene {
         return triggerPhrase && message.includes(triggerPhrase);
     }
 
-    // 添加对话到历史记录并更新显示
+// 添加对话到历史记录并更新显示
     addToConversationHistory(speaker, message) {
         const npc = this.npcManager.getNPCById(this.currentNPC);
         const npcName = npc ? npc.name : "NPC";
@@ -954,7 +747,7 @@ export default class DialogScene extends Phaser.Scene {
         this.updateConversationDisplay();
     }
 
-    // 更新对话框中的所有对话内容
+// 更新对话框中的所有对话内容
     updateConversationDisplay() {
         let displayText = "";
 
@@ -972,29 +765,43 @@ export default class DialogScene extends Phaser.Scene {
             allLines.push(speakerLine);
 
             // 将长消息按宽度分割成多行
-            const words = entry.message.split(" ");
             const maxCharsPerLine = this.isMobile ? 35 : 50;
-            let currentLine = "";
-
-            words.forEach((word) => {
-                if (
-                    (currentLine + word).length > maxCharsPerLine &&
-                    currentLine.length > 0
-                ) {
-                    allLines.push(currentLine);
-                    currentLine = word + " ";
-                } else {
-                    currentLine += word + " ";
-                }
-            });
-
-            if (currentLine.trim()) {
-                allLines.push(currentLine.trim());
+            const isCJK = /[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/.test(entry.message);
+            if (isCJK) {
+                const chars = [...entry.message];
+                let line = "";
+                chars.forEach(ch => {
+                    if ((line + ch).length > maxCharsPerLine && line.length > 0) {
+                        allLines.push(line);
+                        line = ch;
+                    } else {
+                        line += ch;
+                    }
+                });
+                if (line.trim()) allLines.push(line.trim());
+            } else {
+                const words = entry.message.split(" ");
+                let currentLine = "";
+                words.forEach((word) => {
+                    if ((currentLine + word).length > maxCharsPerLine && currentLine.length > 0) {
+                        allLines.push(currentLine);
+                        currentLine = word + " ";
+                    } else {
+                        currentLine += word + " ";
+                    }
+                });
+                if (currentLine.trim()) allLines.push(currentLine.trim());
             }
         });
 
         // 只显示最后的几行
-        const visibleLines = allLines.slice(-maxVisibleLines);
+
+        // 使用滚动偏移显示
+        const start = Math.max(0, allLines.length - maxVisibleLines - this.scrollOffset);
+        const end = Math.min(allLines.length, start + maxVisibleLines);
+        const visibleLines = allLines.slice(start, end);
+
+
         displayText = visibleLines.join("\n");
 
         if (this.dialogText) {
@@ -1009,7 +816,7 @@ export default class DialogScene extends Phaser.Scene {
         }
     }
 
-    // 添加滚动指示器显示方法
+// 添加滚动指示器显示方法
     showScrollIndicator() {
         if (!this.scrollIndicator) {
             const {width, height} = this.cameras.main;
@@ -1025,14 +832,14 @@ export default class DialogScene extends Phaser.Scene {
         this.scrollIndicator.setVisible(true);
     }
 
-    // 添加隐藏滚动指示器方法
+// 添加隐藏滚动指示器方法
     hideScrollIndicator() {
         if (this.scrollIndicator) {
             this.scrollIndicator.setVisible(false);
         }
     }
 
-    // 显示单条消息（用于打字效果）
+// 显示单条消息（用于打字效果）
     showSingleMessage(speaker, message, callback) {
         const npc = this.npcManager.getNPCById(this.currentNPC);
         const npcName = npc ? npc.name : "NPC";
@@ -1081,155 +888,7 @@ export default class DialogScene extends Phaser.Scene {
         this.timers.push(typewriterTimer);
     }
 
-    createTextInput() {
-        if (this.debugMode) {
-            console.log("=== 创建文本输入框 ===");
-            console.log("当前输入框状态:", this.textInput ? "存在" : "不存在");
-            console.log("当前对话阶段:", this.dialogPhase);
-        }
-
-        // 清理现有输入框
-        this.clearTextInput();
-
-        this.textInput = document.createElement("textarea");
-
-        // 根据对话阶段设置不同的提示文字
-        if (this.dialogPhase === "continuing") {
-            this.textInput.placeholder =
-                this.playerData.language === "zh"
-                    ? "输入你想说的话..."
-                    : "Type what you want to say...";
-        } else {
-            this.textInput.placeholder =
-                this.playerData.language === "zh"
-                    ? "描述你的餐食..."
-                    : "Describe your meal...";
-        }
-
-        const inputWidth = this.isMobile ? "90vw" : "min(400px, 80vw)";
-        const inputHeight = this.isMobile ? "100px" : "120px";
-        const fontSize = this.isMobile ? "14px" : "16px";
-        const topPosition = this.isMobile ? "40%" : "60%";
-
-        this.textInput.style.cssText = `
-      position: fixed;
-      left: 50%;
-      top: ${topPosition};
-      transform: translate(-50%, -50%);
-      width: ${inputWidth};
-      height: ${inputHeight};
-      font-size: ${fontSize};
-      padding: 12px;
-      border: 2px solid #4a5568;
-      border-radius: 8px;
-      background: #2a2a2a;
-      color: #e2e8f0;
-      font-family: monospace;
-      resize: none;
-      z-index: 1000;
-      box-sizing: border-box;
-    `;
-
-        document.body.appendChild(this.textInput);
-
-        // 修复空格问题
-        this.textInputKeyDownHandler = (e) => {
-            e.stopPropagation();
-        };
-        this.textInput.addEventListener("keydown", this.textInputKeyDownHandler);
-
-        this.sendButton = document.createElement("button");
-        this.sendButton.textContent =
-            this.playerData.language === "zh" ? "发送" : "Send";
-
-        const buttonTop = this.isMobile ? "55%" : "70%";
-        const buttonFontSize = this.isMobile ? "14px" : "16px";
-        const buttonPadding = this.isMobile ? "10px 25px" : "12px 30px";
-
-        this.sendButton.style.cssText = `
-      position: fixed;
-      left: 50%;
-      top: ${buttonTop};
-      transform: translateX(-50%);
-      padding: ${buttonPadding};
-      font-size: ${buttonFontSize};
-      border: none;
-      border-radius: 8px;
-      background: #667eea;
-      color: white;
-      font-family: monospace;
-      cursor: pointer;
-      z-index: 1000;
-      touch-action: manipulation;
-    `;
-
-        document.body.appendChild(this.sendButton);
-
-        // 修复发送按钮点击事件
-        this.sendButton.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (this.debugMode) {
-                console.log("=== 发送按钮被点击 ===");
-                console.log(
-                    "输入框值:",
-                    this.textInput ? this.textInput.value : "输入框不存在"
-                );
-                console.log(
-                    "onUserSubmit 回调:",
-                    this.onUserSubmit ? "存在" : "不存在"
-                );
-            }
-
-            const userInput = this.textInput ? this.textInput.value.trim() : "";
-            if (userInput && this.onUserSubmit) {
-                if (this.debugMode) {
-                    console.log("准备调用 onUserSubmit，输入:", userInput);
-                }
-                this.onUserSubmit(userInput);
-                // 清空输入框前检查是否仍然存在
-                if (this.textInput) {
-                    this.textInput.value = "";
-                }
-            } else {
-                if (this.debugMode) {
-                    console.log("未发送：", userInput ? "没有回调函数" : "输入为空");
-                }
-            }
-        };
-
-        // 添加 Enter 键支持
-        this.textInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                this.sendButton.click();
-            }
-        });
-
-        if (this.isMobile) {
-            this.textInput.addEventListener("focus", () => {
-                setTimeout(() => {
-                    this.textInput.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                    });
-                }, 300);
-            });
-        }
-
-        setTimeout(() => {
-            if (this.textInput) {
-                this.textInput.focus();
-            }
-        }, 100);
-
-        if (this.debugMode) {
-            console.log("文本输入框创建完成");
-        }
-    }
-
-    // 获取NPC的备用问候语
+// 获取NPC的备用问候语
     getFallbackGreeting() {
         const npcGreetings = {
             village_head: {
@@ -1252,28 +911,28 @@ I believe those records hold the key.`,
     }
 
     enableInputBox() {
-        if (this.debugMode) {
-            console.log("=== 启用输入框 ===");
-            console.log("当前状态:", this.isWaitingForInput);
-            console.log("当前对话阶段:", this.dialogPhase);
-        }
-
-        // 强制重置状态
-        this.isWaitingForInput = true;
-
-        // 确保输入框被创建
-        this.createTextInput();
+        // if (this.debugMode) {
+        //     console.log("=== 启用输入框 ===");
+        //     console.log("当前状态:", this.isWaitingForInput);
+        //     console.log("当前对话阶段:", this.dialogPhase);
+        // }
+        //
+        // // 强制重置状态
+        // this.isWaitingForInput = true;
+        //
+        // // 确保输入框被创建
+        // this.createTextInput();
     }
 
     disableInputBox() {
-        if (this.debugMode) {
-            console.log("=== 禁用输入框 ===");
-        }
-
-        this.isWaitingForInput = false;
-        this.clearTextInput();
-        // 清除回调函数
-        this.onUserSubmit = null;
+        // if (this.debugMode) {
+        //     console.log("=== 禁用输入框 ===");
+        // }
+        //
+        // this.isWaitingForInput = false;
+        // this.clearTextInput();
+        // // 清除回调函数
+        // this.onUserSubmit = null;
     }
 
     async callConvaiAPI(userMessage) {
@@ -1301,7 +960,7 @@ I believe those records hold the key.`,
                 userText: userMessage,
                 charID: charID,
                 sessionID: this.convaiSessionId,
-                voiceResponse: "False",
+                voiceResponse: false,
             };
 
             if (this.debugMode) {
@@ -1331,11 +990,13 @@ I believe those records hold the key.`,
             if (this.debugMode) {
                 console.log("ConvAI 响应数据:", data);
             }
-
+            if (data.sessionID) {
+                this.convaiSessionId = data.sessionID;
+            }
             return {
                 success: true,
                 message: data.text || "ConvAI 无返回文本",
-                sessionId: data.sessionID || this.convaiSessionId,
+                sessionId: this.convaiSessionId,
             };
         } catch (error) {
             console.error("Error calling ConvAI API:", error);
@@ -1396,13 +1057,6 @@ I believe those records hold the key.`,
             }
         } catch (error) {
             console.error("Error calling Gemini API:", error);
-
-            // 如果 API 调用失败，也强制结束对话
-            console.log("Gemini API 调用失败，强制结束对话");
-            setTimeout(() => {
-                this.forceEndGeminiDialog();
-            }, 1000);
-
             return {
                 success: false,
                 error: error.message,
@@ -1410,7 +1064,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 修改选择餐食方法
+// 修改选择餐食方法
     async selectMeal(mealType, displayName) {
         if (this.debugMode) {
             console.log("=== 选择餐食 ===");
@@ -1433,204 +1087,7 @@ I believe those records hold the key.`,
         this.showAllFixedQuestions();
     }
 
-    // // 显示所有固定问题（一次性显示）
-    // // showAllFixedQuestions() {
-    // //   if (this.debugMode) {
-    // //     console.log("=== 显示所有固定问题 ===");
-    // //   }
-
-    // //   const { width, height } = this.scale;
-
-    // //   // 清理现有按钮
-    // //   this.clearAllButtons();
-
-    // //   // 问题和选项数据
-    // //   const questions = [
-    // //     {
-    // //       title: "1. How is your meal obtained?",
-    // //       options: [
-    // //         "A. Home-cooked meals",
-    // //         "B. Eat out at restaurants",
-    // //         "C. Takeout or delivery",
-    // //         "D. Ready-to-eat meals",
-    // //       ],
-    // //       key: "obtainMethod",
-    // //     },
-    // //     {
-    // //       title: "2. What time did you have this meal?",
-    // //       options: [
-    // //         "A. Early morning (before 7:00 AM)",
-    // //         "B. Morning (7:00–11:00 AM)",
-    // //         "C. Midday (11:00 AM–2:00 PM)",
-    // //         "D. Afternoon (2:00–5:00 PM)",
-    // //         "E. Evening (5:00–9:00 PM)",
-    // //         "F. Night (after 9:00 PM)",
-    // //       ],
-    // //       key: "mealTime",
-    // //     },
-    // //     {
-    // //       title: "3. How long did you eat?",
-    // //       options: [
-    // //         "A. Less than 10 minutes",
-    // //         "B. 10–30 minutes",
-    // //         "C. 30–60 minutes",
-    // //         "D. More than 60 minutes",
-    // //       ],
-    // //       key: "duration",
-    // //     },
-    // //   ];
-
-    // //   this.fixedQuestionButtons = [];
-    // //   this.questionAnswers = {}; // 存储每个问题的答案
-
-    // //   let currentY = this.isMobile ? height * 0.1 : height * 0.15;
-    // //   const questionSpacing = this.isMobile ? 120 : 150;
-    // //   const optionSpacing = this.isMobile ? 25 : 30;
-    // //   const fontSize = this.isMobile ? "11px" : "13px";
-    // //   const titleFontSize = this.isMobile ? "13px" : "15px";
-
-    // //   questions.forEach((question, qIndex) => {
-    // //     // 显示问题标题
-    // //     const questionTitle = this.add.text(width / 2, currentY, question.title, {
-    // //       fontSize: titleFontSize,
-    // //       fontFamily: "monospace",
-    // //       fill: "#f1f5f9",
-    // //       align: "center",
-    // //       fontStyle: "bold",
-    // //     });
-    // //     questionTitle.setOrigin(0.5);
-    // //     questionTitle.setDepth(20);
-    // //     this.fixedQuestionButtons.push(questionTitle);
-
-    // //     currentY += 35;
-
-    // //     // 显示选项按钮
-    // //     question.options.forEach((option, oIndex) => {
-    // //       const button = this.add.text(width / 2, currentY, option, {
-    // //         fontSize: fontSize,
-    // //         fontFamily: "monospace",
-    // //         fill: "#e2e8f0",
-    // //         backgroundColor: "#4a5568",
-    // //         padding: { x: 12, y: 6 },
-    // //       });
-
-    // //       button.setOrigin(0.5);
-    // //       button.setInteractive({ useHandCursor: true });
-    // //       button.setDepth(20);
-
-    // //       button.on("pointerdown", () => {
-    // //         this.selectFixedQuestionAnswer(question.key, option, oIndex, qIndex);
-    // //       });
-
-    // //       button.on("pointerover", () => {
-    // //         button.setTint(0x667eea);
-    // //       });
-
-    // //       button.on("pointerout", () => {
-    // //         button.clearTint();
-    // //       });
-
-    // //       this.fixedQuestionButtons.push(button);
-    // //       currentY += optionSpacing;
-    // //     });
-
-    // //     currentY += questionSpacing - question.options.length * optionSpacing;
-    // //   });
-
-    // //   // 添加提交按钮（初始隐藏）
-    // //   this.submitButton = this.add.text(
-    // //     width / 2,
-    // //     currentY + 30,
-    // //     "Submit All Answers",
-    // //     {
-    // //       fontSize: this.isMobile ? "14px" : "16px",
-    // //       fontFamily: "monospace",
-    // //       fill: "#ffffff",
-    // //       backgroundColor: "#10b981",
-    // //       padding: { x: 20, y: 10 },
-    // //     }
-    // //   );
-    // //   this.submitButton.setOrigin(0.5);
-    // //   this.submitButton.setDepth(20);
-    // //   this.submitButton.setVisible(false);
-
-    // //   this.submitButton.setInteractive({ useHandCursor: true });
-    // //   this.submitButton.on("pointerdown", () => {
-    // //     this.submitAllFixedAnswers();
-    // //   });
-
-    // //   this.submitButton.on("pointerover", () => {
-    // //     this.submitButton.setTint(0x059669);
-    // //   });
-
-    // //   this.submitButton.on("pointerout", () => {
-    // //     this.submitButton.clearTint();
-    // //   });
-
-    // //   this.fixedQuestionButtons.push(this.submitButton);
-    // // }
-
-    // // 选择固定问题的答案
-    // selectFixedQuestionAnswer(questionKey, answer, answerIndex, questionIndex) {
-    //   if (this.debugMode) {
-    //     console.log("=== 选择固定问题答案 ===");
-    //     console.log("问题:", questionKey, "答案:", answer);
-    //   }
-
-    //   // 存储答案
-    //   this.questionAnswers[questionKey] = { text: answer, index: answerIndex };
-    //   this.mealAnswers[questionKey] = { text: answer, index: answerIndex };
-
-    //   // 添加到对话历史
-    //   this.addToConversationHistory("player", answer);
-
-    //   // 更新按钮状态 - 高亮选中的按钮，取消同组其他按钮的高亮
-    //   this.fixedQuestionButtons.forEach((button, index) => {
-    //     if (button.setText) {
-    //       // 确保是按钮而不是标题
-    //       button.clearTint();
-    //       button.setAlpha(0.7);
-    //     }
-    //   });
-
-    //   // 高亮当前选中的按钮
-    //   const clickedButton = this.fixedQuestionButtons.find(
-    //     (btn) => btn.text === answer
-    //   );
-    //   if (clickedButton) {
-    //     clickedButton.setTint(0x10b981);
-    //     clickedButton.setAlpha(1);
-    //   }
-
-    //   // 检查是否所有问题都已回答
-    //   const totalQuestions = 3;
-    //   const answeredQuestions = Object.keys(this.questionAnswers).length;
-
-    //   if (this.debugMode) {
-    //     console.log("已回答问题数:", answeredQuestions, "/", totalQuestions);
-    //   }
-
-    //   if (answeredQuestions >= totalQuestions) {
-    //     this.submitButton.setVisible(true);
-    //     this.submitButton.setTint(0x10b981);
-    //   }
-    // }
-
-    // // 提交所有固定问题的答案
-    // async submitAllFixedAnswers() {
-    //   if (this.debugMode) {
-    //     console.log("=== 提交所有固定答案 ===");
-    //     console.log("所有答案:", this.mealAnswers);
-    //   }
-
-    //   // 清理固定问题界面
-    //   this.clearAllButtons();
-
-    //   // 开始 Gemini 对话
-    //   this.startGeminiChat(); // 调用新的方法名
-    // }
-
-    // 显示所有固定问题（一次性显示）
+// 显示所有固定问题（一次性显示）
     showAllFixedQuestions() {
         if (this.debugMode) {
             console.log("=== 显示所有固定问题 ===");
@@ -1739,6 +1196,7 @@ I believe those records hold the key.`,
                 button.setOrigin(0.5);
                 button.setInteractive({useHandCursor: true});
                 button.setDepth(20);
+                button._qid = qIndex;
 
                 button.on("pointerdown", () => {
                     this.selectFixedQuestionAnswer(question.key, option, oIndex, qIndex);
@@ -1792,7 +1250,7 @@ I believe those records hold the key.`,
         this.fixedQuestionButtons.push(this.submitButton);
     }
 
-    // 选择固定问题的答案
+// 选择固定问题的答案
     selectFixedQuestionAnswer(questionKey, answer, answerIndex, questionIndex) {
         if (this.debugMode) {
             console.log("=== 选择固定问题答案 ===");
@@ -1806,14 +1264,13 @@ I believe those records hold the key.`,
         // 添加到对话历史
         this.addToConversationHistory("player", answer);
 
-        // 更新按钮状态 - 高亮选中的按钮，取消同组其他按钮的高亮
-        this.fixedQuestionButtons.forEach((button, index) => {
-            if (button.setText) {
-                // 确保是按钮而不是标题
-                button.clearTint();
-                button.setAlpha(0.7);
-            }
-        });
+        // 仅重置同一题目的按钮样式
+        this.fixedQuestionButtons
+            .filter(b => b && b.setText && b._qid === questionIndex)
+            .forEach((b) => {
+                b.clearTint();
+                b.setAlpha(0.7);
+            });
 
         // 高亮当前选中的按钮
         const clickedButton = this.fixedQuestionButtons.find(
@@ -1838,7 +1295,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 提交所有固定问题的答案
+// 提交所有固定问题的答案
     async submitAllFixedAnswers() {
         if (this.debugMode) {
             console.log("=== 提交所有固定答案 ===");
@@ -1852,7 +1309,7 @@ I believe those records hold the key.`,
         this.startGeminiChat();
     }
 
-    // 1. 修改结束消息检测方法
+// 1. 修改结束消息检测方法
     detectThankYouMessage(text) {
         const lowerText = text.toLowerCase();
         console.log("检测结束消息:", lowerText); // 添加调试日志
@@ -1914,7 +1371,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 修复：添加线索到NPC管理器时确保使用当前语言
+// 修复：添加线索到NPC管理器时确保使用当前语言
     async handleMealCompletion(recordResult) {
         try {
             if (this.debugMode) {
@@ -1937,34 +1394,32 @@ I believe those records hold the key.`,
                     this.npcManager.getCurrentDay()
                 );
 
-                this.showSingleMessage("npc", clue, async () => {
-                    this.dialogPhase = "completed";
-                    // 标记NPC交互完成，但不再重复添加线索
-                    await this.npcManager.completeNPCInteraction(this.currentNPC);
-                    this.notifyMealRecorded(); // 改名，不再添加线索
-                });
+                this.dialogPhase = "completed";
+                await this.npcManager.completeNPCInteraction(this.currentNPC);
+                this.notifyMealRecorded();
+                this.sayOnceViaDS(
+                    this.getClueForNPC(this.currentNPC),
+                    {isMealDialog: false, mealType: null}
+                );
             } else {
                 console.log("普通餐食记录完成，不给线索");
-                const endMessage =
+                this.dialogPhase = "completed";
+                this.notifyMealRecorded();
+                this.sayOnceViaDS(
                     this.playerData.language === "zh"
                         ? "谢谢你的分享！记得按时吃饭哦。"
-                        : "Thanks for sharing! Remember to eat on time.";
-
-                this.showSingleMessage("npc", endMessage, () => {
-                    this.dialogPhase = "completed";
-                    this.notifyMealRecorded();
-                });
+                        : "Thanks for sharing! Remember to eat on time.",
+                    {isMealDialog: false, mealType: null}
+                );
             }
         } catch (error) {
             console.error("处理食物记录完成时出错:", error);
-            this.showSingleMessage(
-                "npc",
+            this.dialogPhase = "completed";
+            this.sayOnceViaDS(
                 this.playerData.language === "zh"
                     ? "抱歉，记录餐食时出现了问题。请稍后再试。"
                     : "Sorry, there was an error recording your meal. Please try again later.",
-                () => {
-                    this.dialogPhase = "completed";
-                }
+                {isMealDialog: false, mealType: null}
             );
         }
     }
@@ -1978,12 +1433,11 @@ I believe those records hold the key.`,
 
     extractMealContentFromHistory() {
         // 提取用户在Gemini对话阶段的所有输入
-        const mealPhaseHistory = this.dialogHistory.filter(
-            (entry) =>
-                entry.type === "user" &&
-                // 过滤掉固定问题的答案和初始设置
-                !this.isFixedQuestionAnswer(entry.content)
-        );
+        const start = Number.isInteger(this.geminiHistoryStart) ? this.geminiHistoryStart : 0;
+        const mealPhaseHistory = this.dialogHistory
+            .slice(start)
+            .filter((entry) => entry.type === "user" && !this.isFixedQuestionAnswer(entry.content));
+
 
         // 将用户的餐食描述合并
         const mealDescriptions = mealPhaseHistory.map((entry) => entry.content);
@@ -1992,29 +1446,22 @@ I believe those records hold the key.`,
         return mealDescription; // 返回值命名统一
     }
 
-    // 新增：判断是否是固定问题的答案
+// 新增：判断是否是固定问题的答案
     isFixedQuestionAnswer(content) {
-        const fixedAnswers = [
-            "A. Home-cooked meals",
-            "B. Eat out at restaurants",
-            "C. Takeout or delivery",
-            "D. Ready-to-eat meals",
-            "A. Early morning",
-            "B. Morning",
-            "C. Midday",
-            "D. Afternoon",
-            "E. Evening",
-            "F. Night",
-            "A. Less than 10 minutes",
-            "B. 10–30 minutes",
-            "C. 30–60 minutes",
-            "D. More than 60 minutes",
+        const enPrefixes = [
+            "A. Home-cooked meals", "B. Eat out at restaurants", "C. Takeout or delivery", "D. Ready-to-eat meals",
+            "A. Early morning", "B. Morning", "C. Midday", "D. Afternoon", "E. Evening", "F. Night",
+            "A. Less than 10 minutes", "B. 10–30 minutes", "C. 30–60 minutes", "D. More than 60 minutes",
         ];
-
-        return fixedAnswers.some((answer) => content.includes(answer));
+        const zhPrefixes = [
+            "A. 家里做的", "B. 餐厅用餐", "C. 外卖/打包", "D. 即食食品",
+            "A. 清晨", "B. 上午", "C. 中午", "D. 下午", "E. 傍晚", "F. 夜晚",
+            "A. 不到10分钟", "B. 10-30分钟", "C. 30-60分钟", "D. 超过60分钟",
+        ];
+        return [...enPrefixes, ...zhPrefixes].some(prefix => content.startsWith(prefix));
     }
 
-    // 标记NPC完成交互
+// 标记NPC完成交互
     markNPCCompleted() {
         // 添加线索到UI管理器
         if (this.mainScene && this.mainScene.uiManager) {
@@ -2035,7 +1482,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 3. New method to check if this is first interaction with NPC
+// 3. New method to check if this is first interaction with NPC
     checkIfFirstInteraction() {
         // This should check your game state/save data
         // For now, return true as placeholder - implement based on your save system
@@ -2045,7 +1492,7 @@ I believe those records hold the key.`,
         return true; // Default to first interaction
     }
 
-    // 4. Get vague dialog from frontend (no backend call)
+// 4. Get vague dialog from frontend (no backend call)
     getVagueDialogFromFrontend(npcId) {
         const language = this.playerData.language;
 
@@ -2097,7 +1544,7 @@ I believe those records hold the key.`,
         return sentences[0] + "...";
     }
 
-    // 获取线索的方法 - 确保根据当前语言返回正确的线索
+// 获取线索的方法 - 确保根据当前语言返回正确的线索
     getClueForNPC(npcId) {
         const language = this.playerData.language;
 
@@ -2221,23 +1668,20 @@ I believe those records hold the key.`,
 
         // 清理所有按钮
         this.clearAllButtons();
+// 避免 destroy() -> endDialog() -> emit 触发业务提交
+        this._suppressReturnOnce = true;
+
+// 解绑事件（如果刚才加了 off）
+        if (this.dialogSystem?.off) {
+            this.dialogSystem.off("dialogEnded", this.handleDialogEnded);
+        }
 
         // 重置回调函数
         this.onUserSubmit = null;
+        this.dialogSystem?.destroy();
     }
 
-    // 添加窗口大小变化监听，动态调整布局
-    // resize(gameSize, baseSize, displaySize, resolution) {
-    //   const { width, height } = this.scale;
-    //   this.isMobile = width < 768;
-
-    //   // 重新调整UI元素位置
-    //   if (this.dialogBg) {
-    //     this.setupUI();
-    //   }
-    // }
-
-    // 更新状态显示
+// 更新状态显示
     updateStatus(text) {
         if (this.statusText) {
             this.statusText.setText(text);
@@ -2251,7 +1695,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 清理所有按钮
+// 清理所有按钮
     clearAllButtons() {
         // 清理动态按钮
         if (this.dynamicButtons) {
@@ -2292,40 +1736,85 @@ I believe those records hold the key.`,
 
         this.clearAllButtons();
         this.dialogPhase = "meal_recording";
+        this.geminiHistoryStart = this.dialogHistory.length;
 
         // 新增：初始化 Gemini 对话轮数
         this.geminiTurnCount = 0;
-        this.maxGeminiTurns = 5; // 最多5轮对话
+        this.maxGeminiTurns = 5;
+        this.geminiStarterMessage = this.playerData.language === "zh"
+            ? "好的，我们开始记录本次用餐。"
+            : "Okay, let’s log this meal.";
 
-        // 检查用餐时间是否异常
-        const needTimeQuestion = this.checkUnusualMealTime();
+        this.dialogSystem.setRequestHandler(async (npcId, userText) => {
+            const phase = this.dialogPhase;
 
-        let startMessage;
+            // 仅一次的开场白
+            if (phase === "meal_recording" && this.geminiStarterMessage) {
+                const first = this.geminiStarterMessage;
+                this.geminiStarterMessage = null;
+                return {next: true, response: first, requireInput: true, buttons: []};
+            }
 
-        if (needTimeQuestion) {
-            startMessage =
-                this.playerData.language === "zh"
-                    ? "我注意到你在一个不寻常的时间用餐。为什么你选择在这个时间而不是更早或更晚用餐呢？"
-                    : "I notice you had your meal at an unusual time. Why did you eat at this time rather than earlier or later?";
-            this.needDetailedDescription = true;
-        } else {
-            startMessage =
-                this.playerData.language === "zh"
-                    ? `谢谢你的回答。接下来我可以问问你有什么其他特别的感受吗？`
-                    : `Thank you for your answers. Could I ask you more?`;
-            this.needDetailedDescription = false;
-        }
+            const msg = userText && userText.trim() ? userText.trim() : "hello";
+            const apiResp = (phase === "meal_recording")
+                ? await this.callGeminiAPI(msg)
+                : await this.callConvaiAPI(msg);
 
-        this.showSingleMessage("npc", startMessage, () => {
-            this.waitForUserInput();
+            if (!apiResp?.success) {
+                return {
+                    next: false,
+                    response: apiResp?.message || (
+                        this.playerData.language === "zh"
+                            ? "抱歉，暂时无法继续对话。"
+                            : "Sorry, I can't continue the conversation right now."
+                    ),
+                };
+            }
+
+            // ==== 结束条件（关键补充）====
+            if (phase === "meal_recording") {
+                this.geminiTurnCount = (this.geminiTurnCount || 0) + 1;
+
+                const shouldEndByMsg = this.detectThankYouMessage(apiResp.message);
+                const shouldEndByTurns = this.geminiTurnCount >= this.maxGeminiTurns;
+
+                if (shouldEndByMsg || shouldEndByTurns) {
+                    // ✨ 新增：在返回前把状态标记为完成，避免 handleDialogEnded 误判
+                    this.mealRecorded = true;
+                    this.currentDialogState = "completion_check";
+                    this.dialogPhase = "completed";
+                    return {next: false, response: apiResp.message};
+                }
+
+                return {next: true, response: apiResp.message, requireInput: true};
+            }
+
+            // 闲聊阶段：达到阈值或遇到触发词→收尾并跳到餐食选择
+            if (this.checkForTriggerPhrase(apiResp.message) || this.dialogTurnCount++ >= 3) {
+                // 先设置抑制标记，避免 handleDialogEnded 误返回主场景
+                this._suppressReturnOnce = true;
+                this.dialogSystem.endDialog();
+                this.proceedToMealSelection();
+                return {next: false, response: apiResp.message};
+            }
+
+
+            // 继续闲聊
+            return {next: true, response: apiResp.message, requireInput: true};
+        });
+
+        this.dialogSystem.startDialog(this.currentNPC, {
+            isMealDialog: true,
+            mealType: this.selectedMealType,
         });
     }
 
     checkUnusualMealTime() {
         const mealTime = this.mealAnswers.mealTime;
+        if (!this.selectedMealType) return false;
         const mealType = this.selectedMealType.toLowerCase();
 
-        if (!mealTime || !mealTime.index) {
+        if (!mealTime || mealTime.index === undefined || mealTime.index === null) {
             return false;
         }
 

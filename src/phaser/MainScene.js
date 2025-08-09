@@ -91,6 +91,7 @@ export default class MainScene extends Phaser.Scene {
         this.showWelcomeMessage();
         this.handleResize(this.scale.gameSize);
         this.gameStarted = true;
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
     }
 
     setupAudio() {
@@ -149,14 +150,16 @@ export default class MainScene extends Phaser.Scene {
             return;
         }
 
-        // 将点击位置从屏幕坐标转换为地图格子坐标
+        // handleMapTap 里计算 tileX/tileY 的地方
         const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
         const tileX = Math.floor(
-            worldPoint.x / (this.fieldMapTileMap.tileWidth * this.mapScale)
+            worldPoint.x / (this.fieldMapTileMap.tileWidth * this.mapScaleX)
         );
         const tileY = Math.floor(
-            worldPoint.y / (this.fieldMapTileMap.tileHeight * this.mapScale)
+            worldPoint.y / (this.fieldMapTileMap.tileHeight * this.mapScaleY)
         );
+
 
         // console.log(`Tap at tile: ${tileX}, ${tileY}`);
 
@@ -332,8 +335,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     showMoveTarget(tileX, tileY) {
-        const worldX = tileX * this.fieldMapTileMap.tileWidth * this.mapScale;
-        const worldY = tileY * this.fieldMapTileMap.tileHeight * this.mapScale;
+        const worldX = tileX * this.fieldMapTileMap.tileWidth * this.mapScaleX;
+        const worldY = tileY * this.fieldMapTileMap.tileHeight * this.mapScaleY;
 
         // 创建移动目标指示器
         const target = this.add.graphics();
@@ -361,8 +364,8 @@ export default class MainScene extends Phaser.Scene {
     }
 
     showInvalidMoveEffect(tileX, tileY) {
-        const worldX = tileX * this.fieldMapTileMap.tileWidth * this.mapScale;
-        const worldY = tileY * this.fieldMapTileMap.tileHeight * this.mapScale;
+        const worldX = tileX * this.fieldMapTileMap.tileWidth * this.mapScaleX;
+        const worldY = tileY * this.fieldMapTileMap.tileHeight * this.mapScaleY;
 
         // 显示"X"表示不能移动
         const invalidX = this.add.text(worldX, worldY, "✗", {
@@ -550,6 +553,7 @@ export default class MainScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, mapWidth * scale, mapHeight * scale);
         this.cameras.main.startFollow(this.playerSprite, true);
         this.mapScale = scale;
+        this.npcManager?.updateScale(this.mapScale);
     }
 
     update(time, delta) {

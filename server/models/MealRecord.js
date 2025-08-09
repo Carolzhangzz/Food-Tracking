@@ -1,4 +1,3 @@
-// models/MealRecord.js - 修正后的餐食记录模型
 const { DataTypes } = require("sequelize");
 const sequelize = require("../db");
 
@@ -28,15 +27,15 @@ const MealRecord = sequelize.define("MealRecord", {
     allowNull: false,
   },
   mealAnswers: {
-    type: DataTypes.JSONB, // 存储固定问题的答案
+    type: DataTypes.JSONB,
     allowNull: true,
   },
   conversationHistory: {
-    type: DataTypes.JSONB, // 存储对话历史
+    type: DataTypes.JSONB,
     allowNull: true,
   },
   mealContent: {
-    type: DataTypes.TEXT, // 主要的餐食描述内容
+    type: DataTypes.TEXT,
     allowNull: false,
   },
   recordedAt: {
@@ -46,13 +45,13 @@ const MealRecord = sequelize.define("MealRecord", {
 }, {
   indexes: [
     {
-      fields: ['playerId', 'day']
+      unique: true,
+      fields: ['playerId', 'day', 'mealType'], // 🔹 保证一天的某一餐只会记录一次
+      name: 'unique_player_day_mealType'
     },
-    {
-      fields: ['playerId', 'recordedAt']
-    }
+    { fields: ['playerId', 'day'] },
+    { fields: ['playerId', 'recordedAt'] }
   ]
 });
 
 module.exports = MealRecord;
-

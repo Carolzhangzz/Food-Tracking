@@ -38,7 +38,7 @@ router.post('/convai-chat', async (req, res) => {
     formData.append("userText", userText.trim()); // 去除首尾空格
     formData.append("charID", charID.trim());
     formData.append("sessionID", sessionID?.trim() || "-1"); // 处理可能的空值
-    formData.append("voiceResponse", (voiceResponse === true).toString()); // 确保是布尔字符串（True/False）
+    formData.append("voiceResponse", voiceResponse === true ? "True" : "False");
 
     console.log(`发送ConvAI请求：charID=${charID}, userText=${userText.substring(0, 30)}...`);
 
