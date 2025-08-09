@@ -25,11 +25,10 @@ function calculateCurrentDay(firstLoginDate) {
 }
 
 async function hasCompletedTodaysMeals(playerId, day) {
-    const mealRecords = await MealRecord.findAll({
-        where: { playerId, day: day } // 使用传入的day参数
-    });
-    const recordedTypes = mealRecords.map(rec => rec.mealType);
-    return recordedTypes.includes('lunch') && recordedTypes.includes('dinner');
+    const mealRecords = await MealRecord.findAll({ where: { playerId, day } });
+  const recordedTypes = mealRecords.map(rec => rec.mealType);
+  // 只要记录了晚饭就算完成
+  return recordedTypes.includes('dinner');
 }
 
 async function checkAndUnlockNextNPC(playerId, currentDay) {
@@ -338,7 +337,7 @@ async function getPlayerFullStatus(playerId) {
     const availableNPCs = progressRecords.map((progress) => {
         const dayMeals = dailyMealCounts[progress.day] || new Set();
         const mealsCount = dayMeals.size;
-        const hasCompletedDay = dayMeals.has('lunch') && dayMeals.has('dinner');
+        const hasCompletedDay = dayMeals.has('dinner');
         return {
             day: progress.day,
             npcId: progress.npcId,
@@ -472,141 +471,152 @@ router.post("/save-conversation", async (req, res) => {
 
 // 记录餐食接口 - 更新自动保存线索
 router.post("/record-meal", async (req, res) => {
-    try {
-        const {
-            playerId,
-            day,
-            npcId,
-            npcName,
-            mealType,
-            mealAnswers,
-            conversationHistory,
-            mealContent,
-        } = req.body;
+  const t = await sequelize.transaction();
+  try {
+    const {
+      playerId,
+      day,
+      npcId,
+      npcName,
+      mealType,
+      mealAnswers,
+      conversationHistory,
+      mealContent,
+    } = req.body;
 
-        if (!playerId || !day || !npcId || !mealContent || !mealType) {
-            return res.status(400).json({
-                success: false,
-                error: "缺少必要字段",
-            });
-        }
-
-        const player = await Player.findOne({where: {playerId}});
-        if (!player) {
-            return res.status(404).json({
-                success: false,
-                error: "玩家未找到",
-            });
-        }
-
-        const currentDay = calculateCurrentDay(player.firstLoginDate);
-
-        if (day > currentDay) {
-            return res.status(403).json({
-                success: false,
-                error: "不能记录未来的餐食",
-            });
-        }
-
-        const existingMeal = await MealRecord.findOne({
-            where: {
-                playerId,
-                day,
-                mealType,
-                recordedAt: {
-                    [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)),
-                },
-            },
-        });
-
-        if (existingMeal) {
-            return res.status(400).json({
-                success: false,
-                error: "今天的这一餐已经记录过了",
-            });
-        }
-
-        // 记录餐食
-        const mealRecord = await MealRecord.create({
-            playerId,
-            day,
-            npcId,
-            npcName,
-            mealType,
-            mealAnswers,
-            conversationHistory,
-            mealContent,
-        });
-
-        // 保存对话历史到数据库
-        if (conversationHistory && Array.isArray(conversationHistory)) {
-            for (const dialog of conversationHistory) {
-                await saveConversationHistory(
-                    playerId,
-                    npcId,
-                    day,
-                    dialog.type === 'user' ? 'player' : 'npc',
-                    dialog.content,
-                    mealType
-                );
-            }
-        }
-
-        // 更新进度记录
-        const progressRecord = await PlayerProgress.findOne({
-            where: {playerId, day},
-        });
-
-        if (progressRecord) {
-            const dayMeals = await MealRecord.findAll({
-                where: {
-                    playerId,
-                    day,
-                    recordedAt: {
-                        [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)),
-                    },
-                },
-            });
-
-            const mealTypes = new Set(dayMeals.map((meal) => meal.mealType));
-            const mealsCount = mealTypes.size;
-
-            await progressRecord.update({
-                mealsRecorded: mealsCount,
-                hasRecordedMeal: true,
-            });
-        }
-
-        const shouldUnlockNext = await checkAndUnlockNextNPC(playerId, day);
-
-        // 检查是否应该给出线索（晚餐 + 是当前NPC对应的天数）
-        const shouldGiveClue = mealType === "dinner" && day === currentDay;
-
-        // 如果应该给出线索，自动保存线索到数据库
-        if (shouldGiveClue) {
-            const clueText = getClueForNPC(npcId, player.language);
-            await saveClueToDatabase(playerId, npcId, clueText, day);
-        }
-
-        res.json({
-            success: true,
-            mealRecord: {
-                id: mealRecord.id,
-                day: mealRecord.day,
-                mealType: mealRecord.mealType,
-                recordedAt: mealRecord.recordedAt,
-            },
-            nextDayUnlocked: shouldUnlockNext,
-            shouldGiveClue: shouldGiveClue,
-        });
-    } catch (error) {
-        console.error("记录餐食错误:", error);
-        res.status(500).json({
-            success: false,
-            error: "记录餐食失败",
-            details: error.message,
-        });
+    if (!playerId || !day || !npcId || !mealType || !mealContent) {
+      await t.rollback();
+      return res.status(400).json({ success: false, error: "缺少必要字段" });
     }
+
+    const player = await Player.findOne({
+      where: { playerId },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!player) {
+      await t.rollback();
+      return res.status(404).json({ success: false, error: "玩家未找到" });
+    }
+
+    // 防重复：当天同一餐别仅一次
+    const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+    const existingMeal = await MealRecord.findOne({
+      where: { playerId, day, mealType, recordedAt: { [Op.gte]: startOfToday } },
+      transaction: t
+    });
+    if (existingMeal) {
+      await t.rollback();
+      return res.status(400).json({ success: false, error: "今天的这一餐已经记录过了" });
+    }
+
+    // 1) 写入餐食记录
+    const mealRecord = await MealRecord.create({
+      playerId, day, npcId, npcName, mealType, mealAnswers, conversationHistory, mealContent
+    }, { transaction: t });
+
+    // 2) 保存对话历史（不阻断主流程）
+    if (Array.isArray(conversationHistory)) {
+      for (const dialog of conversationHistory) {
+        await ConversationHistory.create({
+          playerId,
+          npcId,
+          day,
+          sessionId: null,
+          speaker: dialog.type === "user" ? "player" : "npc",
+          content: dialog.content,
+          mealType,
+          timestamp: new Date()
+        }, { transaction: t });
+      }
+    }
+
+    // 3) 更新当日进度
+    const progressRecord = await PlayerProgress.findOne({
+      where: { playerId, day },
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+    if (progressRecord) {
+      const dayMeals = await MealRecord.findAll({ where: { playerId, day }, transaction: t });
+      const mealTypes = new Set(dayMeals.map(m => m.mealType));
+      await progressRecord.update({
+        mealsRecorded: mealTypes.size,
+        hasRecordedMeal: true
+      }, { transaction: t });
+    }
+
+    // 4) 晚餐 -> 必给线索（不看中饭）
+    let shouldGiveClue = false;
+    let clueText = null;
+    const playerLanguage = player.language || "en";
+    if (mealType === "dinner") {
+      shouldGiveClue = true;
+      clueText = getClueForNPC(npcId, playerLanguage);
+      await saveClueToDatabase(playerId, npcId, clueText, day); // 幂等
+    }
+
+    // 5) 是否“完成当天”？—— 规则改为：只要有晚饭就完成
+    const completedToday = await hasCompletedTodaysMeals(playerId, day); // == 是否已有 dinner
+    let hasCompletedDay = completedToday;
+    let newDay = null;
+
+    if (completedToday) {
+      // 标记当日完成
+      if (progressRecord && !progressRecord.completedAt) {
+        await progressRecord.update({ completedAt: new Date() }, { transaction: t });
+      }
+
+      // 跨天（剧情日，不超过 7）
+      const targetNewDay = Math.min(day + 1, 7);
+      if (player.currentDay < targetNewDay) {
+        await player.update({ currentDay: targetNewDay }, { transaction: t });
+        newDay = targetNewDay;
+
+        // 解锁下一天 NPC（若未存在）
+        const npcMap = {
+          2: "shop_owner",
+          3: "spice_woman",
+          4: "restaurant_owner",
+          5: "fisherman",
+          6: "old_friend",
+          7: "secret_apprentice",
+        };
+        const nextNpcId = npcMap[targetNewDay];
+        if (nextNpcId) {
+          const existNext = await PlayerProgress.findOne({ where: { playerId, day: targetNewDay }, transaction: t });
+          if (!existNext) {
+            await PlayerProgress.create({
+              playerId,
+              day: targetNewDay,
+              npcId: nextNpcId,
+              unlockedAt: new Date(),
+            }, { transaction: t });
+          }
+        }
+      }
+    }
+
+    await t.commit();
+    return res.json({
+      success: true,
+      mealRecord: {
+        id: mealRecord.id,
+        day: mealRecord.day,
+        mealType: mealRecord.mealType,
+        recordedAt: mealRecord.recordedAt,
+      },
+      hasCompletedDay,       // ✅ 晚饭后为 true
+      shouldGiveClue,        // ✅ 晚饭必为 true
+      clueText,              // ✅ 返回线索文本（按玩家语言）
+      newDay,                // ✅ 跨天则返回新天数
+      nextDayUnlocked: !!newDay
+    });
+  } catch (error) {
+    await t.rollback();
+    console.error("记录餐食错误:", error);
+    return res.status(500).json({ success: false, error: "记录餐食失败", details: error.message });
+  }
 });
 
 // 处理客户端的天数更新请求（修复版）

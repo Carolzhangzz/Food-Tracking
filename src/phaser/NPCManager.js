@@ -1,12 +1,12 @@
-// NPCManager.js - 更新线索和对话存储版本
+// src/phaser/NPCManager.js - 更新线索和对话存储版本
 import Phaser from "phaser";
 
 const API_URL = process.env.REACT_APP_API_URL;
 
 export default class NPCManager {
     constructor(scene, mapScale) {
-    this.lastCheckDayTime = 0;
-      this.checkDayInterval = 3000;
+        this.lastCheckDayTime = 0;
+        this.checkDayInterval = 3000;
         this.scene = scene;
         this.mapScale = mapScale;
         this.npcs = new Map();
@@ -413,50 +413,62 @@ export default class NPCManager {
                 body: JSON.stringify({
                     playerId: this.scene.playerId,
                     day: currentDay,
-                    npcId: npcId,
+                    npcId,
                     npcName: npc ? npc.name : "Unknown NPC",
-                    mealType: mealType,
-                    mealAnswers: mealAnswers,
-                    conversationHistory: conversationHistory,
-                    mealContent: mealContent,
+                    mealType,
+                    mealAnswers,
+                    conversationHistory,
+                    mealContent: mealContent && mealContent.trim() ? mealContent : (this.scene.playerData.language === "zh" ? "未填写具体餐食" : "No detailed meal provided"),
                 }),
             });
 
+
             const data = await response.json();
+            if (!data.success) throw new Error(data.error || "Failed to record meal");
 
-            if (data.success) {
-                // 仅在服务器保存成功后，才更新本地状态
-                this.mealRecords.push({ /* ... */});
 
-                const availableNPC = this.availableNPCs.find((n) => n.npcId === npcId);
-                if (availableNPC) {
-                    availableNPC.hasRecordedMeal = true;
-                    availableNPC.mealsRecorded = (availableNPC.mealsRecorded || 0) + 1;
-                    availableNPC.availableMealTypes = availableNPC.availableMealTypes.filter(
-                        (type) => type !== mealType
-                    );
-                    // 仅当服务器返回完成时，才标记本地完成
-                    availableNPC.hasCompletedDay = data.hasCompletedDay || false;
-                }
-
-                // 延迟检查天数更新（确保服务器数据同步）
-                setTimeout(async () => {
-                    await this.loadPlayerStatus();
-                    await this.checkAndUpdateCurrentDay();
-                }, 1500);
-
-                return {success: true, nextDayUnlocked: data.nextDayUnlocked, shouldGiveClue: data.shouldGiveClue};
-            } else {
-                throw new Error(data.error || "Failed to record meal");
+            const availableNPC = this.availableNPCs.find((n) => n.npcId === npcId && n.day === currentDay);
+            if (availableNPC) {
+                availableNPC.mealsRecorded = (availableNPC.mealsRecorded || 0) + 1;
+                availableNPC.hasRecordedMeal = true;
+                availableNPC.availableMealTypes = (availableNPC.availableMealTypes || []).filter(t => t !== mealType);
+                if (data.hasCompletedDay) availableNPC.hasCompletedDay = true;
             }
+
+            // 晚餐给线索：前端立即显示（同时后端已落库）
+            if (data.shouldGiveClue && data.clueText) {
+                this.addClue(npcId, data.clueText, currentDay);
+            }
+
+            // 跨天：后端已经把 Players.currentDay 加 1
+            if (data.newDay) {
+                this.playerStatus.currentDay = data.newDay;
+                this.scene.showNotification(
+                    this.scene.playerData.language === "zh"
+                        ? `已进入第${data.newDay}天！`
+                        : `Day ${data.newDay} started!`,
+                    2500
+                );
+            }
+
+            // 稍后再全量刷新一次，保证与服务端完全一致
+            setTimeout(async () => {
+                await this.loadPlayerStatus(); // 会更新 availableNPCs / clueRecords 等
+                this.updateNPCStates();
+            }, 800);
+
+            return {
+                success: true,
+                shouldGiveClue: !!data.shouldGiveClue,
+                clueText: data.clueText,
+                nextDayUnlocked: !!data.nextDayUnlocked,
+                newDay: data.newDay || null
+            };
         } catch (error) {
             console.error("Error recording meal:", error);
-            // 保存失败时，不更新本地状态，保持与服务器一致
             return {success: false, error: error.message};
         }
     }
-
-// 在NPCManager类中添加
 
 
     async checkAndUpdateCurrentDay() {

@@ -110,7 +110,7 @@ export default class DialogScene extends Phaser.Scene {
 
     async handleDialogEnded() {
         // 获取对话结果
-      if (this.dialogPhase === "meal_recording") return;
+        if (this.dialogPhase === "meal_recording") return;
         const dialogResult = this.dialogSystem.getDialogResult();
         console.log("对话结束，准备处理结果:", dialogResult);
 
@@ -715,11 +715,29 @@ export default class DialogScene extends Phaser.Scene {
                 ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
                 : "Thank you for sharing your meal with me! I have recorded your meal information.";
         const recordResult = await this.saveMealRecord();
-        this.showSingleMessage("npc", endMessage, () => {
-            this.mealRecorded = true;
-            this.currentDialogState = "completion_check";
-            this.dialogPhase = "completed";
-            this.handleMealCompletion();
+        this.showSingleMessage("npc", endMessage, async () => {
+            try {
+                // 1) 从对话历史中抽取一段餐食内容（如果你已有更好的内容来源就替换它）
+                const mealContent = this.extractMealContentFromHistory() || (this.playerData.language === "zh" ? "未填写具体餐食" : "No detailed meal provided");
+
+                // 2) 调用后端真正落库
+                const result = await this.npcManager.recordMeal(
+                    this.currentNPC,
+                    this.selectedMealType,
+                    this.mealAnswers,
+                    this.dialogHistory,
+                    mealContent
+                );
+
+                // 3) 统一走完成流程（一定要把 result 传进去）
+                this.mealRecorded = true;
+                this.currentDialogState = "completion_check";
+                this.dialogPhase = "completed";
+                this.handleMealCompletion(result);
+            } catch (e) {
+                console.error("强制结束时落库失败：", e);
+                this.dialogPhase = "completed";
+            }
         });
     }
 
