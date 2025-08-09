@@ -125,3 +125,4 @@ router.post('/convai-chat', async (req, res) => {
     return returnFallback(`exception=${err.message}`);
   }
 });
+module.exports = router;

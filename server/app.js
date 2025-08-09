@@ -21,6 +21,7 @@ const PlayerProgress = require("./models/PlayerProgress");
 const MealRecord = require("./models/MealRecord");
 const GameSession = require("./models/GameSession");
 const AllowedId = require("./models/AllowedId");
+const convaiRouter = require('./routes/convaiRoutes');
 
 // 设置模型关联
 Player.hasMany(PlayerProgress, {
@@ -69,7 +70,7 @@ app.use(express.static(buildPath));
 // 注册API路由
 app.use("/api", gameRoutes);
 app.use("/api", geminiRoutes);
-app.use("/api", convaiRoutes);
+app.use('/api', convaiRouter);
 
 
 // // 修复后的通配符路由
