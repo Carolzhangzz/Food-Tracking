@@ -1627,15 +1627,8 @@ I believe those records hold the key.`,
             if (recordResult.shouldGiveClue) {
                 console.log("给出线索并完成NPC交互");
                 // 修复：确保使用当前语言获取线索
-                const clue = this.getClueForNPC(this.currentNPC);
-
-                // 只在这里添加线索到NPC管理器，确保传递正确的语言版本
-                this.npcManager.addClue(
-                    this.currentNPC,
-                    clue,
-                    this.npcManager.getCurrentDay()
-                );
-
+                const clue = recordResult.clueText || this.getClueForNPC(this.currentNPC);
+                this.npcManager.addClue(this.currentNPC, clue, this.npcManager.getCurrentDay());
                 this.showSingleMessage("npc", clue, async () => {
                     this.dialogPhase = "completed";
                     // 标记NPC交互完成，但不再重复添加线索

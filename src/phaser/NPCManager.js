@@ -308,10 +308,11 @@ export default class NPCManager {
 
     // 检查是否可以与NPC交互
     canInteractWithNPC(npc) {
-
         const availableNPC = this.availableNPCs.find(
-            (availableNPC) => availableNPC.npcId === npc.id
+            (a) => a.npcId === npc.id
         );
+
+        if (availableNPC?.hasCompletedDay) return false;
 
         if (!availableNPC || !availableNPC.unlocked) {
             return false;
@@ -503,6 +504,13 @@ export default class NPCManager {
                 }, 800);
             }
 
+            if (!data.newDay && mealType === "dinner") {
+                    // 让服务端根据当日记录最终判定是否跨天
+                    setTimeout(() => {
+                        this.forceUpdateCurrentDay?.();
+                    }, 600);
+                }
+
             // ❌ 不再做：本地“乐观跨天”覆盖 availableNPCs
             // ❌ 不再做：在未完成时调用 forceUpdateCurrentDay()
             // ❌ 不再做：循环重试同步（失败就保留当前本地状态即可）
@@ -625,13 +633,14 @@ export default class NPCManager {
         }
 
         // 确保使用当前语言的线索文本
-        const currentLanguageClue = this.getNPCClue(npcId);
-
+        const finalClue = (clueText && clueText.trim())
+            ? clueText
+            : this.getNPCClue(npcId);
         const clue = {
             id: clueId,
             npcId: npcId,
-            npcName: npc ? npc.name : "Unknown NPC",
-            clue: currentLanguageClue, // 使用当前语言的线索
+            npcName: npc ? npc.name : this.getNPCNameByLanguage(npcId),
+            clue: finalClue,
             day: day,
             receivedAt: new Date(),
         };
