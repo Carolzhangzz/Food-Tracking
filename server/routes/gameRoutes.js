@@ -393,22 +393,26 @@ router.post('/login', async (req, res) => {
 });
 
 // 获取玩家状态接口
+// /api/player-status
 router.post("/player-status", async (req, res) => {
-    const {playerId} = req.body;
-    if (!playerId) {
-        return res.status(400).json({success: false, error: "缺少 playerId"});
-    }
+    const {playerId} = req.body || {};
+    if (!playerId) return res.status(400).json({success: false, error: "缺少 playerId"});
 
     try {
+        // 1) 读取玩家
         const player = await Player.findOne({where: {playerId}});
-        if (!player) {
-            return res.status(404).json({success: false, error: "玩家未找到"});
-        }
+        if (!player) return res.status(404).json({success: false, error: "玩家未找到"});
 
-        // 查所有进度
-        let progresses = await PlayerProgress.findAll({where: {playerId}});
+        const currentDay = Number(player.currentDay) || 1;
 
-        // ✅ 兜底：如果当前天没有 progress 记录，就自动创建
+        // 2) 读取进度 & 餐食 & 线索（全部转 plain）
+        let progresses = await PlayerProgress.findAll({where: {playerId}}).then(rs => rs.map(r => r.get({plain: true})));
+        const mealRecords = await MealRecord.findAll({where: {playerId}}).then(rs => rs.map(r => r.get({plain: true})));
+
+        const clueRecords = await Clue.findAll({where: {playerId}})
+            .then(rs => rs.map(r => r.get({plain: true})));
+
+        // 3) 兜底：当前天没有 progress 就创建（避免跨天后没解锁）
         const npcMap = {
             1: "village_head",
             2: "shop_owner",
@@ -418,62 +422,79 @@ router.post("/player-status", async (req, res) => {
             6: "old_friend",
             7: "secret_apprentice",
         };
-        if (!progresses.some(p => p.day === player.currentDay)) {
-            const npcId = npcMap[player.currentDay];
+        if (!progresses.some(p => Number(p.day) === currentDay)) {
+            const npcId = npcMap[currentDay];
             if (npcId) {
                 await PlayerProgress.create({
                     playerId,
-                    day: player.currentDay,
+                    day: currentDay,
                     npcId,
-                    unlockedAt: new Date()
+                    unlockedAt: new Date(),
                 });
-                progresses = await PlayerProgress.findAll({where: {playerId}});
+                // 重新拉一次
+                progresses = await PlayerProgress.findAll({where: {playerId}}).then(rs => rs.map(r => r.get({plain: true})));
             }
         }
 
-        // 查餐食记录
-        const mealRecords = await MealRecord.findAll({where: {playerId}});
+        // 4) 组装 availableNPCs（全部字段都有值，避免 undefined）
+        const allMealsByDayNpc = new Map();
+        mealRecords.forEach(m => {
+            const key = `${m.day}__${m.npcId}`;
+            if (!allMealsByDayNpc.has(key)) allMealsByDayNpc.set(key, []);
+            allMealsByDayNpc.get(key).push(m);
+        });
 
-        // 组装 availableNPCs
         const availableNPCs = progresses.map(p => {
-            const mealsForThisNPC = mealRecords.filter(m => m.day === p.day && m.npcId === p.npcId);
-            const recordedTypes = mealsForThisNPC.map(m => m.mealType);
+            const dayNum = Number(p.day);
+            const key = `${dayNum}__${p.npcId}`;
+            const meals = allMealsByDayNpc.get(key) || [];
+            const recordedTypes = new Set(meals.map(m => m.mealType));
+            const remaining = ["breakfast", "lunch", "dinner"].filter(t => !recordedTypes.has(t));
+
             return {
-                day: p.day,
+                day: dayNum,
                 npcId: p.npcId,
                 unlocked: !!p.unlockedAt,
                 hasCompletedDay: !!p.completedAt,
-                hasRecordedMeal: mealsForThisNPC.length > 0,
-                mealsRecorded: mealsForThisNPC.length,
-                availableMealTypes: ["breakfast", "lunch", "dinner"].filter(t => !recordedTypes.includes(t))
+                hasRecordedMeal: meals.length > 0,
+                mealsRecorded: meals.length,
+                availableMealTypes: remaining,
             };
         });
 
-        // ✅ 调试打印
-        console.log(`[/player-status] Player ${playerId} currentDay=${player.currentDay}`);
+        // 5) 当前天剩余餐别（给前端调试用）
+        const currentDayProgress = availableNPCs.find(a => a.day === currentDay);
+        const currentDayMealsRemaining = currentDayProgress ? currentDayProgress.availableMealTypes : ["breakfast", "lunch", "dinner"];
+
+        // 6) 关键调试打印 —— 直接看日志里有没有 day=2
+        console.log(`[/player-status] player=${playerId} currentDay=${currentDay}`);
         console.log("[/player-status] availableNPCs =", JSON.stringify(availableNPCs, null, 2));
 
-        // 查线索
-        const clueRecords = await ClueRecord.findAll({where: {playerId}});
-
-        res.json({
+        // 7) 返回精简后的 plain 数据，避免 Sequelize 实例引发 stringify 问题
+        return res.json({
             success: true,
             player: {
                 playerId: player.playerId,
-                currentDay: player.currentDay,
-                gameCompleted: player.gameCompleted,
-                language: player.language
+                currentDay,
+                gameCompleted: !!player.gameCompleted,
+                language: player.language || "en",
             },
             availableNPCs,
-            mealRecords,
-            clueRecords
+            mealRecords,             // 都是 plain
+            clueRecords,             // 都是 plain
+            currentDayMealsRemaining // 给前端提示用
         });
+
     } catch (err) {
-        console.error("[/player-status] Error:", err);
-        res.status(500).json({success: false, error: "服务器错误", details: err.message});
+        console.error("[/player-status] 服务器错误：", err.stack || err);
+        // 兜底也不要 500，给前端一个空状态，至少不阻塞切天后的后续刷新
+        return res.json({
+            success: false,
+            error: "服务器错误",
+            details: err.message
+        });
     }
 });
-
 
 // 新增：保存线索接口
 router.post("/save-clue", async (req, res) => {
