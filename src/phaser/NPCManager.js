@@ -43,14 +43,14 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 5, y: 1.5},
+                position: {x: 5, y: 4.5},
                 day: 2,
             },
             {
                 id: "spice_woman",
                 name:
                     this.scene.playerData.language === "zh" ? "香料婆婆" : "Spice Woman",
-                position: {x: 8, y: 12},
+                position: {x: 5, y: 1.5},
                 day: 3,
             },
             {
@@ -59,7 +59,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "餐厅店长老韩"
                         : "Han (Restaurant Owner)",
-                position: {x: 15, y: 8},
+                position: {x: 1, y: 6},
                 day: 4,
             },
             {
@@ -68,19 +68,19 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "渔夫阿梁"
                         : "Leon (Fisherman)",
-                position: {x: 3, y: 14},
+                position: {x: 2, y: 4},
                 day: 5,
             },
             {
                 id: "old_friend",
                 name: this.scene.playerData.language === "zh" ? "林川" : "Rowan",
-                position: {x: 18, y: 12},
+                position: {x: 5.5, y: 6.5},
                 day: 6,
             },
             {
                 id: "secret_apprentice",
                 name: this.scene.playerData.language === "zh" ? "念念" : "NianNian",
-                position: {x: 10, y: 3},
+                position: {x: 0.8, y: 1},
                 day: 7,
             },
         ];
