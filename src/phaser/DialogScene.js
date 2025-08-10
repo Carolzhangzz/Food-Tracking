@@ -116,6 +116,8 @@ export default class DialogScene extends Phaser.Scene {
 
         // 监听对话结束事件
         this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+        this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     }
 
     async handleDialogEnded() {
@@ -184,15 +186,12 @@ export default class DialogScene extends Phaser.Scene {
         this.input.on("pointerdown", pointerHandler);
         this.eventListeners.push({event: "pointerdown", handler: pointerHandler});
 
-        // 键盘支持
-        const keyHandler = () => {
+        this._onSpaceKey = () => {
             if (!this.isWaitingForInput) {
                 this.handleContinue();
             }
         };
-
-        this.input.keyboard.on("keydown-SPACE", keyHandler);
-        this.eventListeners.push({event: "keydown-SPACE", handler: keyHandler});
+        this.input.keyboard.on("keydown-SPACE", this._onSpaceKey);
 
         // 滚动控制
         this.scrollOffset = 0;
@@ -326,11 +325,13 @@ export default class DialogScene extends Phaser.Scene {
     // 修改：显示餐食选择按钮 - 只显示可选择的餐食类型
     showMealSelectionButtons() {
         // 额外彻底清理所有残留按钮
-        this.children.list.forEach((child) => {
-            if (child.type === Phaser.GameObjects.Text && child.input?.enabled) {
-                child.destroy();
-            }
-        });
+        // this.children.list.forEach((child) => {
+        //     if (child.type === Phaser.GameObjects.Text && child.input?.enabled) {
+        //         child.destroy();
+        //     }
+        // });
+
+        this.clearAllButtons();
 
         if (this.debugMode) {
             console.log("=== 显示餐食选择按钮 ===");
@@ -878,7 +879,12 @@ export default class DialogScene extends Phaser.Scene {
         });
 
         // 只显示最后的几行
-        const visibleLines = allLines.slice(-maxVisibleLines);
+        const total = allLines.length;
+        const maxStart = Math.max(0, total - maxVisibleLines);
+        const offset = Phaser.Math.Clamp(this.scrollOffset || 0, 0, maxStart);
+        const start = Math.max(0, total - maxVisibleLines - offset);
+        const end = start + maxVisibleLines;
+        const visibleLines = allLines.slice(start, end);
         displayText = visibleLines.join("\n");
 
         if (this.dialogText) {
@@ -886,7 +892,7 @@ export default class DialogScene extends Phaser.Scene {
         }
 
         // 添加滚动指示器
-        if (allLines.length > maxVisibleLines) {
+        if (allLines.length > maxVisibleLines || (this.scrollOffset || 0) > 0) {
             this.showScrollIndicator();
         } else {
             this.hideScrollIndicator();
@@ -1302,7 +1308,6 @@ I believe those records hold the key.`,
         this.mealSaved = false;
         this.lastRecordResult = null;
         this._submittedSet = this._submittedSet || new Set();
-// （可选）把上一餐的自由聊天记录清掉，只保留固定问题和当前餐次对话
         this.dialogHistory = [];
 
         if (this.debugMode) {
@@ -1400,7 +1405,7 @@ I believe those records hold the key.`,
         ];
 
         this.fixedQuestionButtons = [];
-        this.questionAnswers = {}; // 存储每个问题的答案
+        this.questionAnswers = {};
 
         let currentY = this.isMobile ? height * 0.1 : height * 0.15;
         const questionSpacing = this.isMobile ? 120 : 150;
@@ -1409,6 +1414,8 @@ I believe those records hold the key.`,
         const titleFontSize = this.isMobile ? "13px" : "15px";
 
         questions.forEach((question, qIndex) => {
+            const groupKey = question.key;
+            this.questionGroups[groupKey] = [];
             // 显示问题标题
             const questionTitle = this.add.text(width / 2, currentY, question.title, {
                 fontSize: titleFontSize,
@@ -1450,6 +1457,7 @@ I believe those records hold the key.`,
                 });
 
                 this.fixedQuestionButtons.push(button);
+                this.questionGroups[groupKey].push(button);
                 currentY += optionSpacing;
             });
 
@@ -1503,19 +1511,15 @@ I believe those records hold the key.`,
         // 添加到对话历史
         this.addToConversationHistory("player", answer);
 
-        // 更新按钮状态 - 高亮选中的按钮，取消同组其他按钮的高亮
-        this.fixedQuestionButtons.forEach((button, index) => {
-            if (button.setText) {
-                // 确保是按钮而不是标题
-                button.clearTint();
-                button.setAlpha(0.7);
-            }
+        // 仅更新当前题组的按钮状态（修复互相“打架”）
+        (this.questionGroups[questionKey] || []).forEach((btn) => {
+            btn.clearTint();
+            btn.setAlpha(0.7);
         });
-
-        // 高亮当前选中的按钮
-        const clickedButton = this.fixedQuestionButtons.find(
+        const clickedButton = (this.questionGroups[questionKey] || []).find(
             (btn) => btn.text === answer
         );
+
         if (clickedButton) {
             clickedButton.setTint(0x10b981);
             clickedButton.setAlpha(1);
@@ -1908,6 +1912,13 @@ I believe those records hold the key.`,
             }
         });
         this.eventListeners = [];
+
+        // 正确移除键盘监听
+        if (this._onSpaceKey && this.input?.keyboard?.off) {
+            this.input.keyboard.off("keydown-SPACE", this._onSpaceKey);
+            this._onSpaceKey = null;
+        }
+
 
         // 清理输入框
         this.clearTextInput();
