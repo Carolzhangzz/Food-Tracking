@@ -842,6 +842,9 @@ export default class UIManager {
   // 最终彩蛋显示 - 手机优化版
   // 在 UIManager.js 里，替换原来的 showFinalEgg(content)
 showFinalEgg(egg) {
+
+    if (this._eggOpen) return;  // 已经打开就不再打开
+  this._eggOpen = true;
   const { width, height } = this.scene.scale;
   const lang = this.scene.playerData.language;
 
@@ -978,6 +981,7 @@ showFinalEgg(egg) {
 closeFinalEgg() {
   this._eggContainer?.destroy(true);
   this._eggContainer = null;
+   this._eggOpen = false;
 }
 
 

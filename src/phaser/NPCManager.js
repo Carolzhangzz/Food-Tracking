@@ -17,7 +17,9 @@ export default class NPCManager {
         this.clueRecords = []; // 从服务器加载的线索记录
         this.isUpdatingDay = false;
         this.pushedClueIds = new Set();
-
+        this.isGeneratingFinalEgg = false; // 正在请求中
+        this.finalEggReady = false;        // 已经生成好了（缓存于前端）
+        this.finalEggContent = null;       // 已生成的内容
         this.initializeNPCs();
     }
 
@@ -43,7 +45,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 5, y: 6.5},
+                position: {x: 5, y: 6},
                 day: 2,
             },
             {
@@ -80,7 +82,7 @@ export default class NPCManager {
             {
                 id: "secret_apprentice",
                 name: this.scene.playerData.language === "zh" ? "念念" : "NianNian",
-                position: {x: 0.8, y: 2},
+                position: {x: 0.8, y: 2.5},
                 day: 7,
             },
         ];
@@ -916,7 +918,7 @@ export default class NPCManager {
                 }
 
                 // 检查是否游戏完成
-                if (this.playerStatus.currentDay >= 7 && availableNPC?.completed) {
+                if (!this.finalEggReady && !this.isGeneratingFinalEgg && this.playerStatus.currentDay >= 7 && availableNPC?.completed) {
                     this.triggerGameCompletion();
                 }
 
@@ -933,6 +935,9 @@ export default class NPCManager {
     async triggerGameCompletion() {
         const language = this.scene.playerData.language;
 
+        // 已经生成过 or 正在生成 -> 直接返回
+        if (this.finalEggReady || this.isGeneratingFinalEgg) return;
+
         this.scene.showNotification(
             language === "zh"
                 ? "🎊 恭喜完成7天的旅程！正在生成你的专属彩蛋..."
@@ -940,16 +945,14 @@ export default class NPCManager {
             3000
         );
 
-        setTimeout(async () => {
-            await this.triggerFinalEgg();
-        }, 3000);
+        // 这里就别再 setTimeout 了，直接调一次；防止计时器重复
+        await this.triggerFinalEgg();
     }
 
+
     async triggerFinalEgg() {
-
-
-
-
+        if (this.finalEggReady || this.isGeneratingFinalEgg) return;
+        this.isGeneratingFinalEgg = true;
 
         try {
             const response = await fetch(`${API_URL}/generate-final-egg`, {
@@ -962,22 +965,27 @@ export default class NPCManager {
             });
 
             const data = await response.json();
+            if (!data.success) throw new Error(data.error || "Failed to generate final egg");
 
-            if (data.success) {
-                this.showFinalEggDialog(data.egg);
-            } else {
-                throw new Error(data.error || "Failed to generate final egg");
-            }
+            // ★ 关键：无论后端返回 egg（对象）还是 eggContent（字符串），都统一成对象
+            const egg = normalizeEggPayload(data);
+            this.finalEggContent = egg;
+            this.finalEggReady = true;
+
+            this.showFinalEggDialog(egg); // 传对象
         } catch (error) {
             console.error("Error generating final egg:", error);
-            const fallbackEgg = this.generateLocalFinalEgg();
-            this.showFinalEggDialog(fallbackEgg);
+
+            // 你本地的 fallback 目前返回字符串，这里也统一转对象
+            const egg = normalizeEggPayload({eggContent: this.generateLocalFinalEgg()});
+            this.finalEggContent = egg;
+            this.finalEggReady = true;
+
+            this.showFinalEggDialog(egg);
+        } finally {
+            this.isGeneratingFinalEgg = false;
         }
     }
-
-
-
-
 
 
     generateLocalFinalEgg() {
@@ -992,8 +1000,6 @@ export default class NPCManager {
     }
 
 
-
-
     showFinalEggDialog(egg) {
         if (this.scene.uiManager) {
             this.scene.uiManager.showFinalEgg(egg);
@@ -1003,8 +1009,6 @@ export default class NPCManager {
             this.scene.onGameCompleted();
         }
     }
-
-
 
 
 
@@ -1083,3 +1087,21 @@ export default class NPCManager {
         });
     }
 }
+
+// 把后端返回统一转成 UI 需要的 egg 对象
+    function normalizeEggPayload(data) {
+        // 优先：后端直接给了结构化 egg
+        if (data && typeof data.egg === 'object' && data.egg !== null) return data.egg;
+
+        // 兼容：有些时候 eggContent 其实已经是对象
+        if (data && typeof data.eggContent === 'object' && data.eggContent !== null) return data.eggContent;
+
+        // 老格式：纯字符串 -> 包一层给 UIManager
+        const letter = (typeof data?.eggContent === 'string') ? data.eggContent : '';
+        return {
+            letter,
+            summary: [],
+            health: {positives: [], improvements: []},
+            recipe: {title: "", servings: 1, ingredients: [], steps: [], tip: ""},
+        };
+    }

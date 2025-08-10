@@ -9,8 +9,7 @@ const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
-const { generateFinalEggPrompt } = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
-
+const {generateFinalEggPrompt} = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
 
 
 // ===== 工具函数 =====
@@ -930,73 +929,69 @@ router.post("/generate-final-egg", async (req, res) => {
         try {
 
 
+            const {GoogleGenAI} = await import("@google/genai");
+            const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
+            const prompt = generateFinalEggPrompt(mealsSummary, statsData, language);
 
+            let egg;
+            try {
+                const result = await ai.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: [{role: "user", parts: [{text: prompt}]}],
+                    config: {temperature: 0.7, maxOutputTokens: 900},
+                });
 
+                // 兼容不同 SDK 结构：优先 result.response.text()
+                let rawText;
+                if (result?.response?.text) {
+                    rawText = await result.response.text();
+                } else if (typeof result?.text === "string") {
+                    rawText = result.text;
+                } else {
+                    throw new Error("No text returned by Gemini");
+                }
 
-            const { GoogleGenAI } = await import("@google/genai");
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+                egg = JSON.parse(rawText); // 严格 JSON
+            } catch (apiError) {
+                console.error("Error calling or parsing Gemini final egg:", apiError);
 
-const prompt = generateFinalEggPrompt(mealsSummary, statsData, language);
-
-let egg;
-try {
-  const result = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: { temperature: 0.7, maxOutputTokens: 900 },
-  });
-
-  // 兼容不同 SDK 结构：优先 result.response.text()
-  let rawText;
-  if (result?.response?.text) {
-    rawText = await result.response.text();
-  } else if (typeof result?.text === "string") {
-    rawText = result.text;
-  } else {
-    throw new Error("No text returned by Gemini");
-  }
-
-  egg = JSON.parse(rawText); // 严格 JSON
-} catch (apiError) {
-  console.error("Error calling or parsing Gemini final egg:", apiError);
-
-  // 兜底：用基础信息做个可用的默认值，至少不崩
-  egg = {
-    letter:
-      language === "zh"
-        ? "谢谢你完成了七天的旅程。你记录的每一餐，都是与你自己对话的方式。"
-        : "Thank you for completing the 7‑day journey. Every meal you recorded was a way of listening to yourself.",
-    summary: mealsSummary.map((m) => ({
-      day: m.day,
-      npcName: m.npcName,
-      mealType: m.mealType,
-      ingredients: [], // 无法解析时留空
-    })),
-    health: {
-      positives: [],
-      improvements: [],
-    },
-    recipe: {
-      title: language === "zh" ? "温和蔬谷饭（备用）" : "Gentle Grains & Greens (Fallback)",
-      servings: 1,
-      ingredients: [],
-      steps: [],
-      tip: "",
-    },
-  };
-}
+                // 兜底：用基础信息做个可用的默认值，至少不崩
+                egg = {
+                    letter:
+                        language === "zh"
+                            ? "谢谢你完成了七天的旅程。你记录的每一餐，都是与你自己对话的方式。"
+                            : "Thank you for completing the 7‑day journey. Every meal you recorded was a way of listening to yourself.",
+                    summary: mealsSummary.map((m) => ({
+                        day: m.day,
+                        npcName: m.npcName,
+                        mealType: m.mealType,
+                        ingredients: [], // 无法解析时留空
+                    })),
+                    health: {
+                        positives: [],
+                        improvements: [],
+                    },
+                    recipe: {
+                        title: language === "zh" ? "温和蔬谷饭（备用）" : "Gentle Grains & Greens (Fallback)",
+                        servings: 1,
+                        ingredients: [],
+                        steps: [],
+                        tip: "",
+                    },
+                };
+            }
 
 // 标记游戏已完成
-await Player.update({ gameCompleted: true }, { where: { playerId } });
+            await Player.update({gameCompleted: true}, {where: {playerId}});
 
 // 返回结构化 JSON（不是一串内容）
-res.json({
-  success: true,
-  egg,
-  mealsSummary,
-  statsData,
-});
+            res.json({
+                success: true,
+                egg,
+                mealsSummary,
+                statsData,
+            });
 
 
         } catch (apiError) {
@@ -1041,6 +1036,7 @@ function getMostInteractedNPC(mealRecords) {
 
     return favoriteNPC;
 }
+
 //
 // // 生成最终彩蛋的提示词
 // function generateFinalEggPrompt(mealsSummary, statsData, language) {

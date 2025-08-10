@@ -11,8 +11,8 @@ import {playBGM, stopBGM} from "../utils/audioManager";
 import npc1 from "../assets/npc/npc1.png";
 import npc2 from "../assets/npc/npc2.png";
 import npc3 from "../assets/npc/npc3.png";
-import npc4 from "../assets/npc/npc4.png";
-import npc5 from "../assets/npc/npc5.png";
+import npc4 from "../assets/npc/npc5.png";
+import npc5 from "../assets/npc/npc4.png";
 import npc6 from "../assets/npc/npc6.png";
 import npc7 from "../assets/npc/npc7.png";
 
