@@ -10,6 +10,7 @@ const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
 
+
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
     const today = new Date();
@@ -22,6 +23,92 @@ function calculateCurrentDay(firstLoginDate) {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     return Math.min(diffDays + 1, 7);
+}
+
+async function getPlayerFullStatus(playerId) {
+    // 取玩家
+    const player = await Player.findOne({where: {playerId}});
+    if (!player) {
+        throw new Error("Player not found");
+    }
+
+    // 进度 / 餐食 / 线索
+    const progressRecords = await PlayerProgress.findAll({
+        where: {playerId},
+        order: [["day", "ASC"]],
+    });
+
+    const mealRecords = await MealRecord.findAll({
+        where: {playerId},
+        order: [["day", "ASC"], ["recordedAt", "ASC"]],
+    });
+
+    let clueRecords = [];
+    try {
+        clueRecords = await getPlayerClues(playerId);
+    } catch (e) {
+        console.error("getPlayerClues failed:", e);
+        clueRecords = [];
+    }
+
+    // 按天汇总已记录餐别
+    const dailySet = {};
+    for (const m of mealRecords) {
+        if (!dailySet[m.day]) dailySet[m.day] = new Set();
+        dailySet[m.day].add(m.mealType); // 'breakfast' | 'lunch' | 'dinner'
+    }
+
+    // 口径对齐：只要有晚饭→视为当天完成
+    const availableNPCs = progressRecords.map((p) => {
+        const set = dailySet[p.day] || new Set();
+        const mealsRecorded = set.size;
+        const hasCompletedDay = set.has("dinner");
+        const availableMealTypes = ["breakfast", "lunch", "dinner"].filter(
+            (t) => !set.has(t)
+        );
+
+        return {
+            day: p.day,
+            npcId: p.npcId,
+            unlocked: true,
+            completed: p.completedAt !== null,
+            mealsRecorded,
+            hasRecordedMeal: mealsRecorded > 0,
+            hasCompletedDay,
+            availableMealTypes,
+        };
+    });
+
+    // 前端会读这个字段
+    const currentDay = player.currentDay;
+    const currentSet = dailySet[currentDay] || new Set();
+    const currentDayMealsRemaining = ["breakfast", "lunch", "dinner"].filter(
+        (t) => !currentSet.has(t)
+    );
+
+    return {
+        player: {
+            playerId: player.playerId,
+            nickname: player.nickname,
+            firstLoginDate: player.firstLoginDate,
+            currentDay: player.currentDay,
+            gameCompleted: player.gameCompleted,
+            language: player.language,
+            progress: player.progress,
+        },
+        availableNPCs,
+        mealRecords: mealRecords.map((record) => ({
+            day: record.day,
+            npcId: record.npcId,
+            npcName: record.npcName,
+            mealType: record.mealType,
+            mealContent: record.mealContent,
+            recordedAt: record.recordedAt,
+        })),
+        clueRecords,
+        totalDaysUnlocked: progressRecords.length,
+        currentDayMealsRemaining,
+    };
 }
 
 async function hasCompletedTodaysMeals(playerId, day) {
@@ -170,131 +257,139 @@ async function saveConversationHistory(playerId, npcId, day, speaker, content, m
 // ===== 路由处理 =====
 // 登录接口 - 更新获取线索记录
 router.post('/login', async (req, res) => {
-  try {
-    console.log("收到登录请求:", req.body);
-    const { playerId } = req.body;
-
-    if (!playerId) {
-      console.log("登录失败: 缺少 playerId");
-      return res.status(400).json({ success: false, error: 'Player ID is required' });
-    }
-
-    console.log("检查允许列表中的玩家ID:", playerId);
-    const allowedRecord = await AllowedId.findOne({ where: { playerId } });
-    if (!allowedRecord) {
-      console.log("登录失败: 玩家ID不在允许列表中");
-      return res.status(404).json({ success: false, error: 'Player ID not found in database' });
-    }
-
-    console.log("玩家ID验证通过，标记为已使用");
-    await allowedRecord.update({ used: true });
-
-    let player = await Player.findOne({ where: { playerId } });
-
-    if (!player) {
-      console.log("创建新玩家记录:", playerId);
-      player = await Player.create({
-        playerId,
-        firstLoginDate: new Date(),
-        currentDay: 1,
-        gameCompleted: false,
-        language: 'en',
-      });
-
-      await PlayerProgress.create({
-        playerId,
-        day: 1,
-        npcId: 'village_head',
-        unlockedAt: new Date(),
-      });
-
-      console.log(`新玩家创建成功: ${playerId}`);
-    } else {
-      console.log("找到现有玩家记录:", playerId);
-    }
-
-    console.log("获取玩家进度记录...");
-    const progressRecords = await PlayerProgress.findAll({
-      where: { playerId },
-      order: [['day', 'ASC']]
-    });
-
-    console.log("获取玩家餐食记录...");
-    const mealRecords = await MealRecord.findAll({
-      where: { playerId },
-      order: [['day', 'ASC'], ['recordedAt', 'ASC']]
-    });
-
-    console.log("获取玩家线索记录...");
-    let clueRecords = [];
     try {
-      clueRecords = await getPlayerClues(playerId);
-    } catch (clueError) {
-      console.error("获取线索时出错，但不影响登录:", clueError);
-      clueRecords = [];
+        console.log("收到登录请求:", req.body);
+        const {playerId} = req.body;
+
+        if (!playerId) {
+            console.log("登录失败: 缺少 playerId");
+            return res.status(400).json({success: false, error: 'Player ID is required'});
+        }
+
+        console.log("检查允许列表中的玩家ID:", playerId);
+        const allowedRecord = await AllowedId.findOne({where: {playerId}});
+        if (!allowedRecord) {
+            console.log("登录失败: 玩家ID不在允许列表中");
+            return res.status(404).json({success: false, error: 'Player ID not found in database'});
+        }
+
+        console.log("玩家ID验证通过，标记为已使用");
+        await allowedRecord.update({used: true});
+
+        let player = await Player.findOne({where: {playerId}});
+
+        if (!player) {
+            console.log("创建新玩家记录:", playerId);
+            player = await Player.create({
+                playerId,
+                firstLoginDate: new Date(),
+                currentDay: 1,
+                gameCompleted: false,
+                language: 'en',
+            });
+
+            await PlayerProgress.create({
+                playerId,
+                day: 1,
+                npcId: 'village_head',
+                unlockedAt: new Date(),
+            });
+
+            console.log(`新玩家创建成功: ${playerId}`);
+        } else {
+            console.log("找到现有玩家记录:", playerId);
+        }
+
+        console.log("获取玩家进度记录...");
+        const progressRecords = await PlayerProgress.findAll({
+            where: {playerId},
+            order: [['day', 'ASC']]
+        });
+
+        console.log("获取玩家餐食记录...");
+        const mealRecords = await MealRecord.findAll({
+            where: {playerId},
+            order: [['day', 'ASC'], ['recordedAt', 'ASC']]
+        });
+
+        console.log("获取玩家线索记录...");
+        let clueRecords = [];
+        try {
+            clueRecords = await getPlayerClues(playerId);
+        } catch (clueError) {
+            console.error("获取线索时出错，但不影响登录:", clueError);
+            clueRecords = [];
+        }
+
+        // ✅ 动态计算：按天汇总已记录的餐种
+        const dailySet = {};
+        for (const m of mealRecords) {
+            if (!dailySet[m.day]) dailySet[m.day] = new Set();
+            dailySet[m.day].add(m.mealType); // 'breakfast' | 'lunch' | 'dinner'
+        }
+
+        // ✅ 与 /player-status 一致：晚餐即视为完成
+        const availableNPCs = progressRecords.map(p => {
+            const set = dailySet[p.day] || new Set();
+            const mealsRecorded = set.size;
+            const hasCompletedDay = set.has('dinner');
+            const availableMealTypes = ['breakfast', 'lunch', 'dinner'].filter(t => !set.has(t));
+
+            return {
+                day: p.day,
+                npcId: p.npcId,
+                unlocked: true,
+                completed: p.completedAt !== null,
+                mealsRecorded,
+                hasRecordedMeal: mealsRecorded > 0,
+                hasCompletedDay,
+                availableMealTypes, // ← 不再写死三餐
+            };
+        });
+
+        const currentDay = player.currentDay;
+        const currentSet = dailySet[currentDay] || new Set();
+        const currentDayMealsRemaining = ["breakfast", "lunch", "dinner"].filter(
+            (t) => !currentSet.has(t)
+        );
+
+
+        console.log(`登录成功 - 进度: ${progressRecords.length}, 餐食: ${mealRecords.length}, 线索: ${clueRecords.length}`);
+
+        res.json({
+            success: true,
+            player: {
+                playerId: player.playerId,
+                nickname: player.nickname,
+                firstLoginDate: player.firstLoginDate,
+                currentDay: player.currentDay,
+                gameCompleted: player.gameCompleted,
+                language: player.language,
+                progress: player.progress,
+            },
+            availableNPCs, // ✅ 用动态计算结果
+            mealRecords: mealRecords.map(record => ({
+                day: record.day,
+                npcId: record.npcId,
+                npcName: record.npcName,
+                mealType: record.mealType,
+                mealContent: record.mealContent,
+                recordedAt: record.recordedAt,
+            })),
+            clueRecords, // 从数据库获取的线索记录
+            totalDaysUnlocked: progressRecords.length,
+            currentDayMealsRemaining,
+        });
+
+    } catch (error) {
+        console.error('登录错误详情:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Login failed',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
-
-    // ✅ 动态计算：按天汇总已记录的餐种
-    const dailySet = {};
-    for (const m of mealRecords) {
-      if (!dailySet[m.day]) dailySet[m.day] = new Set();
-      dailySet[m.day].add(m.mealType); // 'breakfast' | 'lunch' | 'dinner'
-    }
-
-    // ✅ 与 /player-status 一致：晚餐即视为完成
-    const availableNPCs = progressRecords.map(p => {
-      const set = dailySet[p.day] || new Set();
-      const mealsRecorded = set.size;
-      const hasCompletedDay = set.has('dinner');
-      const availableMealTypes = ['breakfast', 'lunch', 'dinner'].filter(t => !set.has(t));
-
-      return {
-        day: p.day,
-        npcId: p.npcId,
-        unlocked: true,
-        completed: p.completedAt !== null,
-        mealsRecorded,
-        hasRecordedMeal: mealsRecorded > 0,
-        hasCompletedDay,
-        availableMealTypes, // ← 不再写死三餐
-      };
-    });
-
-    console.log(`登录成功 - 进度: ${progressRecords.length}, 餐食: ${mealRecords.length}, 线索: ${clueRecords.length}`);
-
-    res.json({
-      success: true,
-      player: {
-        playerId: player.playerId,
-        nickname: player.nickname,
-        firstLoginDate: player.firstLoginDate,
-        currentDay: player.currentDay,
-        gameCompleted: player.gameCompleted,
-        language: player.language,
-        progress: player.progress,
-      },
-      availableNPCs, // ✅ 用动态计算结果
-      mealRecords: mealRecords.map(record => ({
-        day: record.day,
-        npcId: record.npcId,
-        npcName: record.npcName,
-        mealType: record.mealType,
-        mealContent: record.mealContent,
-        recordedAt: record.recordedAt,
-      })),
-      clueRecords, // 从数据库获取的线索记录
-      totalDaysUnlocked: progressRecords.length,
-    });
-
-  } catch (error) {
-    console.error('登录错误详情:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Login failed',
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
 });
 
 // 获取玩家状态接口

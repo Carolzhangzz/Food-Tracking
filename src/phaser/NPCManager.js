@@ -16,6 +16,7 @@ export default class NPCManager {
         this.mealRecords = [];
         this.clueRecords = []; // 从服务器加载的线索记录
         this.isUpdatingDay = false;
+        this.pushedClueIds = new Set();
 
         this.initializeNPCs();
     }
@@ -42,7 +43,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 12, y: 5},
+                position: {x: 5, y: 1.5},
                 day: 2,
             },
             {
@@ -110,18 +111,26 @@ export default class NPCManager {
                 this.mealRecords = data.mealRecords;
                 this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
 
-                // 修复：加载线索记录时转换为当前语言
-                this.clueRecords = (data.clueRecords || []).map((clue) => ({
+                // 先把服务端线索按当前语言映射出来
+                const mappedClues = (data.clueRecords || []).map((clue) => ({
                     ...clue,
-                    clue: this.getNPCClue(clue.npcId), // 使用当前语言的线索文本
-                    npcName: this.getNPCNameByLanguage(clue.npcId), // 使用当前语言的NPC名称
+                    clue: this.getNPCClue(clue.npcId),               // 当前语言的线索文本
+                    npcName: this.getNPCNameByLanguage(clue.npcId),  // 当前语言的NPC名
                 }));
 
-                // 将已有线索添加到UI管理器
+// 更新本地线索列表（去重合并：以 id 为主键）
+                const existingById = new Map((this.clueRecords || []).map(c => [c.id, c]));
+                mappedClues.forEach(c => existingById.set(c.id, c));
+                this.clueRecords = Array.from(existingById.values());
+
+// 只把“没推送过”的线索丢给 UI
                 if (this.scene.uiManager && this.clueRecords.length > 0) {
-                    this.clueRecords.forEach((clue) => {
-                        this.scene.uiManager.addClue(clue);
-                    });
+                    for (const clue of mappedClues) {
+                        if (!this.pushedClueIds.has(clue.id)) {
+                            this.scene.uiManager.addClue(clue);
+                            this.pushedClueIds.add(clue.id);
+                        }
+                    }
                 }
 
                 // 更新NPC状态
@@ -299,6 +308,7 @@ export default class NPCManager {
 
     // 检查是否可以与NPC交互
     canInteractWithNPC(npc) {
+
         const availableNPC = this.availableNPCs.find(
             (availableNPC) => availableNPC.npcId === npc.id
         );
@@ -311,6 +321,8 @@ export default class NPCManager {
         if (availableNPC.day !== this.playerStatus.currentDay) {
             return false;
         }
+
+        if (availableNPC.hasCompletedDay) return false;
 
         // 检查是否还有可记录的餐食
         return (
@@ -346,8 +358,8 @@ export default class NPCManager {
         } else if (availableNPC.hasCompletedDay) {
             message =
                 language === "zh"
-                    ? "今天的三餐已经全部记录完成！"
-                    : "All three meals for today have been recorded!";
+                    ? "今天已完成记录（已记录晚餐）。"
+                    : "Today is complete (dinner recorded).";
         } else if (
             !availableNPC.availableMealTypes ||
             availableNPC.availableMealTypes.length === 0
