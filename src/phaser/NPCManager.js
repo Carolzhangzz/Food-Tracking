@@ -504,12 +504,12 @@ export default class NPCManager {
                 }, 800);
             }
 
-            if (!data.newDay && mealType === "dinner") {
-                    // 让服务端根据当日记录最终判定是否跨天
-                    setTimeout(() => {
-                        this.forceUpdateCurrentDay?.();
-                    }, 600);
-                }
+            // if (!data.newDay && mealType === "dinner") {
+            //         // 让服务端根据当日记录最终判定是否跨天
+            //         setTimeout(() => {
+            //             this.forceUpdateCurrentDay?.();
+            //         }, 600);
+            //     }
 
             // ❌ 不再做：本地“乐观跨天”覆盖 availableNPCs
             // ❌ 不再做：在未完成时调用 forceUpdateCurrentDay()
@@ -639,7 +639,7 @@ export default class NPCManager {
         const clue = {
             id: clueId,
             npcId: npcId,
-            npcName: npc ? npc.name : this.getNPCNameByLanguage(npcId),
+            npcName : npc ? npc.name : this.getNPCNameByLanguage(npcId),
             clue: finalClue,
             day: day,
             receivedAt: new Date(),

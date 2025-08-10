@@ -316,6 +316,9 @@ export default class DialogScene extends Phaser.Scene {
         this.clearAllButtons();
         this.dialogPhase = "meal_selection";
 
+        this.questionGroups = {};
+        this.questionAnswers = {};
+
         // 延迟显示餐食选择，确保界面清理完成
         setTimeout(() => {
             this.showMealSelectionButtons();
@@ -924,6 +927,9 @@ export default class DialogScene extends Phaser.Scene {
 
     // 显示单条消息（用于打字效果）
     showSingleMessage(speaker, message, callback) {
+
+        if (!this.sys || this.sys.isDestroyed) return;
+
         const npc = this.npcManager.getNPCById(this.currentNPC);
         const npcName = npc ? npc.name : "NPC";
         const displayName = speaker === "npc" ? npcName : "Player";
@@ -947,21 +953,21 @@ export default class DialogScene extends Phaser.Scene {
             delay: typeSpeed,
             repeat: totalChars - 1,
             callback: () => {
+                if (!this.sys || this.sys.isDestroyed) {
+                    typewriterTimer.remove(false);
+                    return;
+                }
                 currentChar++;
                 const currentDisplayText = fullMessage.substring(0, currentChar);
-                if (this.dialogText) {
-                    this.dialogText.setText(currentDisplayText);
+                try {
+                    if (this.dialogText) this.dialogText.setText(currentDisplayText);
+                } catch (_) {
                 }
 
                 if (currentChar >= totalChars) {
                     this.isTyping = false;
-                    if (this.continueHint) {
-                        this.continueHint.setVisible(true);
-                    }
-
-                    // 打字完成后添加到历史记录
+                    if (this.continueHint) this.continueHint.setVisible(true);
                     this.addToConversationHistory(speaker, message);
-
                     if (callback) callback();
                 }
             },
@@ -1332,11 +1338,19 @@ I believe those records hold the key.`,
     }
 
 
-    // 显示所有固定问题（一次性显示）
+    // 替换整个方法
     showAllFixedQuestions() {
         if (this.debugMode) {
-            console.log("=== 显示所有固定问题 ===");
+            console.log("=== 显示所有固定问题  ===", this.mealAnswers);
         }
+
+        this.mealAnswers = this.mealAnswers || {};
+
+        // ✅ 关键初始化：避免 undefined 报错
+        this.mealAnswers = this.mealAnswers || {};
+        this.mealAnswers.mealType = this.mealAnswers.mealType || this.selectedMealType; // 留存餐别
+        this.questionAnswers = {};         // 每次进入页面重置一次
+        this.questionGroups = {};          // ✅ 分组按钮容器必须初始化
 
         const {width, height} = this.scale;
 
@@ -1346,66 +1360,42 @@ I believe those records hold the key.`,
         // 问题和选项数据
         const questions = [
             {
-                title:
-                    this.playerData.language === "zh"
-                        ? "1. 你的餐食是如何获得的？"
-                        : "1. How is your meal obtained?",
-                options:
-                    this.playerData.language === "zh"
-                        ? ["A. 家里做的", "B. 餐厅用餐", "C. 外卖/打包", "D. 即食食品"]
-                        : [
-                            "A. Home-cooked meals",
-                            "B. Eat out at restaurants",
-                            "C. Takeout or delivery",
-                            "D. Ready-to-eat meals",
-                        ],
+                title: this.playerData.language === "zh"
+                    ? "1. 你的餐食是如何获得的？"
+                    : "1. How is your meal obtained?",
+                options: this.playerData.language === "zh"
+                    ? ["A. 家里做的", "B. 餐厅用餐", "C. 外卖/打包", "D. 即食食品"]
+                    : ["A. Home-cooked meals", "B. Eat out at restaurants", "C. Takeout or delivery", "D. Ready-to-eat meals"],
                 key: "obtainMethod",
             },
             {
-                title:
-                    this.playerData.language === "zh"
-                        ? "2. 你什么时候吃的这餐？"
-                        : "2. What time did you have this meal?",
-                options:
-                    this.playerData.language === "zh"
-                        ? [
-                            "A. 清晨 (7点前)",
-                            "B. 上午 (7-11点)",
-                            "C. 中午 (11点-下午2点)",
-                            "D. 下午 (下午2-5点)",
-                            "E. 傍晚 (下午5-9点)",
-                            "F. 夜晚 (9点后)",
-                        ]
-                        : [
-                            "A. Early morning (before 7:00 AM)",
-                            "B. Morning (7:00–11:00 AM)",
-                            "C. Midday (11:00 AM–2:00 PM)",
-                            "D. Afternoon (2:00–5:00 PM)",
-                            "E. Evening (5:00–9:00 PM)",
-                            "F. Night (after 9:00 PM)",
-                        ],
+                title: this.playerData.language === "zh"
+                    ? "2. 你什么时候吃的这餐？"
+                    : "2. What time did you have this meal?",
+                options: this.playerData.language === "zh"
+                    ? ["A. 清晨 (7点前)", "B. 上午 (7-11点)", "C. 中午 (11点-下午2点)", "D. 下午 (下午2-5点)", "E. 傍晚 (下午5-9点)", "F. 夜晚 (9点后)"]
+                    : ["A. Early morning (before 7:00 AM)", "B. Morning (7:00–11:00 AM)", "C. Midday (11:00 AM–2:00 PM)", "D. Afternoon (2:00–5:00 PM)", "E. Evening (5:00–9:00 PM)", "F. Night (after 9:00 PM)"],
                 key: "mealTime",
             },
             {
-                title:
-                    this.playerData.language === "zh"
-                        ? "3. 你用了多长时间吃完？"
-                        : "3. How long did you eat?",
-                options:
-                    this.playerData.language === "zh"
-                        ? ["A. 不到10分钟", "B. 10-30分钟", "C. 30-60分钟", "D. 超过60分钟"]
-                        : [
-                            "A. Less than 10 minutes",
-                            "B. 10–30 minutes",
-                            "C. 30–60 minutes",
-                            "D. More than 60 minutes",
-                        ],
+                title: this.playerData.language === "zh"
+                    ? "3. 你用了多长时间吃完？"
+                    : "3. How long did you eat?",
+                options: this.playerData.language === "zh"
+                    ? ["A. 不到10分钟", "B. 10-30分钟", "C. 30-60分钟", "D. 超过60分钟"]
+                    : ["A. Less than 10 minutes", "B. 10–30 minutes", "C. 30–60 minutes", "D. More than 60 minutes"],
                 key: "duration",
             },
         ];
 
+        // ✅ 给每个 key 先占位，后续不会出现 undefined
+        questions.forEach(q => {
+            if (!this.mealAnswers[q.key]) {
+                this.mealAnswers[q.key] = {text: null, index: null};
+            }
+        });
+
         this.fixedQuestionButtons = [];
-        this.questionAnswers = {};
 
         let currentY = this.isMobile ? height * 0.1 : height * 0.15;
         const questionSpacing = this.isMobile ? 120 : 150;
@@ -1415,8 +1405,9 @@ I believe those records hold the key.`,
 
         questions.forEach((question, qIndex) => {
             const groupKey = question.key;
-            this.questionGroups[groupKey] = [];
-            // 显示问题标题
+            this.questionGroups[groupKey] = []; // ✅ 这里不会再因为 undefined 报错
+
+            // 问题标题
             const questionTitle = this.add.text(width / 2, currentY, question.title, {
                 fontSize: titleFontSize,
                 fontFamily: "monospace",
@@ -1430,7 +1421,7 @@ I believe those records hold the key.`,
 
             currentY += 35;
 
-            // 显示选项按钮
+            // 选项
             question.options.forEach((option, oIndex) => {
                 const button = this.add.text(width / 2, currentY, option, {
                     fontSize: fontSize,
@@ -1448,13 +1439,8 @@ I believe those records hold the key.`,
                     this.selectFixedQuestionAnswer(question.key, option, oIndex, qIndex);
                 });
 
-                button.on("pointerover", () => {
-                    button.setTint(0x667eea);
-                });
-
-                button.on("pointerout", () => {
-                    button.clearTint();
-                });
+                button.on("pointerover", () => button.setTint(0x667eea));
+                button.on("pointerout", () => button.clearTint());
 
                 this.fixedQuestionButtons.push(button);
                 this.questionGroups[groupKey].push(button);
@@ -1464,7 +1450,7 @@ I believe those records hold the key.`,
             currentY += questionSpacing - question.options.length * optionSpacing;
         });
 
-        // 添加提交按钮（初始隐藏）
+        // 提交按钮
         this.submitButton = this.add.text(
             width / 2,
             currentY + 30,
@@ -1482,23 +1468,19 @@ I believe those records hold the key.`,
         this.submitButton.setVisible(false);
 
         this.submitButton.setInteractive({useHandCursor: true});
-        this.submitButton.on("pointerdown", () => {
-            this.submitAllFixedAnswers();
-        });
-
-        this.submitButton.on("pointerover", () => {
-            this.submitButton.setTint(0x059669);
-        });
-
-        this.submitButton.on("pointerout", () => {
-            this.submitButton.clearTint();
-        });
+        this.submitButton.on("pointerdown", () => this.submitAllFixedAnswers());
+        this.submitButton.on("pointerover", () => this.submitButton.setTint(0x059669));
+        this.submitButton.on("pointerout", () => this.submitButton.clearTint());
 
         this.fixedQuestionButtons.push(this.submitButton);
     }
 
     // 选择固定问题的答案
     selectFixedQuestionAnswer(questionKey, answer, answerIndex, questionIndex) {
+        this.questionGroups = this.questionGroups || {};
+        this.questionGroups[questionKey] = this.questionGroups[questionKey] || [];
+        this.mealAnswers = this.mealAnswers || {};
+
         if (this.debugMode) {
             console.log("=== 选择固定问题答案 ===");
             console.log("问题:", questionKey, "答案:", answer);
@@ -2065,7 +2047,7 @@ I believe those records hold the key.`,
         const mealTime = this.mealAnswers.mealTime;
         const mealType = this.selectedMealType.toLowerCase();
 
-        if (!mealTime || !mealTime.index) {
+        if (!mealTime || typeof mealTime.index !== "number") {
             return false;
         }
 
