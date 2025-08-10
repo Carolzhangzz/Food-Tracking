@@ -546,11 +546,15 @@ export default class NPCManager {
         const isServerCompleted = currentNPC.hasCompletedDay === true;
         const hasNextDayNPC = this.availableNPCs.some(npc => npc.day === currentDay + 1);
 
-        if (isServerCompleted && hasNextDayNPC) {
-            console.log(`DINNER_OK: 服务器确认第${currentDay}天完成，切到第${currentDay + 1}天`);
-            await this.forceUpdateCurrentDay();
+        if (isServerCompleted) {
+            console.log(`DINNER_OK: 服务器已标记完成，尝试请求切天（无需等待下一天NPC出现在列表）`);
+            const ok = await this.forceUpdateCurrentDay();
+            if (!ok) {
+                // 可选：稍后再拉一次，给后端一点时间落库/解锁NPC
+                setTimeout(() => this.loadPlayerStatus().then(() => this.updateNPCStates()), 1200);
+            }
         } else {
-            console.log(`DINNER_OK: 等待服务器完成标记/或下一天未解锁`, {
+            console.log(`DINNER_OK: 当天未完成，继续等待`, {
                 服务器确认完成: isServerCompleted,
                 是否存在下一天NPC: hasNextDayNPC,
                 本地剩余餐食: currentNPC.availableMealTypes
@@ -639,7 +643,7 @@ export default class NPCManager {
         const clue = {
             id: clueId,
             npcId: npcId,
-            npcName : npc ? npc.name : this.getNPCNameByLanguage(npcId),
+            npcName: npc ? npc.name : this.getNPCNameByLanguage(npcId),
             clue: finalClue,
             day: day,
             receivedAt: new Date(),
