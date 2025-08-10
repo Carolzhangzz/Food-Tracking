@@ -840,148 +840,146 @@ export default class UIManager {
   }
 
   // 最终彩蛋显示 - 手机优化版
-  showFinalEgg(content) {
-    const { width, height } = this.scene.scale;
+  // 在 UIManager.js 里，替换原来的 showFinalEgg(content)
+showFinalEgg(egg) {
+  const { width, height } = this.scene.scale;
+  const lang = this.scene.playerData.language;
 
-    // 全屏背景
-    const eggOverlay = this.scene.add.graphics();
-    eggOverlay.fillStyle(0x000000, 0.9);
-    eggOverlay.fillRect(0, 0, width, height);
-    eggOverlay.setScrollFactor(0);
-    eggOverlay.setDepth(300);
+  // 容器：方便关闭时统一销毁
+  this._eggContainer?.destroy(true);
+  const container = this._eggContainer = this.scene.add.container(0,0);
+  const DEPTH = 300;
 
-    // 手机优化的彩蛋容器
-    const eggWidth = width * 0.95;
-    const eggHeight = height * 0.9;
-    const eggX = (width - eggWidth) / 2;
-    const eggY = (height - eggHeight) / 2;
+  // 全屏背景
+  const overlay = this.scene.add.graphics();
+  overlay.fillStyle(0x000000, 0.9);
+  overlay.fillRect(0, 0, width, height);
+  overlay.setScrollFactor(0);
+  overlay.setDepth(DEPTH);
+  container.add(overlay);
 
-    const eggBg = this.scene.add.graphics();
-    eggBg.fillStyle(0x1f2937, 1);
-    eggBg.fillRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
-    eggBg.lineStyle(2, 0xfbbf24);
-    eggBg.strokeRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
-    eggBg.setScrollFactor(0);
-    eggBg.setDepth(301);
+  // 面板
+  const eggWidth = Math.floor(width * 0.94);
+  const eggHeight = Math.floor(height * 0.9);
+  const eggX = Math.floor((width - eggWidth) / 2);
+  const eggY = Math.floor((height - eggHeight) / 2);
 
-    // 简约标题
-    const title = this.scene.add.text(
-      width / 2,
-      eggY + 40,
-      this.scene.playerData.language === "zh"
-        ? "🎉 恭喜完成旅程！"
-        : "🎉 Journey Complete!",
-      {
-        fontSize: "20px",
-        fontFamily: "monospace",
-        fill: "#fbbf24",
-        fontStyle: "bold",
-        align: "center",
-      }
-    );
-    title.setOrigin(0.5);
-    title.setScrollFactor(0);
-    title.setDepth(302);
+  const panel = this.scene.add.graphics();
+  panel.fillStyle(0x1f2937, 1);
+  panel.fillRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
+  panel.lineStyle(2, 0xfbbf24);
+  panel.strokeRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
+  panel.setDepth(DEPTH+1);
+  container.add(panel);
 
-    // 副标题
-    const subtitle = this.scene.add.text(
-      width / 2,
-      eggY + 70,
-      this.scene.playerData.language === "zh"
-        ? "师父的特别礼物："
-        : "A special gift from your master:",
-      {
-        fontSize: "14px",
-        fontFamily: "monospace",
-        fill: "#9ca3af",
-        align: "center",
-      }
-    );
-    subtitle.setOrigin(0.5);
-    subtitle.setScrollFactor(0);
-    subtitle.setDepth(302);
+  // 标题
+  const title = this.scene.add.text(
+    width / 2,
+    eggY + 36,
+    lang === "zh" ? "🎉 恭喜完成旅程！" : "🎉 Journey Complete!",
+    { fontSize: "20px", fontFamily: "monospace", fill: "#fbbf24", fontStyle: "bold", align:"center" }
+  ).setOrigin(0.5);
+  title.setDepth(DEPTH+2);
+  container.add(title);
 
-    // 修复：彩蛋内容 - 改善文字显示和换行
-    const eggContent = this.scene.add.text(
-      eggX + 20,
-      eggY + 110,
-      content,
-      {
-        fontSize: "13px",
-        fontFamily: "monospace",
-        fill: "#d1d5db",
-        wordWrap: { width: eggWidth - 40, useAdvancedWrap: true }, // 启用高级换行
-        lineSpacing: 6, // 增加行间距
-        align: 'left' // 左对齐更好阅读
-      }
-    );
-    eggContent.setScrollFactor(0);
-    eggContent.setDepth(302);
+  // 可滚动区域（简化：用多段 text 堆叠；高度不够就提示可滚动）
+  let cursorY = eggY + 72;
+  const leftX = eggX + 20;
+  const wrapW = eggWidth - 40;
 
-    // 如果内容太长，添加滚动提示
-    if (eggContent.height > eggHeight - 200) {
-      const scrollHint = this.scene.add.text(
-        width / 2,
-        eggY + eggHeight - 80,
-        this.scene.playerData.language === "zh" ? "内容较长，可滑动查看" : "Long content, swipe to scroll",
-        {
-          fontSize: "10px",
-          fontFamily: "monospace",
-          fill: "#6b7280",
-          align: "center",
-        }
-      );
-      scrollHint.setOrigin(0.5);
-      scrollHint.setScrollFactor(0);
-      scrollHint.setDepth(302);
-    }
-
-    // 关闭按钮
-    const closeBtn = this.scene.add.text(
-      width / 2,
-      eggY + eggHeight - 40,
-      this.scene.playerData.language === "zh" ? "关闭" : "Close",
-      {
-        fontSize: "16px",
-        fontFamily: "monospace",
-        fill: "#60a5fa",
-        fontStyle: "bold",
-        backgroundColor: "#374151",
-        padding: { x: 15, y: 8 },
-      }
-    );
-    closeBtn.setOrigin(0.5);
-    closeBtn.setScrollFactor(0);
-    closeBtn.setDepth(302);
-    closeBtn.setInteractive({ useHandCursor: true });
-
-    closeBtn.on("pointerdown", () => {
-      this.closeFinalEgg();
+  // 小工具：加一个区块（标题 + 文本），返回新的 cursorY
+  const addSection = (sectionTitle, bodyText) => {
+    const st = this.scene.add.text(leftX, cursorY, sectionTitle, {
+      fontSize: "14px", fontFamily: "monospace", fill: "#eab308", fontStyle:"bold", wordWrap:{ width: wrapW, useAdvancedWrap:true }
     });
-    closeBtn.on("pointerover", () => {
-      closeBtn.setTint(0x93c5fd);
-    });
-    closeBtn.on("pointerout", () => {
-      closeBtn.clearTint();
-    });
+    st.setDepth(DEPTH+2);
+    container.add(st);
+    cursorY += st.height + 6;
 
-    // 简单的渐显动画
-    this.scene.tweens.add({
-      targets: [eggBg, title, subtitle, eggContent, closeBtn],
-      alpha: { from: 0, to: 1 },
-      duration: 800,
-      ease: 'Power2',
+    const body = this.scene.add.text(leftX, cursorY, bodyText, {
+      fontSize: "13px", fontFamily: "monospace", fill: "#d1d5db",
+      wordWrap:{ width: wrapW, useAdvancedWrap:true }, lineSpacing: 6, align:"left"
     });
+    body.setDepth(DEPTH+2);
+    container.add(body);
+    cursorY += body.height + 16;
+  };
+
+  // 1) 信件
+  addSection(lang==="zh" ? "师父的信：" : "Master's letter:", egg.letter || "");
+
+  // 2) 7天总结
+  const sumLabel = lang==="zh" ? "你的 7 天餐食总结：" : "Your 7-day meal summary:";
+  const sumText = (egg.summary || [])
+    .map(s => {
+      const dayStr = lang==="zh" ? `第${s.day}天` : `Day ${s.day}`;
+      const meal = s.mealType || "";
+      const ings = (s.ingredients || []).join(", ");
+      return `${dayStr} - ${s.npcName || ""} / ${meal} / ${ings}`;
+    })
+    .join("\n");
+  addSection(sumLabel, sumText || (lang==="zh" ? "暂无数据" : "No data"));
+
+  // 3) 健康分析
+  const healthLabel = lang==="zh" ? "饮食分析：" : "Health analysis:";
+  const posTitle = lang==="zh" ? "优势" : "Positives";
+  const impTitle = lang==="zh" ? "改进建议" : "Improvements";
+  const healthText =
+    `${posTitle}:\n- ${(egg.health?.positives || []).join("\n- ")}\n\n` +
+    `${impTitle}:\n- ${(egg.health?.improvements || []).join("\n- ")}`;
+  addSection(healthLabel, healthText);
+
+  // 4) 个性化食谱
+  const r = egg.recipe || {};
+  const recipeLabel = lang==="zh" ? "你的专属食谱：" : "Your personalized recipe:";
+  const recipeText =
+    `${r.title || ""}  (${lang==="zh"?"份量":"servings"}: ${r.servings ?? 1})\n\n` +
+    `${lang==="zh"?"配料":"Ingredients"}:\n- ${(r.ingredients||[]).map(i=>`${i.name} ${i.amount||""}`).join("\n- ")}\n\n` +
+    `${lang==="zh"?"步骤":"Steps"}:\n- ${(r.steps||[]).join("\n- ")}\n\n` +
+    `${lang==="zh"?"小贴士":"Tip"}: ${r.tip||""}`;
+  addSection(recipeLabel, recipeText);
+
+  // 超出高度就加提示
+  if (cursorY > eggY + eggHeight - 90) {
+    const hint = this.scene.add.text(
+      width / 2, eggY + eggHeight - 70,
+      lang==="zh" ? "内容较长，可上下滑动页面查看" : "Long content. Scroll to view.",
+      { fontSize:"10px", fontFamily:"monospace", fill:"#6b7280" }
+    ).setOrigin(0.5);
+    hint.setDepth(DEPTH+2);
+    container.add(hint);
   }
 
-  closeFinalEgg() {
-    // 清理所有彩蛋相关元素
-    this.scene.children.list.forEach((child) => {
-      if (child.depth >= 300 && child.depth <= 302) {
-        child.destroy();
-      }
-    });
-  }
+  // 关闭按钮
+  const closeBtn = this.scene.add.text(
+    width / 2,
+    eggY + eggHeight - 36,
+    lang==="zh" ? "关闭" : "Close",
+    { fontSize:"16px", fontFamily:"monospace", fill:"#60a5fa", fontStyle:"bold",
+      backgroundColor:"#374151", padding:{ x:15, y:8 } }
+  ).setOrigin(0.5);
+  closeBtn.setDepth(DEPTH+2);
+  closeBtn.setInteractive({ useHandCursor:true });
+  closeBtn.on("pointerdown", () => this.closeFinalEgg());
+  closeBtn.on("pointerover", () => closeBtn.setTint(0x93c5fd));
+  closeBtn.on("pointerout", () => closeBtn.clearTint());
+  container.add(closeBtn);
+
+  // 渐显动画
+  container.setAlpha(0);
+  this.scene.tweens.add({
+    targets: container,
+    alpha: { from: 0, to: 1 },
+    duration: 500,
+    ease: "Power2",
+  });
+}
+
+closeFinalEgg() {
+  this._eggContainer?.destroy(true);
+  this._eggContainer = null;
+}
+
 
   // 更新方法供外部调用
   updateProgress() {

@@ -626,10 +626,6 @@ export default class MainScene extends Phaser.Scene {
                 : "🎊 Game Complete! Generating your personalized ending...",
             3000
         );
-
-        this.time.delayedCall(3000, () => {
-            this.npcManager?.triggerFinalEgg();
-        });
     }
 
     getGameState() {

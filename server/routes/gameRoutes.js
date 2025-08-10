@@ -9,6 +9,8 @@ const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
+const { generateFinalEggPrompt } = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
+
 
 
 // ===== 工具函数 =====
@@ -926,38 +928,77 @@ router.post("/generate-final-egg", async (req, res) => {
 
         // 调用Gemini API生成最终彩蛋
         try {
-            const {GoogleGenAI} = await import("@google/genai");
-            const ai = new GoogleGenAI({
-                apiKey: process.env.GEMINI_API_KEY,
-            });
 
-            const prompt = generateFinalEggPrompt(mealsSummary, statsData, language);
 
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: [
-                    {
-                        role: "user",
-                        parts: [{text: prompt}],
-                    },
-                ],
-                config: {
-                    temperature: 0.7,
-                    maxOutputTokens: 500,
-                },
-            });
 
-            const eggContent = response.text || "Thank you for your journey...";
 
-            // 标记游戏为已完成
-            await Player.update({gameCompleted: true}, {where: {playerId}});
 
-            res.json({
-                success: true,
-                eggContent,
-                mealsSummary,
-                statsData,
-            });
+
+            const { GoogleGenAI } = await import("@google/genai");
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const prompt = generateFinalEggPrompt(mealsSummary, statsData, language);
+
+let egg;
+try {
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { temperature: 0.7, maxOutputTokens: 900 },
+  });
+
+  // 兼容不同 SDK 结构：优先 result.response.text()
+  let rawText;
+  if (result?.response?.text) {
+    rawText = await result.response.text();
+  } else if (typeof result?.text === "string") {
+    rawText = result.text;
+  } else {
+    throw new Error("No text returned by Gemini");
+  }
+
+  egg = JSON.parse(rawText); // 严格 JSON
+} catch (apiError) {
+  console.error("Error calling or parsing Gemini final egg:", apiError);
+
+  // 兜底：用基础信息做个可用的默认值，至少不崩
+  egg = {
+    letter:
+      language === "zh"
+        ? "谢谢你完成了七天的旅程。你记录的每一餐，都是与你自己对话的方式。"
+        : "Thank you for completing the 7‑day journey. Every meal you recorded was a way of listening to yourself.",
+    summary: mealsSummary.map((m) => ({
+      day: m.day,
+      npcName: m.npcName,
+      mealType: m.mealType,
+      ingredients: [], // 无法解析时留空
+    })),
+    health: {
+      positives: [],
+      improvements: [],
+    },
+    recipe: {
+      title: language === "zh" ? "温和蔬谷饭（备用）" : "Gentle Grains & Greens (Fallback)",
+      servings: 1,
+      ingredients: [],
+      steps: [],
+      tip: "",
+    },
+  };
+}
+
+// 标记游戏已完成
+await Player.update({ gameCompleted: true }, { where: { playerId } });
+
+// 返回结构化 JSON（不是一串内容）
+res.json({
+  success: true,
+  egg,
+  mealsSummary,
+  statsData,
+});
+
+
         } catch (apiError) {
             console.error("Error calling Gemini API for final egg:", apiError);
 
@@ -1000,37 +1041,37 @@ function getMostInteractedNPC(mealRecords) {
 
     return favoriteNPC;
 }
-
-// 生成最终彩蛋的提示词
-function generateFinalEggPrompt(mealsSummary, statsData, language) {
-    if (language === "zh") {
-        return `你是一位失踪厨师的师傅，现在要给你的徒弟写一段感人的留言。这个徒弟在7天里完成了一段美食记录之旅：
-
-总共记录了 ${statsData.totalMeals} 顿餐食，完成了 ${statsData.daysCompleted} 天的记录。
-与 ${statsData.favoriteNPC} 互动最多。
-进行了 ${statsData.totalConversations} 次对话。
-
-餐食记录详情：
-${mealsSummary.map((meal, index) =>
-            `第${meal.day}天 - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
-        ).join('\n')}
-
-请基于这些详细的记录，写一段温暖、感人的留言，告诉徒弟你看到了他的成长和用心，并给出人生的感悟。要体现出你对他记录每一餐的重视和感动。字数控制在250-350字。要有师父的语气和深度。`;
-    } else {
-        return `You are a missing chef's master, now writing a touching message to your apprentice. This apprentice completed a culinary journey over 7 days:
-
-Recorded a total of ${statsData.totalMeals} meals across ${statsData.daysCompleted} days.
-Interacted most with ${statsData.favoriteNPC}.
-Had ${statsData.totalConversations} conversations.
-
-Meal records details:
-${mealsSummary.map((meal, index) =>
-            `Day ${meal.day} - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
-        ).join('\n')}
-
-Based on these detailed records, write a warm and touching message telling your apprentice that you see their growth and dedication, sharing life insights. Show how moved you are by their careful recording of each meal. Keep it 250-350 words. Use the tone and depth of a master chef.`;
-    }
-}
+//
+// // 生成最终彩蛋的提示词
+// function generateFinalEggPrompt(mealsSummary, statsData, language) {
+//     if (language === "zh") {
+//         return `你是一位失踪厨师的师傅，现在要给你的徒弟写一段感人的留言。这个徒弟在7天里完成了一段美食记录之旅：
+//
+// 总共记录了 ${statsData.totalMeals} 顿餐食，完成了 ${statsData.daysCompleted} 天的记录。
+// 与 ${statsData.favoriteNPC} 互动最多。
+// 进行了 ${statsData.totalConversations} 次对话。
+//
+// 餐食记录详情：
+// ${mealsSummary.map((meal, index) =>
+//             `第${meal.day}天 - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
+//         ).join('\n')}
+//
+// 请基于这些详细的记录，写一段温暖、感人的留言，告诉徒弟你看到了他的成长和用心，并给出人生的感悟。要体现出你对他记录每一餐的重视和感动。字数控制在250-350字。要有师父的语气和深度。`;
+//     } else {
+//         return `You are a missing chef's master, now writing a touching message to your apprentice. This apprentice completed a culinary journey over 7 days:
+//
+// Recorded a total of ${statsData.totalMeals} meals across ${statsData.daysCompleted} days.
+// Interacted most with ${statsData.favoriteNPC}.
+// Had ${statsData.totalConversations} conversations.
+//
+// Meal records details:
+// ${mealsSummary.map((meal, index) =>
+//             `Day ${meal.day} - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
+//         ).join('\n')}
+//
+// Based on these detailed records, write a warm and touching message telling your apprentice that you see their growth and dedication, sharing life insights. Show how moved you are by their careful recording of each meal. Keep it 250-350 words. Use the tone and depth of a master chef.`;
+//     }
+// }
 
 // 生成备用彩蛋
 function generateFallbackEgg(statsData, language) {

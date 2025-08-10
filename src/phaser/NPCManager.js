@@ -43,7 +43,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 5, y: 5.5},
+                position: {x: 5, y: 6.5},
                 day: 2,
             },
             {
@@ -59,7 +59,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "餐厅店长老韩"
                         : "Han (Restaurant Owner)",
-                position: {x: 1, y: 7},
+                position: {x: 1, y: 8},
                 day: 4,
             },
             {
@@ -68,7 +68,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "渔夫阿梁"
                         : "Leon (Fisherman)",
-                position: {x: 2, y: 4.5},
+                position: {x: 1.5, y: 4.5},
                 day: 5,
             },
             {
@@ -946,6 +946,11 @@ export default class NPCManager {
     }
 
     async triggerFinalEgg() {
+
+
+
+
+
         try {
             const response = await fetch(`${API_URL}/generate-final-egg`, {
                 method: "POST",
@@ -959,7 +964,7 @@ export default class NPCManager {
             const data = await response.json();
 
             if (data.success) {
-                this.showFinalEggDialog(data.eggContent);
+                this.showFinalEggDialog(data.egg);
             } else {
                 throw new Error(data.error || "Failed to generate final egg");
             }
@@ -969,6 +974,11 @@ export default class NPCManager {
             this.showFinalEggDialog(fallbackEgg);
         }
     }
+
+
+
+
+
 
     generateLocalFinalEgg() {
         const language = this.scene.playerData.language;
@@ -981,15 +991,22 @@ export default class NPCManager {
         }
     }
 
-    showFinalEggDialog(content) {
+
+
+
+    showFinalEggDialog(egg) {
         if (this.scene.uiManager) {
-            this.scene.uiManager.showFinalEgg(content);
+            this.scene.uiManager.showFinalEgg(egg);
         }
 
         if (this.scene.onGameCompleted) {
             this.scene.onGameCompleted();
         }
     }
+
+
+
+
 
     getCurrentDay() {
         return this.playerStatus ? this.playerStatus.currentDay : 1;
