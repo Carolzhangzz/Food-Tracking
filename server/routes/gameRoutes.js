@@ -394,31 +394,86 @@ router.post('/login', async (req, res) => {
 
 // 获取玩家状态接口
 router.post("/player-status", async (req, res) => {
-    try {
-        const {playerId} = req.body;
+    const {playerId} = req.body;
+    if (!playerId) {
+        return res.status(400).json({success: false, error: "缺少 playerId"});
+    }
 
-        if (!playerId) {
-            return res.status(400).json({
-                success: false,
-                error: "Player ID is required",
-            });
+    try {
+        const player = await Player.findOne({where: {playerId}});
+        if (!player) {
+            return res.status(404).json({success: false, error: "玩家未找到"});
         }
 
-        const statusData = await getPlayerFullStatus(playerId);
+        // 查所有进度
+        let progresses = await PlayerProgress.findAll({where: {playerId}});
+
+        // ✅ 兜底：如果当前天没有 progress 记录，就自动创建
+        const npcMap = {
+            1: "village_head",
+            2: "shop_owner",
+            3: "spice_woman",
+            4: "restaurant_owner",
+            5: "fisherman",
+            6: "old_friend",
+            7: "secret_apprentice",
+        };
+        if (!progresses.some(p => p.day === player.currentDay)) {
+            const npcId = npcMap[player.currentDay];
+            if (npcId) {
+                await PlayerProgress.create({
+                    playerId,
+                    day: player.currentDay,
+                    npcId,
+                    unlockedAt: new Date()
+                });
+                progresses = await PlayerProgress.findAll({where: {playerId}});
+            }
+        }
+
+        // 查餐食记录
+        const mealRecords = await MealRecord.findAll({where: {playerId}});
+
+        // 组装 availableNPCs
+        const availableNPCs = progresses.map(p => {
+            const mealsForThisNPC = mealRecords.filter(m => m.day === p.day && m.npcId === p.npcId);
+            const recordedTypes = mealsForThisNPC.map(m => m.mealType);
+            return {
+                day: p.day,
+                npcId: p.npcId,
+                unlocked: !!p.unlockedAt,
+                hasCompletedDay: !!p.completedAt,
+                hasRecordedMeal: mealsForThisNPC.length > 0,
+                mealsRecorded: mealsForThisNPC.length,
+                availableMealTypes: ["breakfast", "lunch", "dinner"].filter(t => !recordedTypes.includes(t))
+            };
+        });
+
+        // ✅ 调试打印
+        console.log(`[/player-status] Player ${playerId} currentDay=${player.currentDay}`);
+        console.log("[/player-status] availableNPCs =", JSON.stringify(availableNPCs, null, 2));
+
+        // 查线索
+        const clueRecords = await ClueRecord.findAll({where: {playerId}});
 
         res.json({
             success: true,
-            ...statusData,
+            player: {
+                playerId: player.playerId,
+                currentDay: player.currentDay,
+                gameCompleted: player.gameCompleted,
+                language: player.language
+            },
+            availableNPCs,
+            mealRecords,
+            clueRecords
         });
-    } catch (error) {
-        console.error("获取玩家状态错误:", error);
-        res.status(500).json({
-            success: false,
-            error: "获取玩家状态失败",
-            details: error.message,
-        });
+    } catch (err) {
+        console.error("[/player-status] Error:", err);
+        res.status(500).json({success: false, error: "服务器错误", details: err.message});
     }
 });
+
 
 // 新增：保存线索接口
 router.post("/save-clue", async (req, res) => {
