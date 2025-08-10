@@ -54,19 +54,7 @@ export default class DialogScene extends Phaser.Scene {
         // 添加调试标志
         this.debugMode = true;
         this.dynamicButtons = [];
-        this.convaiCharMap = new Map([
-    ["village_head","37c1ea8e-4aec-11f0-a14e-42010a7be01f"],
-    ["shop_owner","425d25d4-73a6-11f0-8dad-42010a7be01f"],
-    ["spice_woman","a425409e-73a6-11f0-a309-42010a7be01f"],
-    ["restaurant_owner","6c4ed624-4b26-11f0-854d-42010a7be01f"],
-    ["fisherman","2e287d62-4b28-11f0-b155-42010a7be01f"],
-    ["old_friend","0443174e-73a7-11f0-b26c-42010a7be01f"],
-    ["secret_apprentice","a9394c0e-4d88-11f0-b18a-42010a7be01f"],
-  ]);
 
-
-        this.events.once("shutdown", this.shutdown, this);
-        this.events.once("destroy", this.shutdown, this);
     }
 
     init(data) {
@@ -183,66 +171,89 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     setupControls() {
-  const pointerHandler = (pointer) => {
-    const topAreaHeight = this.isMobile ? this.scale.height * 0.25 : this.scale.height * 0.15;
-    if (pointer.y > topAreaHeight && !this.isWaitingForInput) {
-      this.handleContinue();
-    }
-  };
-  this.input.on("pointerdown", pointerHandler);
-  this.eventListeners.push({ type: "input", event: "pointerdown", handler: pointerHandler });
+        // 点击屏幕继续对话 - 移动端优化触摸区域
+        const pointerHandler = (pointer) => {
+            const topAreaHeight = this.isMobile
+                ? this.scale.height * 0.25
+                : this.scale.height * 0.15;
+            if (pointer.y > topAreaHeight && !this.isWaitingForInput) {
+                this.handleContinue();
+            }
+        };
 
-  const keyHandler = () => {
-    if (!this.isWaitingForInput) this.handleContinue();
-  };
-  this.input.keyboard.on("keydown-SPACE", keyHandler);
-  this.eventListeners.push({ type: "keyboard", event: "keydown-SPACE", handler: keyHandler });
+        this.input.on("pointerdown", pointerHandler);
+        this.eventListeners.push({event: "pointerdown", handler: pointerHandler});
 
-  this.scrollOffset = 0;
+        // 键盘支持
+        const keyHandler = () => {
+            if (!this.isWaitingForInput) {
+                this.handleContinue();
+            }
+        };
 
-  const wheelHandler = (pointer, gameObjects, deltaX, deltaY) => {
-    if (this.conversationHistory.length > 0) {
-      this.scrollOffset += deltaY > 0 ? 1 : -1;
-      this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset, 0, Math.max(0, this.conversationHistory.length - 4));
-      this.updateConversationDisplay();
-    }
-  };
-  this.input.on("wheel", wheelHandler);
-  this.eventListeners.push({ type: "input", event: "wheel", handler: wheelHandler });
+        this.input.keyboard.on("keydown-SPACE", keyHandler);
+        this.eventListeners.push({event: "keydown-SPACE", handler: keyHandler});
 
-  if (this.isMobile) {
-    let startY = 0;
-    let isDragging = false;
+        // 滚动控制
+        this.scrollOffset = 0;
 
-    const pointerDownHandler = (pointer) => {
-      startY = pointer.y;
-      isDragging = true;
-    };
-    const pointerMoveHandler = (pointer) => {
-      if (isDragging && this.conversationHistory.length > 0) {
-        const deltaY = pointer.y - startY;
-        if (Math.abs(deltaY) > 20) {
-          this.scrollOffset += deltaY > 0 ? -1 : 1;
-          this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset, 0, Math.max(0, this.conversationHistory.length - 4));
-          this.updateConversationDisplay();
-          startY = pointer.y;
+        // 鼠标滚轮支持
+        const wheelHandler = (pointer, gameObjects, deltaX, deltaY) => {
+            if (this.conversationHistory.length > 0) {
+                this.scrollOffset += deltaY > 0 ? 1 : -1;
+                this.scrollOffset = Phaser.Math.Clamp(
+                    this.scrollOffset,
+                    0,
+                    Math.max(0, this.conversationHistory.length - 4)
+                );
+                this.updateConversationDisplay();
+            }
+        };
+
+        this.input.on("wheel", wheelHandler);
+        this.eventListeners.push({event: "wheel", handler: wheelHandler});
+
+        // 触摸滑动支持（移动端）
+        if (this.isMobile) {
+            let startY = 0;
+            let isDragging = false;
+
+            const pointerDownHandler = (pointer) => {
+                startY = pointer.y;
+                isDragging = true;
+            };
+
+            const pointerMoveHandler = (pointer) => {
+                if (isDragging && this.conversationHistory.length > 0) {
+                    const deltaY = pointer.y - startY;
+                    if (Math.abs(deltaY) > 20) {
+                        this.scrollOffset += deltaY > 0 ? -1 : 1;
+                        this.scrollOffset = Phaser.Math.Clamp(
+                            this.scrollOffset,
+                            0,
+                            Math.max(0, this.conversationHistory.length - 4)
+                        );
+                        this.updateConversationDisplay();
+                        startY = pointer.y;
+                    }
+                }
+            };
+
+            const pointerUpHandler = () => {
+                isDragging = false;
+            };
+
+            this.input.on("pointerdown", pointerDownHandler);
+            this.input.on("pointermove", pointerMoveHandler);
+            this.input.on("pointerup", pointerUpHandler);
+
+            this.eventListeners.push(
+                {event: "pointerdown", handler: pointerDownHandler},
+                {event: "pointermove", handler: pointerMoveHandler},
+                {event: "pointerup", handler: pointerUpHandler}
+            );
         }
-      }
-    };
-    const pointerUpHandler = () => { isDragging = false; };
-
-    this.input.on("pointerdown", pointerDownHandler);
-    this.input.on("pointermove", pointerMoveHandler);
-    this.input.on("pointerup", pointerUpHandler);
-
-    this.eventListeners.push(
-      { type: "input", event: "pointerdown", handler: pointerDownHandler },
-      { type: "input", event: "pointermove", handler: pointerMoveHandler },
-      { type: "input", event: "pointerup", handler: pointerUpHandler },
-    );
-  }
-}
-
+    }
 
     // 改进的Continue处理逻辑
     handleContinue() {
@@ -827,70 +838,60 @@ export default class DialogScene extends Phaser.Scene {
         this.updateConversationDisplay();
     }
 
-// 放到 DialogScene 类里
-_wrapLinesSmart(text, maxCharsPerLine) {
-  const hasSpace = text.includes(" ");
-  const tokens = hasSpace ? text.split(" ") : Array.from(text); // CJK 用逐字符
-  const lines = [];
-  let line = "";
-
-  for (const tok of tokens) {
-    const add = hasSpace ? (tok + " ") : tok;
-    if ((line + add).length > maxCharsPerLine && line.length > 0) {
-      lines.push(line.trimEnd());
-      line = add;
-    } else {
-      line += add;
-    }
-  }
-  if (line.trim()) lines.push(line.trimEnd());
-  return lines;
-}
-
-
     // 更新对话框中的所有对话内容
-updateConversationDisplay() {
-  let displayText = "";
+    updateConversationDisplay() {
+        let displayText = "";
 
-  // 可视区行数
-  const lineHeight = this.isMobile ? 20 : 24;
-  const dialogBoxHeight = this.isMobile ? 150 : 200;
-  const maxVisibleLines = Math.floor(dialogBoxHeight / lineHeight) - 1;
+        // 计算对话框的可见行数
+        const lineHeight = this.isMobile ? 20 : 24;
+        const dialogBoxHeight = this.isMobile ? 150 : 200;
+        const maxVisibleLines = Math.floor(dialogBoxHeight / lineHeight) - 1;
 
-  // 每行最大字符数（先定义，再用）
-  const maxCharsPerLine = this.isMobile ? 35 : 50;
+        // 将所有对话合并为一个字符串，并按行分割
+        let allLines = [];
+        this.conversationHistory.forEach((entry, index) => {
+            if (index > 0) allLines.push(""); // 空行分隔
 
-  // 聚合所有行
-  const allLines = [];
-  this.conversationHistory.forEach((entry, index) => {
-    if (index > 0) allLines.push(""); // 空行分隔
-    allLines.push(`${entry.speaker}:`);
+            const speakerLine = `${entry.speaker}:`;
+            allLines.push(speakerLine);
 
-    // 使用智能分行（中英文兼容）
-    const lines = this._wrapLinesSmart(entry.message, maxCharsPerLine);
-    lines.forEach(l => allLines.push(l));
-  });
+            // 将长消息按宽度分割成多行
+            const words = entry.message.split(" ");
+            const maxCharsPerLine = this.isMobile ? 35 : 50;
+            let currentLine = "";
 
-  // 支持滚动偏移
-  const total = allLines.length;
-  const offset = Math.max(0, this.scrollOffset || 0);
-  const start = Math.max(0, total - maxVisibleLines - offset);
-  const end = Math.min(total, start + maxVisibleLines);
-  const visibleLines = allLines.slice(start, end);
-  displayText = visibleLines.join("\n");
+            words.forEach((word) => {
+                if (
+                    (currentLine + word).length > maxCharsPerLine &&
+                    currentLine.length > 0
+                ) {
+                    allLines.push(currentLine);
+                    currentLine = word + " ";
+                } else {
+                    currentLine += word + " ";
+                }
+            });
 
-  if (this.dialogText) {
-    this.dialogText.setText(displayText);
-  }
+            if (currentLine.trim()) {
+                allLines.push(currentLine.trim());
+            }
+        });
 
-  // 滚动指示
-  if (allLines.length > maxVisibleLines) {
-    this.showScrollIndicator();
-  } else {
-    this.hideScrollIndicator();
-  }
-}
+        // 只显示最后的几行
+        const visibleLines = allLines.slice(-maxVisibleLines);
+        displayText = visibleLines.join("\n");
 
+        if (this.dialogText) {
+            this.dialogText.setText(displayText);
+        }
+
+        // 添加滚动指示器
+        if (allLines.length > maxVisibleLines) {
+            this.showScrollIndicator();
+        } else {
+            this.hideScrollIndicator();
+        }
+    }
 
     // 添加滚动指示器显示方法
     showScrollIndicator() {
@@ -1167,7 +1168,16 @@ I believe those records hold the key.`,
             console.log("会话ID:", this.convaiSessionId);
         }
 
-        const charID = this.convaiCharMap.get(this.currentNPC);
+        this.npcMap = new Map();
+        this.npcMap.set("village_head", "37c1ea8e-4aec-11f0-a14e-42010a7be01f");
+        this.npcMap.set("shop_owner", "425d25d4-73a6-11f0-8dad-42010a7be01f");
+        this.npcMap.set("spice_woman", "a425409e-73a6-11f0-a309-42010a7be01f");
+        this.npcMap.set("restaurant_owner", "6c4ed624-4b26-11f0-854d-42010a7be01f");
+        this.npcMap.set("fisherman", "2e287d62-4b28-11f0-b155-42010a7be01f");
+        this.npcMap.set("old_friend", "0443174e-73a7-11f0-b26c-42010a7be01f");
+        this.npcMap.set("secret_apprentice", "a9394c0e-4d88-11f0-b18a-42010a7be01f");
+
+        const charID = this.npcMap.get(this.currentNPC);
 
         try {
             const requestBody = {
@@ -1874,45 +1884,46 @@ I believe those records hold the key.`,
         }
 
         // 返回主场景
-          this.shutdown();
         this.scene.stop();
         this.scene.resume("MainScene");
     }
 
     shutdown() {
-  if (this.debugMode) console.log("=== DialogScene 关闭清理 ===");
+        if (this.debugMode) {
+            console.log("=== DialogScene 关闭清理 ===");
+        }
 
-  // 解绑事件
-  this.eventListeners.forEach(({ type, event, handler }) => {
-    if (type === "keyboard" && this.input?.keyboard) {
-      this.input.keyboard.off(event, handler);
-    } else if (this.input?.off) {
-      this.input.off(event, handler);
+        // 清理所有定时器
+        this.timers.forEach((timer) => {
+            if (timer && !timer.hasDispatched) {
+                timer.destroy();
+            }
+        });
+        this.timers = [];
+
+        // 清理事件监听器
+        this.eventListeners.forEach(({event, handler}) => {
+            if (this.input && this.input.removeListener) {
+                this.input.removeListener(event, handler);
+            }
+        });
+        this.eventListeners = [];
+
+        // 清理输入框
+        this.clearTextInput();
+
+        // 清理滚动指示器
+        if (this.scrollIndicator) {
+            this.scrollIndicator.destroy();
+            this.scrollIndicator = null;
+        }
+
+        // 清理所有按钮
+        this.clearAllButtons();
+
+        // 重置回调函数
+        this.onUserSubmit = null;
     }
-  });
-  this.eventListeners = [];
-
-  // 清定时器
-  this.timers.forEach((timer) => {
-    if (timer && !timer.hasDispatched) timer.destroy();
-  });
-  this.timers = [];
-
-  // 清输入 & UI
-  this.clearTextInput();
-  if (this.scrollIndicator) { this.scrollIndicator.destroy(); this.scrollIndicator = null; }
-  this.clearAllButtons();
-
-  // 回调
-  this.onUserSubmit = null;
-
-  // 清对话系统
-  if (this.dialogSystem) {
-    this.dialogSystem.off("dialogEnded", this.handleDialogEnded, this);
-    if (this.dialogSystem.destroy) this.dialogSystem.destroy();
-    this.dialogSystem = null;
-  }
-}
 
     // 添加窗口大小变化监听，动态调整布局
     // resize(gameSize, baseSize, displaySize, resolution) {
