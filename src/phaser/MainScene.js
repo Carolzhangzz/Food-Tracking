@@ -91,6 +91,9 @@ export default class MainScene extends Phaser.Scene {
         this.showWelcomeMessage();
         this.handleResize(this.scale.gameSize);
         this.gameStarted = true;
+        this.events.on("resume", () => {
+            this.refreshNPCs("resume-from-dialog");
+        });
     }
 
     setupAudio() {
@@ -578,11 +581,14 @@ export default class MainScene extends Phaser.Scene {
     }
 
     // 处理玩家记录餐食事件
-    onMealRecorded() {
+    async onMealRecorded() {
+        // ✨ 关键：每次记完一餐都刷新一下 NPC 状态 & 可记录餐别提示
+        await this.refreshNPCs("meal-recorded");
+
         this.uiManager?.updateProgress();
         console.log("餐食记录完成，等待NPCManager同步状态...");
 
-        // 检查是否解锁了新的一天
+        // 下面保持你的原逻辑
         const progress = this.npcManager?.getDailyProgress();
         if (progress && progress.isComplete) {
             this.showDayCompleteMessage();
@@ -667,5 +673,16 @@ export default class MainScene extends Phaser.Scene {
     shutdown() {
         this.saveGameSession().catch(console.error);
         stopBGM();
+    }
+
+    async refreshNPCs(reason = "") {
+        try {
+            if (!this.npcManager) return;
+            await this.npcManager.loadPlayerStatus();
+            this.npcManager.updateNPCStates();
+            console.log("[MainScene] NPC/MealTypes refreshed", reason ? `(${reason})` : "");
+        } catch (e) {
+            console.error("[MainScene] Failed to refresh NPCs:", e);
+        }
     }
 }

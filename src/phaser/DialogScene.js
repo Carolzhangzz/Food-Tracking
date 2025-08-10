@@ -608,14 +608,22 @@ export default class DialogScene extends Phaser.Scene {
 
     // DialogScene.js
     async submitMealOnce() {
-        if (this.isSubmittingMeal || this.mealSubmitted) {
-            console.log("已在提交/已提交过，本次跳过");
+        const dayKey = this.npcManager?.getCurrentDay ? this.npcManager.getCurrentDay() : 0;
+        const mealKey = `${dayKey}_${this.selectedMealType}`;
+        this._submittedSet = this._submittedSet || new Set();
+
+        if (this.isSubmittingMeal) {
+            console.log("正在提交中，本次跳过");
             return;
         }
-        this.isSubmittingMeal = true;
+        if (this._submittedSet.has(mealKey)) {
+            console.log("该餐别已提交过，本次跳过:", mealKey);
+            return;
+        }
 
+        this.isSubmittingMeal = true;
         try {
-            const mealContent = this.extractMealContentFromHistory() || ""; // 兜底
+            const mealContent = this.extractMealContentFromHistory() || "";
             const result = await this.npcManager.recordMeal(
                 this.currentNPC,
                 this.selectedMealType,
@@ -624,8 +632,17 @@ export default class DialogScene extends Phaser.Scene {
                 mealContent
             );
 
+            // 标记“当天_该餐别”已提交
+            this._submittedSet.add(mealKey);
             this.mealSubmitted = true;
-            await this.handleMealCompletion(result); // ✅ 用真实 result
+            this.lastRecordResult = result;
+
+            // 晚饭后才允许触发检查切天（若后端没直接回 newDay）
+            if (result?.success && !result?.newDay && this.selectedMealType === 'dinner') {
+                this.npcManager.checkAndUpdateCurrentDay?.();
+            }
+
+            await this.handleMealCompletion(result);
         } catch (err) {
             console.error("提交餐食记录失败:", err);
             await this.handleMealCompletion({success: false, error: err.message || String(err)});
@@ -1268,6 +1285,16 @@ I believe those records hold the key.`,
 
     // 修改选择餐食方法
     async selectMeal(mealType, displayName) {
+        // 清空上一餐的提交状态，确保新餐次不会被跳过
+        this.mealSubmitted = false;
+        this.isSubmittingMeal = false;
+        this.mealSaveInProgress = false;
+        this.mealSaved = false;
+        this.lastRecordResult = null;
+        this._submittedSet = this._submittedSet || new Set();
+// （可选）把上一餐的自由聊天记录清掉，只保留固定问题和当前餐次对话
+        this.dialogHistory = [];
+
         if (this.debugMode) {
             console.log("=== 选择餐食 ===");
             console.log("选择的餐食:", mealType);
@@ -1950,6 +1977,8 @@ I believe those records hold the key.`,
         this.dialogPhase = "meal_recording";
 
         // 新增：初始化 Gemini 对话轮数
+        this.mealSubmitted = false;
+        this.isSubmittingMeal = false;
         this.geminiTurnCount = 0;
         this.maxGeminiTurns = MAX_TURNS_MEAL;
 
