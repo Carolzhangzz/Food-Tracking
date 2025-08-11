@@ -970,44 +970,63 @@ router.post("/generate-final-egg", async (req, res) => {
             const {GoogleGenAI} = await import("@google/genai");
             const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-            // 只看玩家输入的 Prompt
-            const prompt = generateFinalEggPromptPlayerOnly(compactMeals, lang);
+            const prompt = generateFinalEggPrompt(mealsSummary, statsData, lang);
 
-            // 用 generationConfig，并请求 JSON
+            // ★ 用 generationConfig，强制 JSON 输出 & 提高上限，避免 MAX_TOKENS
             const result = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: [{role: "user", parts: [{text: prompt}]}],
                 generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 1536,
-                    responseMimeType: "application/json"
+                    temperature: 0.5,
+                    maxOutputTokens: 2048,
+                    responseMimeType: "application/json",
                 },
             });
 
-            // 取文本：优先官方 text()，否则拼 parts
-            let rawText = null;
-            if (result?.response?.text && typeof result.response.text === "function") {
-                rawText = await result.response.text();
-            } else if (typeof result?.text === "string") {
-                rawText = result.text;
-            } else {
+            let rawText = await extractTextFromGemini(result);
+            if (!rawText || !rawText.trim()) {
+                // 有些 SDK 在 responseMimeType=json 时，把 JSON 放在 parts[0].text 之外
+                // 再兜一次 candidates->content->parts
                 const parts =
-                    result?.response?.candidates?.[0]?.content?.parts
-                    || result?.candidates?.[0]?.content?.parts
-                    || [];
-                rawText = parts.map(p => (typeof p?.text === "string" ? p.text : "")).join("").trim();
+                    result?.response?.candidates?.[0]?.content?.parts ||
+                    result?.candidates?.[0]?.content?.parts ||
+                    [];
+                rawText =
+                    rawText ||
+                    parts.map(p => (typeof p?.text === "string" ? p.text : "")).join("").trim();
             }
 
-            if (!rawText) {
-                console.error("Gemini response had no text. Full response:",
-                    JSON.stringify(result?.response || result || {}, null, 2)
-                );
-                throw new Error("No text returned by Gemini");
+            // ★ 输出原始返回，方便排查（截断到 2000 字）
+            console.log("[Gemini][RAW]", (rawText || "").slice(0, 2000));
+
+            // ★ 轻量修复：去掉 ```json 包裹 & 裁剪到最外层 {}
+            function roughJsonRepair(s) {
+                if (!s) return s;
+                s = s.replace(/^\s*```json\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+                const first = s.indexOf("{");
+                const last = s.lastIndexOf("}");
+                if (first !== -1 && last !== -1 && last > first) {
+                    s = s.slice(first, last + 1);
+                }
+                return s;
             }
 
-            // 去掉可能的 ```json 包裹
-            rawText = rawText.replace(/^```json\s*|\s*```$/g, "").trim();
-            egg = JSON.parse(rawText);
+            let textForParse = roughJsonRepair(rawText);
+            try {
+                egg = JSON.parse(textForParse);
+            } catch (e1) {
+                console.warn("[Gemini] JSON.parse failed once, try minor comma fix…", e1?.message);
+                // ★ 再给一次机会：去掉行尾多余逗号
+                const minor = textForParse.replace(/,\s*([}\]])/g, "$1");
+                egg = JSON.parse(minor);
+            }
+
+            // ★ 最终做个结构兜底，避免 key 缺失导致前端报错
+            if (!egg || typeof egg !== "object") throw new Error("empty egg");
+            egg.letter ??= "";
+            egg.summary ??= [];
+            egg.health ??= {positives: [], improvements: []};
+            egg.recipe ??= {title: "", servings: 1, ingredients: [], steps: [], tip: ""};
 
         } catch (apiError) {
             const code = apiError?.status || apiError?.code;
@@ -1018,10 +1037,8 @@ router.post("/generate-final-egg", async (req, res) => {
             } else {
                 console.error("[Gemini] Other error or JSON parse error:", apiError);
             }
-            // 本地兜底（基于 mealsSummary）
             egg = buildLocalEgg(mealsSummary, lang);
         }
-
         // 5) 标记完成 & 返回
         await Player.update({gameCompleted: true}, {where: {playerId}});
 

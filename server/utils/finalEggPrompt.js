@@ -77,6 +77,7 @@ IMPORTANT:
 - OUTPUT MUST BE STRICT JSON.
 - NO markdown code fences.
 - NO extra commentary, ONLY the JSON object.
+- YOU MUST RETURN valid JSON object only. Do not include markdown fences, comments, or trailing commas.
 
 OUTPUT FORMAT:
 {
