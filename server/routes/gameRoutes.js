@@ -450,7 +450,7 @@ router.post('/login', async (req, res) => {
                 language: player.language,
                 progress: player.progress,
             },
-            availableNPCs, // ✅ 用动态计算结果
+            availableNPCs,
             mealRecords: mealRecords.map(record => ({
                 day: record.day,
                 npcId: record.npcId,
