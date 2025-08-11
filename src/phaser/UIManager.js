@@ -432,11 +432,7 @@ this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
 
   this.showNotification(`${title}\n${body}`);
 
-  // ✅ 这里如果你有“线索面板”的渲染函数，记得调用它刷新 UI
-  // this.renderClueList?.();
 }
-
-
     updateClueCountBadge() {
         if (this.clueCountBadge) {
             const count = this.clues.length;
