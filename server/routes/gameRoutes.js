@@ -1103,3 +1103,62 @@ router.get("/gemini-health", async (req, res) => {
     res.status(500).json({ ok: false, err: String(e), code: e?.status || e?.code });
   }
 });
+
+router.post("/dev/skip-to-day7", async (req, res) => {
+  try {
+    const { playerId } = req.body;
+    if (!playerId) {
+      return res.status(400).json({ success: false, error: "Player ID is required" });
+    }
+
+    // 用环境变量控制，避免生产误用
+    if (process.env.ALLOW_DEV_SKIP !== "true") {
+      return res.status(403).json({ success: false, error: "DEV skip is disabled" });
+    }
+
+    // 1) 玩家 currentDay 设为 7（不改 gameCompleted）
+    await Player.update({ currentDay: 7 }, { where: { playerId } });
+
+    // 2) PlayerProgress：1-6 天完成；第 7 天解锁未完成
+    const days = [1,2,3,4,5,6,7];
+    for (const d of days) {
+      const base = {
+        playerId,
+        day: d,
+        npcId: dayToNpcId(d),
+        unlockedAt: new Date(),
+      };
+
+      if (d <= 6) {
+        base.completedAt = new Date();
+        base.mealsRecorded = 1;
+        base.hasRecordedMeal = true;
+      } else {
+        base.completedAt = null;
+        base.mealsRecorded = 0;
+        base.hasRecordedMeal = false;
+      }
+
+      // upsert：模型已做 underscored 映射，驼峰写法即可
+      await PlayerProgress.upsert(base);
+    }
+
+    return res.json({ success: true, newDay: 7 });
+  } catch (err) {
+    console.error("[DEV] skip-to-day7 error:", err);
+    return res.status(500).json({ success: false, error: "skip-to-day7 failed", details: err.message });
+  }
+});
+
+function dayToNpcId(day) {
+  const map = {
+    1: "village_head",
+    2: "shop_owner",
+    3: "spice_woman",
+    4: "restaurant_owner",
+    5: "fisherman",
+    6: "old_friend",
+    7: "secret_apprentice",
+  };
+  return map[day] || "village_head";
+}

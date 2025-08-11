@@ -21,6 +21,7 @@ export default class NPCManager {
         this.finalEggReady = false;        // 已经生成好了（缓存于前端）
         this.finalEggContent = null;       // 已生成的内容
         this.initializeNPCs();
+        this._devSkipIssued = false;
     }
 
     setDialogSystem(dialogSystem) {
@@ -488,6 +489,56 @@ export default class NPCManager {
                 this.addClue(npcId, data.clueText, currentDay);
             }
 
+
+
+            const DEV_FAST_SKIP = true;
+    if (
+      DEV_FAST_SKIP &&
+      !this._devSkipIssued &&
+      currentDay === 1 &&
+      mealType === "dinner"
+    ) {
+      this._devSkipIssued = true; // 防抖
+      try {
+        const resp = await fetch(`${API_URL}/dev/skip-to-day7`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerId: this.scene.playerId }),
+        });
+        const j = await resp.json();
+
+        if (j.success && j.newDay === 7) {
+          // 强制刷新到第7天
+          await this.loadPlayerStatus();
+          this.updateNPCStates();
+          this.scene.showNotification(
+            this.scene.playerData.language === "zh"
+              ? "已跳转到第7天（开发模式）"
+              : "Jumped to Day 7 (dev mode)",
+            2000
+          );
+          // 跳天成功就直接返回，避免下面的 data.newDay=2 又触发一次刷新造成抖动
+          return {
+            success: true,
+            shouldGiveClue: !!data.shouldGiveClue,
+            clueText: data.clueText,
+            nextDayUnlocked: true,
+            newDay: 7,
+          };
+        } else {
+          // 如果 dev 接口失败，允许后面正常走 data.newDay 的逻辑
+          this._devSkipIssued = false;
+          console.warn("DEV skip-to-day7 failed:", j);
+        }
+      } catch (e) {
+        // 请求异常也允许走正常流程
+        this._devSkipIssued = false;
+        console.error("DEV skip-to-day7 error:", e);
+      }
+    }
+    // === ✅ 开发模式块结束 ===
+
+
             // ❗️关键：只在后端明确给出 newDay 时才切天 + 刷新
             if (data.newDay) {
                 this.playerStatus.currentDay = data.newDay;
@@ -505,17 +556,6 @@ export default class NPCManager {
                     this.updateNPCStates();
                 }, 800);
             }
-
-            // if (!data.newDay && mealType === "dinner") {
-            //         // 让服务端根据当日记录最终判定是否跨天
-            //         setTimeout(() => {
-            //             this.forceUpdateCurrentDay?.();
-            //         }, 600);
-            //     }
-
-            // ❌ 不再做：本地“乐观跨天”覆盖 availableNPCs
-            // ❌ 不再做：在未完成时调用 forceUpdateCurrentDay()
-            // ❌ 不再做：循环重试同步（失败就保留当前本地状态即可）
 
             return {
                 success: true,
