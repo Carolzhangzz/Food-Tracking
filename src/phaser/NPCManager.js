@@ -63,7 +63,7 @@ export default class NPCManager {
                         ? "餐厅店长老韩"
                         : "Han (Restaurant Owner)",
                 position: {x: 1, y: 7.5},
-                day: 5,
+                day: 4,
             },
             {
                 id: "fisherman",
@@ -72,7 +72,7 @@ export default class NPCManager {
                         ? "渔夫阿梁"
                         : "Leon (Fisherman)",
                 position: {x: 1.5, y: 4.5},
-                day: 4,
+                day: 5,
             },
             {
                 id: "old_friend",
@@ -99,6 +99,7 @@ export default class NPCManager {
         console.log("NPCs initialized with player status");
     }
 
+// 【FOR STAGES】
     async loadPlayerStatus() {
         try {
             const response = await fetch(`${API_URL}/player-status`, {
@@ -114,12 +115,11 @@ export default class NPCManager {
                 this.mealRecords = data.mealRecords;
                 this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
 
-                // 先把服务端线索按当前语言映射出来
                 const mappedClues = (data.clueRecords || []).map((clue) => ({
                     ...clue,
-                    clue: this.getNPCClue(clue.npcId),               // 当前语言的线索文本
-                    npcName: this.getNPCNameByLanguage(clue.npcId),  // 当前语言的NPC名
+                    npcName: this.getNPCNameByLanguage(clue.npcId),
                 }));
+
 
 // 更新本地线索列表（去重合并：以 id 为主键）
                 const existingById = new Map((this.clueRecords || []).map(c => [c.id, c]));
@@ -411,6 +411,7 @@ export default class NPCManager {
 
     // 记录餐食到数据库 - 更新版本，自动保存线索
     // NPCManager.js
+    //【FOR STAGES】
     async recordMeal(
         npcId,
         mealType,
@@ -484,59 +485,57 @@ export default class NPCManager {
             }
 
 
-            // 晚餐给线索：前端立即显示（同时后端已落库）
             if (data.shouldGiveClue && data.clueText) {
-                this.addClue(npcId, data.clueText, currentDay);
+                this.addClue(npcId, data.clueText, currentDay, data.mealStage); // ★ 传 stage(1/2/3)
             }
 
 
-
             const DEV_FAST_SKIP = true;
-    if (
-      DEV_FAST_SKIP &&
-      !this._devSkipIssued &&
-      currentDay === 1 &&
-      mealType === "dinner"
-    ) {
-      this._devSkipIssued = true; // 防抖
-      try {
-        const resp = await fetch(`${API_URL}/dev/skip-to-day7`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId: this.scene.playerId }),
-        });
-        const j = await resp.json();
+            if (
+                DEV_FAST_SKIP &&
+                !this._devSkipIssued &&
+                currentDay === 1 &&
+                mealType === "dinner"
+            ) {
+                this._devSkipIssued = true; // 防抖
+                try {
+                    const resp = await fetch(`${API_URL}/dev/skip-to-day7`, {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({playerId: this.scene.playerId}),
+                    });
+                    const j = await resp.json();
 
-        if (j.success && j.newDay === 7) {
-          // 强制刷新到第7天
-          await this.loadPlayerStatus();
-          this.updateNPCStates();
-          this.scene.showNotification(
-            this.scene.playerData.language === "zh"
-              ? "已跳转到第7天（开发模式）"
-              : "Jumped to Day 7 (dev mode)",
-            2000
-          );
-          // 跳天成功就直接返回，避免下面的 data.newDay=2 又触发一次刷新造成抖动
-          return {
-            success: true,
-            shouldGiveClue: !!data.shouldGiveClue,
-            clueText: data.clueText,
-            nextDayUnlocked: true,
-            newDay: 7,
-          };
-        } else {
-          // 如果 dev 接口失败，允许后面正常走 data.newDay 的逻辑
-          this._devSkipIssued = false;
-          console.warn("DEV skip-to-day7 failed:", j);
-        }
-      } catch (e) {
-        // 请求异常也允许走正常流程
-        this._devSkipIssued = false;
-        console.error("DEV skip-to-day7 error:", e);
-      }
-    }
-    // === ✅ 开发模式块结束 ===
+                    if (j.success && j.newDay === 7) {
+                        // 强制刷新到第7天
+                        await this.loadPlayerStatus();
+                        this.updateNPCStates();
+                        this.scene.showNotification(
+                            this.scene.playerData.language === "zh"
+                                ? "已跳转到第7天（开发模式）"
+                                : "Jumped to Day 7 (dev mode)",
+                            2000
+                        );
+                        // 跳天成功就直接返回，避免下面的 data.newDay=2 又触发一次刷新造成抖动
+                        return {
+                            success: true,
+                            shouldGiveClue: !!data.shouldGiveClue,
+                            clueText: data.clueText,
+                            nextDayUnlocked: true,
+                            newDay: 7,
+                        };
+                    } else {
+                        // 如果 dev 接口失败，允许后面正常走 data.newDay 的逻辑
+                        this._devSkipIssued = false;
+                        console.warn("DEV skip-to-day7 failed:", j);
+                    }
+                } catch (e) {
+                    // 请求异常也允许走正常流程
+                    this._devSkipIssued = false;
+                    console.error("DEV skip-to-day7 error:", e);
+                }
+            }
+            // === ✅ 开发模式块结束 ===
 
 
             // ❗️关键：只在后端明确给出 newDay 时才切天 + 刷新
@@ -666,35 +665,47 @@ export default class NPCManager {
         };
     }
 
+//【FOR STAGES】
     // 新增：添加线索到本地存储（现在主要用于UI更新）
-    addClue(npcId, clueText, day) {
+    addClue(npcId, clueText, day, stage = null) {
         const npc = this.npcs.get(npcId);
-        const clueId = `${npcId}_${day}`;
 
-        // 检查是否已存在相同的线索
-        const existingIndex = this.clueRecords.findIndex((c) => c.id === clueId);
+        // 线索唯一ID：npc_天_阶段（阶段可为空）
+        const stagePart = (stage === 1 || stage === 2 || stage === 3) ? `_${stage}` : "";
+        const clueId = `${npcId}_${day}${stagePart}`;
+
+        // 已存在则跳过（避免重复插入）
+        const existingIndex = (this.clueRecords || []).findIndex(c => c.id === clueId);
         if (existingIndex !== -1) {
             console.log("线索已存在，跳过添加:", clueId);
             return;
         }
 
-        // 确保使用当前语言的线索文本
+        // 渲染用 NPC 名称：优先取当前地图NPC名，退化到多语言名
+        const npcDisplayName =
+            (npc && npc.name)
+                ? npc.name
+                : (this.getNPCNameByLanguage ? this.getNPCNameByLanguage(npcId) : npcId);
+
         const finalClue = (clueText && clueText.trim())
             ? clueText
-            : this.getNPCClue(npcId);
+            : (this.getNPCClue ? this.getNPCClue(npcId) : "…");
+
         const clue = {
             id: clueId,
-            npcId: npcId,
-            npcName: npc ? npc.name : this.getNPCNameByLanguage(npcId),
+            npcId,
+            npcName: npcDisplayName,
             clue: finalClue,
-            day: day,
+            day,
+            stage: stage || undefined,
             receivedAt: new Date(),
         };
 
+        this.clueRecords = this.clueRecords || [];
         this.clueRecords.push(clue);
 
-        // 通知UI管理器
-        if (this.scene.uiManager && this.scene.uiManager.addClue) {
+        // 同步到 UI（如果 UIManager 支持 addClue）
+        if (this.scene.uiManager && typeof this.scene.uiManager.addClue === "function") {
             this.scene.uiManager.addClue(clue);
         }
 
@@ -702,8 +713,12 @@ export default class NPCManager {
     }
 
     // 获取所有线索
+    //【FOR STAGES】
     getAllClues() {
-        return this.clueRecords.sort((a, b) => a.day - b.day);
+        return (this.clueRecords || []).slice().sort((a, b) => {
+            if (a.day !== b.day) return a.day - b.day;
+            return (a.stage || 99) - (b.stage || 99);
+        });
     }
 
     // 移除NPC高亮时也要清理餐食提示
@@ -1051,7 +1066,6 @@ export default class NPCManager {
     }
 
 
-
     getCurrentDay() {
         return this.playerStatus ? this.playerStatus.currentDay : 1;
     }
@@ -1129,19 +1143,19 @@ export default class NPCManager {
 }
 
 // 把后端返回统一转成 UI 需要的 egg 对象
-    function normalizeEggPayload(data) {
-        // 优先：后端直接给了结构化 egg
-        if (data && typeof data.egg === 'object' && data.egg !== null) return data.egg;
+function normalizeEggPayload(data) {
+    // 优先：后端直接给了结构化 egg
+    if (data && typeof data.egg === 'object' && data.egg !== null) return data.egg;
 
-        // 兼容：有些时候 eggContent 其实已经是对象
-        if (data && typeof data.eggContent === 'object' && data.eggContent !== null) return data.eggContent;
+    // 兼容：有些时候 eggContent 其实已经是对象
+    if (data && typeof data.eggContent === 'object' && data.eggContent !== null) return data.eggContent;
 
-        // 老格式：纯字符串 -> 包一层给 UIManager
-        const letter = (typeof data?.eggContent === 'string') ? data.eggContent : '';
-        return {
-            letter,
-            summary: [],
-            health: {positives: [], improvements: []},
-            recipe: {title: "", servings: 1, ingredients: [], steps: [], tip: ""},
-        };
-    }
+    // 老格式：纯字符串 -> 包一层给 UIManager
+    const letter = (typeof data?.eggContent === 'string') ? data.eggContent : '';
+    return {
+        letter,
+        summary: [],
+        health: {positives: [], improvements: []},
+        recipe: {title: "", servings: 1, ingredients: [], steps: [], tip: ""},
+    };
+}
