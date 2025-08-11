@@ -847,202 +847,186 @@ export default class UIManager {
 
         const {width, height} = this.scene.scale;
         const lang = this.scene.playerData.language;
+        const DEPTH = 1_000_000;
 
-        // 清理旧容器
         this._eggContainer?.destroy(true);
-
-        // 统一的超高深度（子元素不再单独 setDepth）
-        const DEPTH = Number.MAX_SAFE_INTEGER - 10;
-
-        // 创建容器：不滚动、超高深度
         const container = this._eggContainer = this.scene.add.container(0, 0);
-        container.setScrollFactor(0);
         container.setDepth(DEPTH);
-        this.scene.children.bringToTop(container);
 
-        // 记录并切到“只点最上层”以吞掉下层交互
-        this._prevTopOnly = this.scene.input.topOnly;
-        this.scene.input.setTopOnly(true);
+        // 背景遮罩
+        const overlay = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0.9)
+            .setOrigin(0).setScrollFactor(0);
+        container.add(overlay);
 
-        // ===== 工具：重绘（用于初次与窗口resize）=====
-        const redraw = () => {
-            const w = this.scene.scale.width;
-            const h = this.scene.scale.height;
+        // 面板
+        const eggWidth = Math.floor(width * 0.94);
+        const eggHeight = Math.floor(height * 0.9);
+        const eggX = Math.floor((width - eggWidth) / 2);
+        const eggY = Math.floor((height - eggHeight) / 2);
 
-            // 先清空旧内容（保留container本身）
-            container.removeAll(true);
+        const panel = this.scene.add.graphics();
+        panel.fillStyle(0x1f2937, 1);
+        panel.fillRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
+        panel.lineStyle(2, 0xfbbf24);
+        panel.strokeRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
+        container.add(panel);
 
-            // 全屏遮罩（吞点击）
-            const overlay = this.scene.add.graphics();
-            overlay.fillStyle(0x000000, 0.9);
-            overlay.fillRect(0, 0, w, h);
-            overlay.setScrollFactor(0);
+        // 标题
+        const title = this.scene.add.text(
+            width / 2, eggY + 36,
+            lang === "zh" ? "🎉 恭喜完成旅程！" : "🎉 Journey Complete!",
+            {fontSize: "20px", fontFamily: "monospace", fill: "#fbbf24", fontStyle: "bold", align: "center"}
+        ).setOrigin(0.5);
+        container.add(title);
 
-            // 让遮罩可交互，吞掉所有指针事件
-            overlay.setInteractive(
-                new Phaser.Geom.Rectangle(0, 0, w, h),
-                Phaser.Geom.Rectangle.Contains
-            );
+        // ====== 可滚动区域 ======
+        const padding = 20;
+        const contentLeft = eggX + padding;
+        const contentTop = eggY + 72; // 标题下方
+        const contentWidth = eggWidth - padding * 2;
+        const contentHeight = eggHeight - 72 - 60; // 底部给按钮留 60px
 
-            container.add(overlay);
+        // 滚动容器（真正承载文本的容器）
+        const scrollContent = this.scene.add.container(contentLeft, contentTop);
+        container.add(scrollContent);
 
-            // 面板
-            const eggWidth = Math.floor(w * 0.94);
-            const eggHeight = Math.floor(h * 0.9);
-            const eggX = Math.floor((w - eggWidth) / 2);
-            const eggY = Math.floor((h - eggHeight) / 2);
+        // 裁剪遮罩
+        const maskGfx = this.scene.add.graphics();
+        maskGfx.fillStyle(0xffffff, 1);
+        maskGfx.fillRect(contentLeft, contentTop, contentWidth, contentHeight);
+        const geoMask = maskGfx.createGeometryMask();
+        scrollContent.setMask(geoMask);
+        container.add(maskGfx);
 
-            const panel = this.scene.add.graphics();
-            panel.fillStyle(0x1f2937, 1);
-            panel.fillRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
-            panel.lineStyle(2, 0xfbbf24);
-            panel.strokeRoundedRect(eggX, eggY, eggWidth, eggHeight, 12);
-            panel.setScrollFactor(0);
-            container.add(panel);
-
-            // 标题
-            const title = this.scene.add.text(
-                w / 2,
-                eggY + 36,
-                lang === "zh" ? "🎉 恭喜完成旅程！" : "🎉 Journey Complete!",
-                {fontSize: "20px", fontFamily: "monospace", fill: "#fbbf24", fontStyle: "bold", align: "center"}
-            ).setOrigin(0.5);
-            title.setScrollFactor(0);
-            container.add(title);
-
-            // 文本区
-            let cursorY = eggY + 72;
-            const leftX = eggX + 20;
-            const wrapW = eggWidth - 40;
-
-            const addSection = (sectionTitle, bodyText) => {
-                const st = this.scene.add.text(leftX, cursorY, sectionTitle, {
-                    fontSize: "14px",
-                    fontFamily: "monospace",
-                    fill: "#eab308",
-                    fontStyle: "bold",
-                    wordWrap: {width: wrapW, useAdvancedWrap: true}
-                });
-                st.setScrollFactor(0);
-                container.add(st);
-                cursorY += st.height + 6;
-
-                const body = this.scene.add.text(leftX, cursorY, bodyText, {
-                    fontSize: "13px",
-                    fontFamily: "monospace",
-                    fill: "#d1d5db",
-                    wordWrap: {width: wrapW, useAdvancedWrap: true},
-                    lineSpacing: 6,
-                    align: "left"
-                });
-                body.setScrollFactor(0);
-                container.add(body);
-                cursorY += body.height + 16;
-            };
-
-            // 1) 信件
-            addSection(lang === "zh" ? "师父的信：" : "Master's letter:", egg.letter || "");
-
-            // 2) 7天总结
-            const sumLabel = lang === "zh" ? "你的 7 天餐食总结：" : "Your 7-day meal summary:";
-            const sumText = (egg.summary || [])
-                .map(s => {
-                    const dayStr = lang === "zh" ? `第${s.day}天` : `Day ${s.day}`;
-                    const meal = s.mealType || "";
-                    const ings = (s.ingredients || []).join(", ");
-                    return `${dayStr} - ${s.npcName || ""} / ${meal} / ${ings}`;
-                })
-                .join("\n");
-            addSection(sumLabel, sumText || (lang === "zh" ? "暂无数据" : "No data"));
-
-            // 3) 健康分析
-            const healthLabel = lang === "zh" ? "饮食分析：" : "Health analysis:";
-            const posTitle = lang === "zh" ? "优势" : "Positives";
-            const impTitle = lang === "zh" ? "改进建议" : "Improvements";
-            const healthText =
-                `${posTitle}:\n- ${(egg.health?.positives || []).join("\n- ")}\n\n` +
-                `${impTitle}:\n- ${(egg.health?.improvements || []).join("\n- ")}`;
-            addSection(healthLabel, healthText);
-
-            // 4) 个性化食谱
-            const r = egg.recipe || {};
-            const recipeLabel = lang === "zh" ? "你的专属食谱：" : "Your personalized recipe:";
-            const recipeText =
-                `${r.title || ""}  (${lang === "zh" ? "份量" : "servings"}: ${r.servings ?? 1})\n\n` +
-                `${lang === "zh" ? "配料" : "Ingredients"}:\n- ${(r.ingredients || []).map(i => `${i.name} ${i.amount || ""}`).join("\n- ")}\n\n` +
-                `${lang === "zh" ? "步骤" : "Steps"}:\n- ${(r.steps || []).join("\n- ")}\n\n` +
-                `${lang === "zh" ? "小贴士" : "Tip"}: ${r.tip || ""}`;
-            addSection(recipeLabel, recipeText);
-
-            // 超出高度提示
-            if (cursorY > eggY + eggHeight - 90) {
-                const hint = this.scene.add.text(
-                    w / 2, eggY + eggHeight - 70,
-                    lang === "zh" ? "内容较长，可上下滑动页面查看" : "Long content. Scroll to view.",
-                    {fontSize: "10px", fontFamily: "monospace", fill: "#6b7280"}
-                ).setOrigin(0.5);
-                hint.setScrollFactor(0);
-                container.add(hint);
-            }
-
-            // 关闭按钮
-            const closeBtn = this.scene.add.text(
-                w / 2,
-                eggY + eggHeight - 36,
-                lang === "zh" ? "关闭" : "Close",
-                {
-                    fontSize: "16px",
-                    fontFamily: "monospace",
-                    fill: "#60a5fa",
-                    fontStyle: "bold",
-                    backgroundColor: "#374151",
-                    padding: {x: 15, y: 8}
-                }
-            ).setOrigin(0.5);
-            closeBtn.setScrollFactor(0);
-            closeBtn.setInteractive({useHandCursor: true});
-            closeBtn.on("pointerdown", () => this.closeFinalEgg());
-            closeBtn.on("pointerover", () => closeBtn.setTint(0x93c5fd));
-            closeBtn.on("pointerout", () => closeBtn.clearTint());
-            container.add(closeBtn);
-
-            // 初次渐显
-            container.setAlpha(0);
-            this.scene.tweens.add({
-                targets: container,
-                alpha: {from: 0, to: 1},
-                duration: 300,
-                ease: "Power2",
+        // 工具：追加一个区块
+        let cursorY = 0;
+        const addSection = (sectionTitle, bodyText) => {
+            const st = this.scene.add.text(0, cursorY, sectionTitle, {
+                fontSize: "14px", fontFamily: "monospace", fill: "#eab308", fontStyle: "bold",
+                wordWrap: {width: contentWidth, useAdvancedWrap: true}
             });
+            scrollContent.add(st);
+            cursorY += st.height + 6;
+
+            const body = this.scene.add.text(0, cursorY, bodyText, {
+                fontSize: "13px", fontFamily: "monospace", fill: "#d1d5db",
+                wordWrap: {width: contentWidth, useAdvancedWrap: true},
+                lineSpacing: 6, align: "left"
+            });
+            scrollContent.add(body);
+            cursorY += body.height + 16;
         };
 
-        // 先画一次
-        redraw();
+        // 1) 信件（此处展示 egg.letter；后端已固定为模板）
+        addSection(lang === "zh" ? "师父的信：" : "Master's letter:", egg.letter || "");
 
-        // 监听屏幕尺寸变化，保持遮罩覆盖
-        this._onEggResize = (gameSize) => {
-            // 只是重绘；container 仍固定在顶层
-            redraw();
-            this.scene.children.bringToTop(container);
+        // 2) 7 天总结
+        const sumLabel = lang === "zh" ? "你的 7 天餐食总结：" : "Your 7-day meal summary:";
+        const sumText = (egg.summary || []).map(s => {
+            const dayStr = lang === "zh" ? `第${s.day}天` : `Day ${s.day}`;
+            const meal = s.mealType || "";
+            const ings = (s.ingredients || []).join(", ");
+            return `${dayStr} - ${s.npcName || ""} / ${meal} / ${ings}`;
+        }).join("\n");
+        addSection(sumLabel, sumText || (lang === "zh" ? "暂无数据" : "No data"));
+
+        // 3) 健康分析
+        const healthLabel = lang === "zh" ? "饮食分析：" : "Health analysis:";
+        const posTitle = lang === "zh" ? "优势" : "Positives";
+        const impTitle = lang === "zh" ? "改进建议" : "Improvements";
+        const healthText =
+            `${posTitle}:\n- ${(egg.health?.positives || []).join("\n- ")}\n\n` +
+            `${impTitle}:\n- ${(egg.health?.improvements || []).join("\n- ")}`;
+        addSection(healthLabel, healthText);
+
+        // 4) 个性化食谱
+        const r = egg.recipe || {};
+        const recipeLabel = lang === "zh" ? "你的专属食谱：" : "Your personalized recipe:";
+        const recipeText =
+            `${r.title || ""}  (${lang === "zh" ? "份量" : "servings"}: ${r.servings ?? 1})\n\n` +
+            `${lang === "zh" ? "配料" : "Ingredients"}:\n- ${(r.ingredients || []).map(i => `${i.name} ${i.amount || ""}`).join("\n- ")}\n\n` +
+            `${lang === "zh" ? "步骤" : "Steps"}:\n- ${(r.steps || []).join("\n- ")}\n\n` +
+            `${lang === "zh" ? "小贴士" : "Tip"}: ${r.tip || ""}`;
+        addSection(recipeLabel, recipeText);
+
+        // 滚动逻辑
+        const minY = Math.min(0, contentHeight - cursorY); // 内容底对齐的最小 Y
+        let dragging = false;
+        let lastY = 0;
+
+        const clamp = (y) => Phaser.Math.Clamp(y, minY, 0);
+        scrollContent.y = contentTop; // 注意：scrollContent 的世界 y = contentTop；相对容器 y 用下面 setY
+        const setScrollY = (delta) => {
+            const localY = scrollContent.list.length ? scrollContent.list[0].parentContainer?.y ?? 0 : scrollContent.y;
+            const relative = (scrollContent.y - contentTop) + delta; // 以 contentTop 为 0 基准
+            const clamped = clamp(relative);
+            scrollContent.setPosition(contentLeft, contentTop + clamped);
         };
-        this.scene.scale.on('resize', this._onEggResize);
+
+        // 允许点击并拖动滚动
+        const hit = this.scene.add.rectangle(contentLeft, contentTop, contentWidth, contentHeight, 0x000000, 0.0001)
+            .setOrigin(0).setInteractive({useHandCursor: false});
+        container.add(hit);
+
+        hit.on("pointerdown", (p) => {
+            dragging = true;
+            lastY = p.y;
+        });
+        hit.on("pointerup", () => {
+            dragging = false;
+        });
+        hit.on("pointerout", () => {
+            dragging = false;
+        });
+        hit.on("pointermove", (p) => {
+            if (!dragging) return;
+            const dy = p.y - lastY;
+            lastY = p.y;
+            setScrollY(dy);
+        });
+
+        // 鼠标滚轮
+        this.scene.input.on("wheel", (_p, _go, dx, dy) => {
+            // 只在面板区域时滚动
+            const pointer = this.scene.input.activePointer;
+            if (
+                pointer.x >= contentLeft && pointer.x <= contentLeft + contentWidth &&
+                pointer.y >= contentTop && pointer.y <= contentTop + contentHeight
+            ) {
+                setScrollY(-dy * 0.6); // 适当减速
+            }
+        });
+
+        // 超出高度提示（可选）
+        if (cursorY > contentHeight) {
+            const hint = this.scene.add.text(
+                width / 2, eggY + eggHeight - 70,
+                lang === "zh" ? "内容较长，可拖动/滚轮查看" : "Long content. Drag or scroll to view.",
+                {fontSize: "10px", fontFamily: "monospace", fill: "#6b7280"}
+            ).setOrigin(0.5);
+            container.add(hint);
+        }
+
+        // 关闭按钮
+        const closeBtn = this.scene.add.text(
+            width / 2, eggY + eggHeight - 36,
+            lang === "zh" ? "关闭" : "Close",
+            {
+                fontSize: "16px", fontFamily: "monospace", fill: "#60a5fa", fontStyle: "bold",
+                backgroundColor: "#374151", padding: {x: 15, y: 8}
+            }
+        ).setOrigin(0.5).setInteractive({useHandCursor: true});
+        closeBtn.on("pointerdown", () => this.closeFinalEgg());
+        closeBtn.on("pointerover", () => closeBtn.setTint(0x93c5fd));
+        closeBtn.on("pointerout", () => closeBtn.clearTint());
+        container.add(closeBtn);
+
+        // 渐显
+        container.setAlpha(0);
+        this.scene.tweens.add({targets: container, alpha: {from: 0, to: 1}, duration: 500, ease: "Power2"});
     }
 
-
     closeFinalEgg() {
-        // 解绑 resize
-        if (this._onEggResize) {
-            this.scene.scale.off('resize', this._onEggResize);
-            this._onEggResize = null;
-        }
-
-        // 还原 input.topOnly
-        if (typeof this._prevTopOnly !== "undefined") {
-            this.scene.input.setTopOnly(this._prevTopOnly);
-            this._prevTopOnly = undefined;
-        }
-
-        // 销毁容器
         this._eggContainer?.destroy(true);
         this._eggContainer = null;
         this._eggOpen = false;
