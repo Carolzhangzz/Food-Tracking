@@ -50,3 +50,53 @@ OUTPUT FORMAT:
 }
 
 module.exports = { generateFinalEggPrompt };
+
+function generateFinalEggPromptPlayerOnly(compactMeals, language = "en") {
+  const lang = language === "zh" ? "zh" : "en";
+  const mealsJson = JSON.stringify(compactMeals);
+
+  return `
+You are an assistant generating a personalized game ending based ONLY on the player's own meal inputs.
+
+LANGUAGE: ${lang}
+
+INPUT (player_meals_only):
+- meals: ${mealsJson}
+
+TASKS:
+1) Write a short warm "master's letter" (2 short paragraphs) that reflects on the player's week purely from the meals they logged.
+2) Produce a 7-day summary (array): for each day list npcName (can be empty), mealType, and 1-4 main ingredients.
+   - Extract from the player's meal text; if unclear, infer plausible items.
+3) Health analysis:
+   - positives: 3-6 bullet points grounded in the player's foods.
+   - improvements: 3-6 bullet points with concrete swaps/additions (grounded in the player's foods).
+4) Personalized recipe built from frequently appearing ingredients across the player's meals:
+   - fields: title, servings, ingredients[] (name + amount), steps[] (short), tip.
+
+IMPORTANT:
+- OUTPUT MUST BE STRICT JSON.
+- NO markdown code fences.
+- NO extra commentary, ONLY the JSON object.
+
+OUTPUT FORMAT:
+{
+  "letter": "string",
+  "summary": [
+    { "day": 1, "npcName": "", "mealType": "breakfast|lunch|dinner", "ingredients": ["...","..."] }
+  ],
+  "health": {
+    "positives": ["...","..."],
+    "improvements": ["...","..."]
+  },
+  "recipe": {
+    "title": "string",
+    "servings": 1,
+    "ingredients": [ { "name": "xxx", "amount": "1 cup" } ],
+    "steps": ["...", "..."],
+    "tip": "string"
+  }
+}
+`;
+}
+
+module.exports = { generateFinalEggPrompt, generateFinalEggPromptPlayerOnly };

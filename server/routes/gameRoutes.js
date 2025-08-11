@@ -9,7 +9,7 @@ const AllowedId = require("../models/AllowedId");
 const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
-const {generateFinalEggPrompt} = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
+const {generateFinalEggPrompt, generateFinalEggPromptPlayerOnly} = require("../utils/finalEggPrompt");
 const {buildLocalEgg} = require('../utils/eggLocal');
 
 async function extractTextFromGemini(result) {
@@ -904,7 +904,7 @@ router.post("/complete-npc-interaction", async (req, res) => {
 
 // 生成最终彩蛋 - 更新以使用完整的餐食和对话历史
 router.post("/generate-final-egg", async (req, res) => {
-    let mealsSummary = []; // 提前声明，避免作用域问题
+    let mealsSummary = []; // 供本地兜底用
     try {
         const {playerId, language} = req.body;
         const lang = language === "zh" ? "zh" : "en";
@@ -913,7 +913,7 @@ router.post("/generate-final-egg", async (req, res) => {
             return res.status(400).json({success: false, error: "Player ID is required"});
         }
 
-        // 1) 拉取数据
+        // 1) 拉数据
         const mealRecords = await MealRecord.findAll({
             where: {playerId},
             order: [["day", "ASC"], ["recordedAt", "ASC"]],
@@ -928,7 +928,7 @@ router.post("/generate-final-egg", async (req, res) => {
             return res.status(400).json({success: false, error: "No meal records found for this player"});
         }
 
-        // 2) 组装前置摘要
+        // 2) 组装原有的 mealsSummary（给兜底用，不传给模型）
         mealsSummary = mealRecords.map(r => ({
             day: r.day,
             npcName: r.npcName,
@@ -945,21 +945,58 @@ router.post("/generate-final-egg", async (req, res) => {
             totalConversations: conversationRecords.length,
         };
 
-        // 3) 调用 LLM（失败就本地兜底）
+        // 3) 只关注玩家输入：为每一天挑一条（优先 dinner），并截断文本，最多 9 条
+        const byDay = new Map();
+        for (const r of mealRecords) {
+            const d = Number(r.day);
+            const prev = byDay.get(d);
+            // 优先选择 dinner；否则保留已有/最后一条
+            if (!prev || r.mealType === "dinner" || (prev.mealType !== "dinner" && r.recordedAt > prev.recordedAt)) {
+                byDay.set(d, r);
+            }
+        }
+        const compactMeals = Array.from(byDay.values())
+            .sort((a, b) => a.day - b.day)
+            .map(r => ({
+                day: r.day,
+                mealType: r.mealType,
+                text: (r.mealContent || "").slice(0, 160) // 截断，避免超长
+            }))
+            .slice(0, 9); // 控制体量
+
+        // 4) 调 LLM（失败则本地兜底）
         let egg;
         try {
             const {GoogleGenAI} = await import("@google/genai");
             const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-            const prompt = generateFinalEggPrompt(mealsSummary, statsData, lang);
+            // 只看玩家输入的 Prompt
+            const prompt = generateFinalEggPromptPlayerOnly(compactMeals, lang);
 
+            // 用 generationConfig，并请求 JSON
             const result = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: [{role: "user", parts: [{text: prompt}]}],
-                config: {temperature: 0.7, maxOutputTokens: 900},
+                generationConfig: {
+                    temperature: 0.3,
+                    maxOutputTokens: 1536,
+                    responseMimeType: "application/json"
+                },
             });
 
-            let rawText = await extractTextFromGemini(result);
+            // 取文本：优先官方 text()，否则拼 parts
+            let rawText = null;
+            if (result?.response?.text && typeof result.response.text === "function") {
+                rawText = await result.response.text();
+            } else if (typeof result?.text === "string") {
+                rawText = result.text;
+            } else {
+                const parts =
+                    result?.response?.candidates?.[0]?.content?.parts
+                    || result?.candidates?.[0]?.content?.parts
+                    || [];
+                rawText = parts.map(p => (typeof p?.text === "string" ? p.text : "")).join("").trim();
+            }
 
             if (!rawText) {
                 console.error("Gemini response had no text. Full response:",
@@ -968,7 +1005,7 @@ router.post("/generate-final-egg", async (req, res) => {
                 throw new Error("No text returned by Gemini");
             }
 
-            // 去掉 ```json 包裹
+            // 去掉可能的 ```json 包裹
             rawText = rawText.replace(/^```json\s*|\s*```$/g, "").trim();
             egg = JSON.parse(rawText);
 
@@ -981,10 +1018,11 @@ router.post("/generate-final-egg", async (req, res) => {
             } else {
                 console.error("[Gemini] Other error or JSON parse error:", apiError);
             }
+            // 本地兜底（基于 mealsSummary）
             egg = buildLocalEgg(mealsSummary, lang);
         }
 
-        // 4) 标记完成 & 返回统一结构
+        // 5) 标记完成 & 返回
         await Player.update({gameCompleted: true}, {where: {playerId}});
 
         return res.json({
@@ -1001,7 +1039,7 @@ router.post("/generate-final-egg", async (req, res) => {
             success: true,
             egg: fallbackEgg,
             mealsSummary,
-            statsData: {}, // 出错时可能没有 statsData
+            statsData: {},
         });
     }
 });
@@ -1091,74 +1129,74 @@ Continue cooking with love and living with heart. You have become a true chef.
 module.exports = router;
 
 router.get("/gemini-health", async (req, res) => {
-  try {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: "user", parts: [{ text: "ping" }] }],
-    });
-    res.json({ ok: true, text: (result?.response?.text?.() || result?.text || "no-text") });
-  } catch (e) {
-    res.status(500).json({ ok: false, err: String(e), code: e?.status || e?.code });
-  }
+    try {
+        const {GoogleGenAI} = await import("@google/genai");
+        const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+        const result = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [{role: "user", parts: [{text: "ping"}]}],
+        });
+        res.json({ok: true, text: (result?.response?.text?.() || result?.text || "no-text")});
+    } catch (e) {
+        res.status(500).json({ok: false, err: String(e), code: e?.status || e?.code});
+    }
 });
 
 router.post("/dev/skip-to-day7", async (req, res) => {
-  try {
-    const { playerId } = req.body;
-    if (!playerId) {
-      return res.status(400).json({ success: false, error: "Player ID is required" });
+    try {
+        const {playerId} = req.body;
+        if (!playerId) {
+            return res.status(400).json({success: false, error: "Player ID is required"});
+        }
+
+        // 用环境变量控制，避免生产误用
+        if (process.env.ALLOW_DEV_SKIP !== "true") {
+            return res.status(403).json({success: false, error: "DEV skip is disabled"});
+        }
+
+        // 1) 玩家 currentDay 设为 7（不改 gameCompleted）
+        await Player.update({currentDay: 7}, {where: {playerId}});
+
+        // 2) PlayerProgress：1-6 天完成；第 7 天解锁未完成
+        const days = [1, 2, 3, 4, 5, 6, 7];
+        for (const d of days) {
+            const base = {
+                playerId,
+                day: d,
+                npcId: dayToNpcId(d),
+                unlockedAt: new Date(),
+            };
+
+            if (d <= 6) {
+                base.completedAt = new Date();
+                base.mealsRecorded = 1;
+                base.hasRecordedMeal = true;
+            } else {
+                base.completedAt = null;
+                base.mealsRecorded = 0;
+                base.hasRecordedMeal = false;
+            }
+
+            // upsert：模型已做 underscored 映射，驼峰写法即可
+            await PlayerProgress.upsert(base);
+        }
+
+        return res.json({success: true, newDay: 7});
+    } catch (err) {
+        console.error("[DEV] skip-to-day7 error:", err);
+        return res.status(500).json({success: false, error: "skip-to-day7 failed", details: err.message});
     }
-
-    // 用环境变量控制，避免生产误用
-    if (process.env.ALLOW_DEV_SKIP !== "true") {
-      return res.status(403).json({ success: false, error: "DEV skip is disabled" });
-    }
-
-    // 1) 玩家 currentDay 设为 7（不改 gameCompleted）
-    await Player.update({ currentDay: 7 }, { where: { playerId } });
-
-    // 2) PlayerProgress：1-6 天完成；第 7 天解锁未完成
-    const days = [1,2,3,4,5,6,7];
-    for (const d of days) {
-      const base = {
-        playerId,
-        day: d,
-        npcId: dayToNpcId(d),
-        unlockedAt: new Date(),
-      };
-
-      if (d <= 6) {
-        base.completedAt = new Date();
-        base.mealsRecorded = 1;
-        base.hasRecordedMeal = true;
-      } else {
-        base.completedAt = null;
-        base.mealsRecorded = 0;
-        base.hasRecordedMeal = false;
-      }
-
-      // upsert：模型已做 underscored 映射，驼峰写法即可
-      await PlayerProgress.upsert(base);
-    }
-
-    return res.json({ success: true, newDay: 7 });
-  } catch (err) {
-    console.error("[DEV] skip-to-day7 error:", err);
-    return res.status(500).json({ success: false, error: "skip-to-day7 failed", details: err.message });
-  }
 });
 
 function dayToNpcId(day) {
-  const map = {
-    1: "village_head",
-    2: "shop_owner",
-    3: "spice_woman",
-    4: "restaurant_owner",
-    5: "fisherman",
-    6: "old_friend",
-    7: "secret_apprentice",
-  };
-  return map[day] || "village_head";
+    const map = {
+        1: "village_head",
+        2: "shop_owner",
+        3: "spice_woman",
+        4: "restaurant_owner",
+        5: "fisherman",
+        6: "old_friend",
+        7: "secret_apprentice",
+    };
+    return map[day] || "village_head";
 }
