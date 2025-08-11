@@ -10,7 +10,7 @@ const Clue = require("../models/Clue"); // 新增
 const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
 const {generateFinalEggPrompt} = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
-
+const {buildLocalEgg} = require('../utils/eggLocal');
 
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
@@ -877,145 +877,131 @@ router.post("/complete-npc-interaction", async (req, res) => {
 router.post("/generate-final-egg", async (req, res) => {
     try {
         const {playerId, language} = req.body;
+        const lang = language === "zh" ? "zh" : "en";
 
         if (!playerId) {
-            return res.status(400).json({
-                success: false,
-                error: "Player ID is required",
-            });
+            return res.status(400).json({success: false, error: "Player ID is required"});
         }
 
-        // 获取玩家的所有餐食记录
+        // 1) 拉取数据
         const mealRecords = await MealRecord.findAll({
             where: {playerId},
-            order: [
-                ["day", "ASC"],
-                ["recordedAt", "ASC"],
-            ],
+            order: [["day", "ASC"], ["recordedAt", "ASC"]],
         });
 
-        // 获取玩家的所有对话历史（可选，用于更丰富的彩蛋内容）
         const conversationRecords = await ConversationHistory.findAll({
             where: {playerId},
             order: [["timestamp", "ASC"]],
         });
 
         if (mealRecords.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: "No meal records found for this player",
-            });
+            return res.status(400).json({success: false, error: "No meal records found for this player"});
         }
 
-        // 准备餐食数据摘要（包含更多细节）
-        const mealsSummary = mealRecords.map((record) => ({
-            day: record.day,
-            npcName: record.npcName,
-            mealType: record.mealType,
-            content: record.mealContent,
-            answers: record.mealAnswers,
-            date: record.recordedAt,
+        // 2) 组装前置摘要
+        const mealsSummary = mealRecords.map(r => ({
+            day: r.day,
+            npcName: r.npcName,
+            mealType: r.mealType,
+            content: r.mealContent,
+            answers: r.mealAnswers,
+            date: r.recordedAt,
         }));
 
-        // 统计数据
         const statsData = {
             totalMeals: mealRecords.length,
             daysCompleted: new Set(mealRecords.map(m => m.day)).size,
             favoriteNPC: getMostInteractedNPC(mealRecords),
-            totalConversations: conversationRecords.length
+            totalConversations: conversationRecords.length,
         };
 
-        // 调用Gemini API生成最终彩蛋
+        // 3) 调用 LLM（失败就本地兜底）
+        let egg;
         try {
-
-
             const {GoogleGenAI} = await import("@google/genai");
             const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-            const prompt = generateFinalEggPrompt(mealsSummary, statsData, language);
+            const prompt = generateFinalEggPrompt(mealsSummary, statsData, lang);
 
-            let egg;
-            try {
-                const result = await ai.models.generateContent({
-                    model: "gemini-2.5-flash",
-                    contents: [{role: "user", parts: [{text: prompt}]}],
-                    config: {temperature: 0.7, maxOutputTokens: 900},
-                });
+            const result = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: [{role: "user", parts: [{text: prompt}]}],
+                config: {temperature: 0.7, maxOutputTokens: 900},
+            });
 
-                // 兼容不同 SDK 结构：优先 result.response.text()
-                let rawText;
-                if (result?.response?.text) {
-                    rawText = await result.response.text();
-                } else if (typeof result?.text === "string") {
-                    rawText = result.text;
-                } else {
-                    throw new Error("No text returned by Gemini");
-                }
-
-                egg = JSON.parse(rawText); // 严格 JSON
-            } catch (apiError) {
-                console.error("Error calling or parsing Gemini final egg:", apiError);
-
-                // 兜底：用基础信息做个可用的默认值，至少不崩
-                egg = {
-                    letter:
-                        language === "zh"
-                            ? "谢谢你完成了七天的旅程。你记录的每一餐，都是与你自己对话的方式。"
-                            : "Thank you for completing the 7‑day journey. Every meal you recorded was a way of listening to yourself.",
-                    summary: mealsSummary.map((m) => ({
-                        day: m.day,
-                        npcName: m.npcName,
-                        mealType: m.mealType,
-                        ingredients: [], // 无法解析时留空
-                    })),
-                    health: {
-                        positives: [],
-                        improvements: [],
-                    },
-                    recipe: {
-                        title: language === "zh" ? "温和蔬谷饭（备用）" : "Gentle Grains & Greens (Fallback)",
-                        servings: 1,
-                        ingredients: [],
-                        steps: [],
-                        tip: "",
-                    },
-                };
+            // 兼容 SDK：优先 response.text()
+            let rawText;
+            if (typeof result?.response?.text === "function") {
+                rawText = await result.response.text();
+            } else {
+                rawText = result?.text;
             }
+            if (!rawText) throw new Error("No text returned by Gemini");
 
-// 标记游戏已完成
-            await Player.update({gameCompleted: true}, {where: {playerId}});
+            // 去掉可能的 ```json 包裹
+            rawText = rawText.replace(/^```json\s*|\s*```$/g, "").trim();
 
-// 返回结构化 JSON（不是一串内容）
-            res.json({
-                success: true,
-                egg,
-                mealsSummary,
-                statsData,
-            });
-
-
-        } catch (apiError) {
-            console.error("Error calling Gemini API for final egg:", apiError);
-
-            // 生成备用彩蛋
-            const fallbackEgg = generateFallbackEgg(statsData, language);
-
-            res.json({
-                success: true,
-                eggContent: fallbackEgg,
-                mealsSummary,
-                statsData,
-            });
+            egg = JSON.parse(rawText);             // 期望得到严格 JSON
+        } catch (e) {
+            console.error("Error calling or parsing Gemini final egg:", e);
+            // ✅ 本地兜底：始终返回结构化对象（letter/summary/health/recipe）
+            egg = buildLocalEgg(mealsSummary, lang);
         }
+
+        // 4) 标记完成 & 返回统一结构
+        await Player.update({gameCompleted: true}, {where: {playerId}});
+
+        return res.json({
+            success: true,
+            egg,               // ★ 永远返回 egg 对象（不是 eggContent 字符串）
+            mealsSummary,
+            statsData,
+        });
     } catch (error) {
         console.error("Error generating final egg:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to generate final egg",
-            details: error.message,
-        });
+
+        // ★ 外层异常也兜底为结构化对象，保持前端协议不变
+        try {
+            const {playerId, language} = req.body || {};
+            const lang = language === "zh" ? "zh" : "en";
+
+            // 如果能取到最基本数据就做个极简兜底；否则返回空结构
+            let mealsSummary = [];
+            if (playerId) {
+                const records = await MealRecord.findAll({
+                    where: {playerId},
+                    order: [["day", "ASC"], ["recordedAt", "ASC"]],
+                });
+                mealsSummary = records.map(r => ({
+                    day: r.day,
+                    npcName: r.npcName,
+                    mealType: r.mealType,
+                    content: r.mealContent,
+                    answers: r.mealAnswers,
+                    date: r.recordedAt,
+                }));
+            }
+
+            const egg = buildLocalEgg(mealsSummary, lang);
+            return res.json({success: true, egg, mealsSummary, statsData: {}});
+        } catch {
+            // 实在不行就给一个最小结构，避免前端崩溃
+            return res.json({
+                success: true,
+                egg: {
+                    letter: "",
+                    summary: [],
+                    health: {positives: [], improvements: []},
+                    recipe: {title: "", servings: 1, ingredients: [], steps: [], tip: ""}
+                },
+                mealsSummary: [],
+                statsData: {},
+            });
+        }
     }
 });
+
+module.exports = router;
 
 // 辅助函数：找出最常互动的NPC
 function getMostInteractedNPC(mealRecords) {

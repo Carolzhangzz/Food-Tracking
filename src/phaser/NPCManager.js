@@ -45,7 +45,7 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "店主阿桂"
                         : "Grace (Shop Owner)",
-                position: {x: 5, y: 6},
+                position: {x: 5, y: 5.5},
                 day: 2,
             },
             {
@@ -61,8 +61,8 @@ export default class NPCManager {
                     this.scene.playerData.language === "zh"
                         ? "餐厅店长老韩"
                         : "Han (Restaurant Owner)",
-                position: {x: 1, y: 8},
-                day: 4,
+                position: {x: 1, y: 7.5},
+                day: 5,
             },
             {
                 id: "fisherman",
@@ -71,7 +71,7 @@ export default class NPCManager {
                         ? "渔夫阿梁"
                         : "Leon (Fisherman)",
                 position: {x: 1.5, y: 4.5},
-                day: 5,
+                day: 4,
             },
             {
                 id: "old_friend",

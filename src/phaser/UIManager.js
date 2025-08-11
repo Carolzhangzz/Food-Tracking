@@ -851,7 +851,9 @@ showFinalEgg(egg) {
   // 容器：方便关闭时统一销毁
   this._eggContainer?.destroy(true);
   const container = this._eggContainer = this.scene.add.container(0,0);
-  const DEPTH = 300;
+
+
+  const DEPTH = 10000;
 
   // 全屏背景
   const overlay = this.scene.add.graphics();
