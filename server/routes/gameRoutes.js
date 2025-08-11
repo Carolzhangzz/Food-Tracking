@@ -12,6 +12,35 @@ const sequelize = require('../db');
 const {generateFinalEggPrompt} = require("../utils/finalEggPrompt"); // 路径按你的项目结构调整
 const {buildLocalEgg} = require('../utils/eggLocal');
 
+async function extractTextFromGemini(result) {
+    try {
+        // 1) 新版常见：result.response.text()
+        if (result?.response?.text && typeof result.response.text === "function") {
+            const t = await result.response.text();
+            if (t && t.trim()) return t.trim();
+        }
+        // 2) 有些版本直接有 text
+        if (typeof result?.text === "string" && result.text.trim()) {
+            return result.text.trim();
+        }
+        // 3) 手动从 candidates 拼文本
+        const parts =
+            result?.response?.candidates?.[0]?.content?.parts
+            || result?.candidates?.[0]?.content?.parts
+            || [];
+        const txt = parts
+            .map(p => (typeof p?.text === "string" ? p.text : ""))
+            .join("")
+            .trim();
+        if (txt) return txt;
+
+        return null;
+    } catch (e) {
+        console.error("[extractTextFromGemini] failed:", e);
+        return null;
+    }
+}
+
 // ===== 工具函数 =====
 function calculateCurrentDay(firstLoginDate) {
     const today = new Date();
@@ -875,6 +904,7 @@ router.post("/complete-npc-interaction", async (req, res) => {
 
 // 生成最终彩蛋 - 更新以使用完整的餐食和对话历史
 router.post("/generate-final-egg", async (req, res) => {
+    let mealsSummary = []; // 提前声明，避免作用域问题
     try {
         const {playerId, language} = req.body;
         const lang = language === "zh" ? "zh" : "en";
@@ -899,7 +929,7 @@ router.post("/generate-final-egg", async (req, res) => {
         }
 
         // 2) 组装前置摘要
-        const mealsSummary = mealRecords.map(r => ({
+        mealsSummary = mealRecords.map(r => ({
             day: r.day,
             npcName: r.npcName,
             mealType: r.mealType,
@@ -929,22 +959,28 @@ router.post("/generate-final-egg", async (req, res) => {
                 config: {temperature: 0.7, maxOutputTokens: 900},
             });
 
-            // 兼容 SDK：优先 response.text()
-            let rawText;
-            if (typeof result?.response?.text === "function") {
-                rawText = await result.response.text();
-            } else {
-                rawText = result?.text;
+            let rawText = await extractTextFromGemini(result);
+
+            if (!rawText) {
+                console.error("Gemini response had no text. Full response:",
+                    JSON.stringify(result?.response || result || {}, null, 2)
+                );
+                throw new Error("No text returned by Gemini");
             }
-            if (!rawText) throw new Error("No text returned by Gemini");
 
-            // 去掉可能的 ```json 包裹
+            // 去掉 ```json 包裹
             rawText = rawText.replace(/^```json\s*|\s*```$/g, "").trim();
+            egg = JSON.parse(rawText);
 
-            egg = JSON.parse(rawText);             // 期望得到严格 JSON
-        } catch (e) {
-            console.error("Error calling or parsing Gemini final egg:", e);
-            // ✅ 本地兜底：始终返回结构化对象（letter/summary/health/recipe）
+        } catch (apiError) {
+            const code = apiError?.status || apiError?.code;
+            if (code === 401 || code === 403) {
+                console.error("[Gemini] Auth/permissions error:", apiError);
+            } else if (code === 429) {
+                console.error("[Gemini] Quota exceeded:", apiError);
+            } else {
+                console.error("[Gemini] Other error or JSON parse error:", apiError);
+            }
             egg = buildLocalEgg(mealsSummary, lang);
         }
 
@@ -953,55 +989,23 @@ router.post("/generate-final-egg", async (req, res) => {
 
         return res.json({
             success: true,
-            egg,               // ★ 永远返回 egg 对象（不是 eggContent 字符串）
+            egg,
             mealsSummary,
             statsData,
         });
-    } catch (error) {
-        console.error("Error generating final egg:", error);
 
-        // ★ 外层异常也兜底为结构化对象，保持前端协议不变
-        try {
-            const {playerId, language} = req.body || {};
-            const lang = language === "zh" ? "zh" : "en";
-
-            // 如果能取到最基本数据就做个极简兜底；否则返回空结构
-            let mealsSummary = [];
-            if (playerId) {
-                const records = await MealRecord.findAll({
-                    where: {playerId},
-                    order: [["day", "ASC"], ["recordedAt", "ASC"]],
-                });
-                mealsSummary = records.map(r => ({
-                    day: r.day,
-                    npcName: r.npcName,
-                    mealType: r.mealType,
-                    content: r.mealContent,
-                    answers: r.mealAnswers,
-                    date: r.recordedAt,
-                }));
-            }
-
-            const egg = buildLocalEgg(mealsSummary, lang);
-            return res.json({success: true, egg, mealsSummary, statsData: {}});
-        } catch {
-            // 实在不行就给一个最小结构，避免前端崩溃
-            return res.json({
-                success: true,
-                egg: {
-                    letter: "",
-                    summary: [],
-                    health: {positives: [], improvements: []},
-                    recipe: {title: "", servings: 1, ingredients: [], steps: [], tip: ""}
-                },
-                mealsSummary: [],
-                statsData: {},
-            });
-        }
+    } catch (outerErr) {
+        console.error("Error generating final egg:", outerErr);
+        const fallbackEgg = buildLocalEgg(mealsSummary, "en");
+        return res.json({
+            success: true,
+            egg: fallbackEgg,
+            mealsSummary,
+            statsData: {}, // 出错时可能没有 statsData
+        });
     }
 });
 
-module.exports = router;
 
 // 辅助函数：找出最常互动的NPC
 function getMostInteractedNPC(mealRecords) {
@@ -1085,3 +1089,17 @@ Continue cooking with love and living with heart. You have become a true chef.
 }
 
 module.exports = router;
+
+router.get("/gemini-health", async (req, res) => {
+  try {
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const result = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: "ping" }] }],
+    });
+    res.json({ ok: true, text: (result?.response?.text?.() || result?.text || "no-text") });
+  } catch (e) {
+    res.status(500).json({ ok: false, err: String(e), code: e?.status || e?.code });
+  }
+});

@@ -853,7 +853,7 @@ showFinalEgg(egg) {
   const container = this._eggContainer = this.scene.add.container(0,0);
 
 
-  const DEPTH = 10000;
+  const DEPTH = 1000000;
 
   // 全屏背景
   const overlay = this.scene.add.graphics();
