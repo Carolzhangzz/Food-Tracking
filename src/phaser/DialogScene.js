@@ -3,8 +3,8 @@ import Phaser from "phaser";
 import npc1bg from "../assets/npc/npc1bg.png";
 import npc2bg from "../assets/npc/npc2bg.png";
 import npc3bg from "../assets/npc/npc3bg.png";
-import npc4bg from "../assets/npc/npc5bg.png";
-import npc5bg from "../assets/npc/npc4bg.png";
+import npc4bg from "../assets/npc/npc4bg.png";
+import npc5bg from "../assets/npc/npc5bg.png";
 import npc6bg from "../assets/npc/npc6bg.png";
 import npc7bg from "../assets/npc/npc7bg.png";
 import DialogSystem from "./DialogSystem";
@@ -1596,6 +1596,7 @@ I believe those records hold the key.`,
     }
 
     // 修复：添加线索到NPC管理器时确保使用当前语言
+    //【FOR STAGES】
     async handleMealCompletion(recordResult = {success: true, shouldGiveClue: false}) {
         try {
             if (this.debugMode) {
@@ -1610,11 +1611,23 @@ I believe those records hold the key.`,
                 console.log("给出线索并完成NPC交互");
                 // 修复：确保使用当前语言获取线索
                 const clue = recordResult.clueText || this.getClueForNPC(this.currentNPC);
-                this.npcManager.addClue(this.currentNPC, clue, this.npcManager.getCurrentDay());
+                const stage =
+                    recordResult?.mealStage ??
+                    (this.selectedMealType === 'breakfast' ? 1 :
+                        this.selectedMealType === 'lunch' ? 2 : 3);
+
+                this.npcManager.addClue(
+                    this.currentNPC,
+                    clue,
+                    this.npcManager.getCurrentDay(),
+                    stage
+                );
                 this.showSingleMessage("npc", clue, async () => {
                     this.dialogPhase = "completed";
                     // 标记NPC交互完成，但不再重复添加线索
-                    await this.npcManager.completeNPCInteraction(this.currentNPC);
+                    if (this.selectedMealType === 'dinner') {
+                        await this.npcManager.completeNPCInteraction(this.currentNPC);
+                    }
                     this.notifyMealRecorded(); // 改名，不再添加线索
                 });
             } else {
@@ -2009,6 +2022,7 @@ I believe those records hold the key.`,
     }
 
     // ✅ 保存餐食记录（带重入保护）
+    //【FOR STAGES】
     async saveMealRecord() {
         // 已经保存过就直接复用结果，避免重复写库
         if (this.mealSaved || this.mealSaveInProgress) {
@@ -2031,7 +2045,9 @@ I believe those records hold the key.`,
             this.mealSaved = true;
 
             // 保存后可触发天数检查（若实现了）
-            this.npcManager.checkAndUpdateCurrentDay?.();
+            if (this.selectedMealType === 'dinner') {
+                this.npcManager.checkAndUpdateCurrentDay?.();
+            }
 
             return result;
         } catch (e) {

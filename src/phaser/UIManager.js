@@ -11,6 +11,8 @@ export default class UIManager {
         this.mealProgressIndicators = []; // 简约的三餐进度指示器
         this.createProgressUI();
         this.createActionButtons();
+        this.clues = this.clues || []; //【FOR STAGES】
+this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
 
         // 监听屏幕尺寸变化
         this.scene.scale.on("resize", () => {
@@ -383,15 +385,57 @@ export default class UIManager {
             }
         });
     }
+//【FOR STAGES】
 
     addClue(clue) {
-        this.clues.push(clue);
-        this.updateClueCountBadge();
+  if (!clue) return;
 
-        this.showNotification(
-            this.scene.playerData.language === "zh" ? "新线索！" : "New clue!"
-        );
-    }
+  // 规范化字段（向后兼容）
+  const id = clue.id || `${clue.npcId || 'unknown'}_${clue.day || 0}${(clue.stage === 1 || clue.stage === 2 || clue.stage === 3) ? '_' + clue.stage : ''}`;
+  const stageNum = (clue.stage === 1 || clue.stage === 2 || clue.stage === 3) ? clue.stage : undefined;
+
+  // ✅ 去重：UI 层再次保险，避免重复渲染
+  if (this.cluesById.has(id)) {
+    console.log('[UIManager] clue already exists, skip:', id);
+    return;
+  }
+
+  const normalized = {
+    id,
+    npcId: clue.npcId,
+    npcName: clue.npcName || 'NPC',
+    clue: clue.clue || '…',
+    day: Number.isFinite(clue.day) ? clue.day : 0,
+    stage: stageNum,                       // ✅ 明确保存 stage
+    receivedAt: clue.receivedAt ? new Date(clue.receivedAt) : new Date(),
+  };
+
+  // 存储
+  this.clues.push(normalized);
+  this.cluesById.set(id, normalized);
+
+  // ✅ 可选：按 day、stage、receivedAt 排序，列表更稳定
+  this.clues.sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day;
+    const sa = a.stage ?? 99, sb = b.stage ?? 99;
+    if (sa !== sb) return sa - sb;
+    return a.receivedAt - b.receivedAt;
+  });
+
+  this.updateClueCountBadge();
+
+  // ✅ 更友好的弹窗：带 NPC 名 & 阶段
+  const langZh = this.scene.playerData.language === 'zh';
+  const stageTag = stageNum ? (langZh ? `（阶段${stageNum}）` : ` (Stage ${stageNum})`) : '';
+  const title = langZh ? '新线索！' : 'New clue!';
+  const body  = `${normalized.npcName}${stageTag}`;
+
+  this.showNotification(`${title}\n${body}`);
+
+  // ✅ 这里如果你有“线索面板”的渲染函数，记得调用它刷新 UI
+  // this.renderClueList?.();
+}
+
 
     updateClueCountBadge() {
         if (this.clueCountBadge) {

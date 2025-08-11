@@ -538,7 +538,7 @@ router.post("/player-status", async (req, res) => {
                 day: dayNum,
                 npcId: p.npcId,
                 unlocked: !!p.unlockedAt,
-                hasCompletedDay: !!p.completedAt,
+                hasCompletedDay: recordedTypes.has("dinner"),
                 hasRecordedMeal: meals.length > 0,
                 mealsRecorded: meals.length,
                 availableMealTypes: remaining,
@@ -1006,6 +1006,7 @@ function getClueForNPCStage(npcId, language = 'en', stage = 1) {
 }
 
 // 完成NPC交互
+//【FOR STAGES】
 router.post("/complete-npc-interaction", async (req, res) => {
     try {
         const {playerId, day, npcId} = req.body;
@@ -1021,9 +1022,10 @@ router.post("/complete-npc-interaction", async (req, res) => {
         });
 
         if (progressRecord) {
-            await progressRecord.update({
-                completedAt: new Date(),
-            });
+            const done = await hasCompletedTodaysMeals(playerId, day); // ← 是否已有晚餐
+            if (done && !progressRecord.completedAt) {
+                await progressRecord.update({completedAt: new Date()});
+            }
         }
 
         res.json({

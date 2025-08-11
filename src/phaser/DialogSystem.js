@@ -1,4 +1,4 @@
-// DialogSystem.js - 修复后的移动端对话系统
+// src/phaser/DialogSystem.js - 修复后的移动端对话系统
 import Phaser from "phaser";
 
 export default class DialogSystem {
@@ -668,6 +668,8 @@ emit(eventName, ...args) {
     async endDialog() {
         console.log("Ending dialog...");
 
+        const result = this.getDialogResult(); //【FOR STAGES, added】
+
         this.cleanupButtons();
         this.destroyInputElements();
         this.destroyUIElements();
@@ -698,7 +700,8 @@ emit(eventName, ...args) {
         }
 
         console.log("Dialog ended successfully");
-        this.emit("dialogEnded", this.getDialogResult());
+        // this.emit("dialogEnded", this.getDialogResult()); //【FOR STAGES, deleted】
+        this.emit("dialogEnded", result); // 【FOR STAGES, added】
     }
 
     getDialogResult() {
