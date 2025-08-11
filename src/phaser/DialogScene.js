@@ -1596,52 +1596,70 @@ I believe those records hold the key.`,
     }
 
     // 修复：添加线索到NPC管理器时确保使用当前语言
-    //【FOR STAGES】
+    //【FOR STAGES_v1】
     async handleMealCompletion(recordResult = {success: true, shouldGiveClue: false}) {
         try {
             if (this.debugMode) {
-                console.log("记录结果:", recordResult); // 使用传递过来的真实结果
+                console.log("记录结果:", recordResult);
             }
             if (!recordResult.success) {
                 throw new Error(recordResult.error || "Failed to record meal");
             }
 
-            // 根据返回结果决定给出线索还是普通结束
-            if (recordResult.shouldGiveClue) {
-                console.log("给出线索并完成NPC交互");
-                // 修复：确保使用当前语言获取线索
-                const clue = recordResult.clueText || this.getClueForNPC(this.currentNPC);
-                const stage =
-                    recordResult?.mealStage ??
-                    (this.selectedMealType === 'breakfast' ? 1 :
-                        this.selectedMealType === 'lunch' ? 2 : 3);
-
-                this.npcManager.addClue(
-                    this.currentNPC,
-                    clue,
-                    this.npcManager.getCurrentDay(),
-                    stage
-                );
-                this.showSingleMessage("npc", clue, async () => {
-                    this.dialogPhase = "completed";
-                    // 标记NPC交互完成，但不再重复添加线索
-                    if (this.selectedMealType === 'dinner') {
-                        await this.npcManager.completeNPCInteraction(this.currentNPC);
-                    }
-                    this.notifyMealRecorded(); // 改名，不再添加线索
-                });
-            } else {
-                console.log("普通餐食记录完成，不给线索");
+            // 不给线索的普通结束
+            if (!recordResult.shouldGiveClue) {
                 const endMessage =
                     this.playerData.language === "zh"
                         ? "谢谢你的分享！记得按时吃饭哦。"
                         : "Thanks for sharing! Remember to eat on time.";
-
                 this.showSingleMessage("npc", endMessage, () => {
                     this.dialogPhase = "completed";
-                    // 不标记为完成，玩家可以继续记录其他餐食
                 });
+                return;
             }
+
+            // === 给线索的路径 ===
+            // 1) 计算阶段（优先后端传回的 mealStage）
+            const stage =
+                recordResult?.mealStage ??
+                (this.selectedMealType === "breakfast" ? 1 :
+                    this.selectedMealType === "lunch" ? 2 : 3);
+
+            // 2) 选择线索文本（优先后端传回的 clueText）
+            let clueText = recordResult?.clueText;
+            if (!clueText || !clueText.trim()) {
+                if (stage === 1 || stage === 2) {
+                    // 模糊提示：版本 1/2 分别对应早/午餐
+                    clueText = this.getVagueResponse(this.currentNPC, stage);
+                } else {
+                    // 晚餐：完整线索
+                    clueText = this.getClueForNPC(this.currentNPC);
+                }
+            }
+
+            // 3) 记录到本地 & UI（把 stage 传进去，面板就能区分餐别）
+            this.npcManager.addClue(
+                this.currentNPC,
+                clueText,
+                this.npcManager.getCurrentDay(),
+                stage
+            );
+
+            // 4) 呈现并根据阶段决定是否标记交互完成
+            this.showSingleMessage("npc", clueText, async () => {
+                this.dialogPhase = "completed";
+
+                // 仅晚餐（stage=3）才标记 NPC 交互完成
+                if (stage === 3) {
+                    await this.npcManager.completeNPCInteraction(this.currentNPC);
+                    // 如需强制检查切天，可保留这句（后端会做最终校验）
+                    this.npcManager.checkAndUpdateCurrentDay?.();
+                }
+
+                // 通知主场景刷新
+                this.notifyMealRecorded();
+            });
+
         } catch (error) {
             console.error("处理食物记录完成时出错:", error);
             this.showSingleMessage(
