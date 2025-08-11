@@ -14,7 +14,7 @@ INPUT:
 - statsData: ${statsJson}
 
 TASKS:
-1) Write a short warm "master's letter" (2 paragraphs).
+1) Write a short warm "master's letter". It is fixed. just use the same sentence as below: "Dear traveler, I knew you'd find this place. Congratulations on finding the recipe! I'm sorry l didn't meet you in the village. I've already left. Can you quess where l am now? I've made a decision -- l want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic. Best of luck. i'm proud of you. Until we meet again. -- Master Hua"
 2) Produce a 7-day summary (array): for each day list npcName, mealType, and 1-4 main ingredients. 
    - Extract from mealContent if possible; if unclear, infer plausible items from the text.
 3) Health analysis:
