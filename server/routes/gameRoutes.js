@@ -1063,7 +1063,15 @@ router.post("/generate-final-egg", async (req, res) => {
             order: [["timestamp", "ASC"]],
         });
 
+        console.log("[/generate-final-egg] records=", {
+      meals: mealRecords.length,
+      conversations: conversationRecords.length,
+      days: Array.from(new Set(mealRecords.map(m => m.day))).length,
+      sampleMealsHead: mealRecords.slice(0, 2).map(r => ({ day: r.day, mealType: r.mealType })),
+    });
+
         if (mealRecords.length === 0) {
+            console.warn("[/generate-final-egg] No meal records found, returning 400");
             return res.status(400).json({success: false, error: "No meal records found for this player"});
         }
 
@@ -1103,6 +1111,9 @@ router.post("/generate-final-egg", async (req, res) => {
             }))
             .slice(0, 9); // 控制体量
 
+         console.log("[/generate-final-egg] compactMeals.count =", compactMeals.length, "sample =", compactMeals.slice(0, 2));
+
+
         // 4) 调 LLM（失败则本地兜底）
         let egg;
         try {
@@ -1121,6 +1132,11 @@ router.post("/generate-final-egg", async (req, res) => {
                     responseMimeType: "application/json",
                 },
             });
+
+            // —— 诊断：SDK 返回结构 —— //
+      console.log("[/generate-final-egg] result keys:", Object.keys(result || {}));
+      console.log("[/generate-final-egg] response keys:", Object.keys(result?.response || {}));
+
 
             let rawText = await extractTextFromGemini(result);
             if (!rawText || !rawText.trim()) {
@@ -1155,6 +1171,8 @@ router.post("/generate-final-egg", async (req, res) => {
                 egg = JSON.parse(textForParse);
             } catch (e1) {
                 console.warn("[Gemini] JSON.parse failed once, try minor comma fix…", e1?.message);
+                console.warn("[Gemini] textForParse.head =", textForParse?.slice?.(0, 400));
+        console.warn("[Gemini] textForParse.tail =", textForParse?.slice?.(-400));
                 // ★ 再给一次机会：去掉行尾多余逗号
                 const minor = textForParse.replace(/,\s*([}\]])/g, "$1");
                 egg = JSON.parse(minor);
