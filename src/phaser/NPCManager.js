@@ -114,27 +114,24 @@ export default class NPCManager {
                 this.availableNPCs = data.availableNPCs;
                 this.mealRecords = data.mealRecords;
                 this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
-
                 const mappedClues = (data.clueRecords || []).map((clue) => ({
                     ...clue,
                     npcName: this.getNPCNameByLanguage(clue.npcId),
                 }));
 
+// 统一更新本地缓存（以 id 为主键）
+                const byId = new Map();
+                [...(this.clueRecords || []), ...mappedClues].forEach(c => byId.set(c.id, c));
+                this.clueRecords = Array.from(byId.values());
 
-// 更新本地线索列表（去重合并：以 id 为主键）
-                const existingById = new Map((this.clueRecords || []).map(c => [c.id, c]));
-                mappedClues.forEach(c => existingById.set(c.id, c));
-                this.clueRecords = Array.from(existingById.values());
+// 一次性给 UI（由 UI 根据模板匹配补全 stage，并做去重）
+                if (this.scene.uiManager && Array.isArray(mappedClues)) {
+                    this.scene.uiManager.setClues(mappedClues);
 
-// 只把“没推送过”的线索丢给 UI
-                if (this.scene.uiManager && this.clueRecords.length > 0) {
-                    for (const clue of mappedClues) {
-                        if (!this.pushedClueIds.has(clue.id)) {
-                            this.scene.uiManager.addClue(clue);
-                            this.pushedClueIds.add(clue.id);
-                        }
-                    }
+                    // 维护 pushedClueIds，避免后面重复单条推送
+                    mappedClues.forEach(c => this.pushedClueIds.add(c.id));
                 }
+
 
                 // 更新NPC状态
                 this.updateNPCStates();
@@ -668,6 +665,8 @@ export default class NPCManager {
 //【FOR STAGES】
     // 新增：添加线索到本地存储（现在主要用于UI更新）
     addClue(npcId, clueText, day, stage = null) {
+        console.log("[NPCManager.addClue] args:", npcId, clueText?.slice(0,40), day, stage);
+
         const npc = this.npcs.get(npcId);
 
         // 线索唯一ID：npc_天_阶段（阶段可为空）

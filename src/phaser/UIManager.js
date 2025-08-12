@@ -1,10 +1,11 @@
 // UIManager.js - 完整修复版本：移除餐食名称文本，修复线索语言问题
 import Phaser from "phaser";
+import {guessStageFromText} from "./utils/guessStageFromText";
 
 export default class UIManager {
     constructor(scene) {
         this.scene = scene;
-        this.clues = [];
+        this.clues = this.clues || [];
         this.notifications = [];
         this.progressBar = null;
         this.dayIndicator = null;
@@ -12,7 +13,7 @@ export default class UIManager {
         this.createProgressUI();
         this.createActionButtons();
         this.clues = this.clues || []; //【FOR STAGES】
-this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
+        this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
 
         // 监听屏幕尺寸变化
         this.scene.scale.on("resize", () => {
@@ -385,54 +386,92 @@ this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
             }
         });
     }
+
 //【FOR STAGES】
 
     addClue(clue) {
-  if (!clue) return;
+        console.log("[UIManager.addClue] received:", clue.id, clue.stage);
+        if (!clue) return;
 
-  // 规范化字段（向后兼容）
-  const id = clue.id || `${clue.npcId || 'unknown'}_${clue.day || 0}${(clue.stage === 1 || clue.stage === 2 || clue.stage === 3) ? '_' + clue.stage : ''}`;
-  const stageNum = (clue.stage === 1 || clue.stage === 2 || clue.stage === 3) ? clue.stage : undefined;
+        // === 先补 stage（若缺失） ===
+        let stageNum =
+            (clue.stage === 1 || clue.stage === 2 || clue.stage === 3)
+                ? clue.stage
+                : undefined;
 
-  // ✅ 去重：UI 层再次保险，避免重复渲染
-  if (this.cluesById.has(id)) {
-    console.log('[UIManager] clue already exists, skip:', id);
-    return;
-  }
+        if (stageNum == null) {
+            const guessed = guessStageFromText(clue.npcId, clue.clue);
+            if (guessed) stageNum = guessed;
+        }
 
-  const normalized = {
-    id,
-    npcId: clue.npcId,
-    npcName: clue.npcName || 'NPC',
-    clue: clue.clue || '…',
-    day: Number.isFinite(clue.day) ? clue.day : 0,
-    stage: stageNum,                       // ✅ 明确保存 stage
-    receivedAt: clue.receivedAt ? new Date(clue.receivedAt) : new Date(),
-  };
+        // 规范化 id：npcId_day_[stage?]
+        const id =
+            clue.id ||
+            `${clue.npcId || "unknown"}_${Number.isFinite(clue.day) ? clue.day : 0}${
+                stageNum ? "_" + stageNum : ""
+            }`;
 
-  // 存储
-  this.clues.push(normalized);
-  this.cluesById.set(id, normalized);
+        // === 去重：UI 层再保险，避免重复渲染 ===
+        if (this.cluesById.has(id)) {
+            console.log("[UIManager] clue already exists, skip:", id);
+            return;
+        }
 
-  // ✅ 可选：按 day、stage、receivedAt 排序，列表更稳定
-  this.clues.sort((a, b) => {
-    if (a.day !== b.day) return a.day - b.day;
-    const sa = a.stage ?? 99, sb = b.stage ?? 99;
-    if (sa !== sb) return sa - sb;
-    return a.receivedAt - b.receivedAt;
-  });
+        const normalized = {
+            id,
+            npcId: clue.npcId,
+            npcName: clue.npcName || "NPC",
+            clue: clue.clue || "…",
+            day: Number.isFinite(clue.day) ? clue.day : 0,
+            stage: stageNum, // 明确保存 stage（可能是匹配出来的）
+            receivedAt: clue.receivedAt ? new Date(clue.receivedAt) : new Date(),
+        };
 
-  this.updateClueCountBadge();
+        // 写入
+        this.clues.push(normalized);
+        console.log('[UIManager.addClue] add:', {id: normalized.id, stage: normalized.stage, day: normalized.day});
 
-  // ✅ 更友好的弹窗：带 NPC 名 & 阶段
-  const langZh = this.scene.playerData.language === 'zh';
-  const stageTag = stageNum ? (langZh ? `（阶段${stageNum}）` : ` (Stage ${stageNum})`) : '';
-  const title = langZh ? '新线索！' : 'New clue!';
-  const body  = `${normalized.npcName}${stageTag}`;
+        this.cluesById.set(id, normalized);
 
-  this.showNotification(`${title}\n${body}`);
+        // 可选：稳定排序
+        this.clues.sort((a, b) => {
+            if (a.day !== b.day) return a.day - b.day;
+            const sa = a.stage ?? 99, sb = b.stage ?? 99;
+            if (sa !== sb) return sa - sb;
+            return a.receivedAt - b.receivedAt;
+        });
 
-}
+        // 你的原逻辑
+        this.updateClueCountBadge?.();
+        this.showNotification(
+            this.scene.playerData.language === "zh" ? "新线索！" : "New clue!"
+        );
+
+        // 若有渲染面板的方法，这里刷新一下（可选）
+        // this.renderCluePanel?.();
+    }
+
+    // UIManager.js 中增一个方法
+    setClues(clueList = []) {
+        this.clues = (clueList || []).map(c => {
+                if (c.stage === undefined || c.stage === null) {
+                    const s = guessStageFromText(c.npcId, c.clue);
+                    return s ? {...c, stage: s} : c;
+                }
+                return c;
+            }
+        );
+
+        this.updateClueCountBadge?.();
+        // this.renderCluePanel?.(); // 若有
+        console.log('[UIManager.setClues] received:', cluesArray.length);
+        console.log('[UIManager.setClues] staged sample:',
+            (this.clues || []).slice(-3).map(c => ({id: c.id, stage: c.stage, head: (c.clue || '').slice(0, 30)}))
+        );
+
+    }
+
+
     updateClueCountBadge() {
         if (this.clueCountBadge) {
             const count = this.clues.length;
@@ -881,7 +920,6 @@ this.cluesById = this.cluesById || new Map(); //【FOR STAGES】
 
     // 最终彩蛋显示 - 手机优化版
     // 在 UIManager.js 里，替换原来的 showFinalEgg(content)
-
 
 
     showFinalEgg(egg) {

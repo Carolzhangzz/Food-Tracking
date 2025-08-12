@@ -552,6 +552,8 @@ router.post("/player-status", async (req, res) => {
         // 6) 关键调试打印 —— 直接看日志里有没有 day=2
         console.log(`[/player-status] player=${playerId} currentDay=${currentDay}`);
         console.log("[/player-status] availableNPCs =", JSON.stringify(availableNPCs, null, 2));
+        console.log("[/player-status] clueRecords:", clueRecords);
+
 
         // 7) 返回精简后的 plain 数据，避免 Sequelize 实例引发 stringify 问题
         return res.json({
