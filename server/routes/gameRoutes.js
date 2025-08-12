@@ -12,6 +12,7 @@ const ConversationHistory = require("../models/ConversationHistory"); // 新增
 const sequelize = require('../db');
 const {generateFinalEggPrompt, generateFinalEggPromptPlayerOnly} = require("../utils/finalEggPrompt");
 const {buildLocalEgg} = require('../utils/eggLocal');
+const MAX_MEAL_CONTENT_LENGTH = 200;
 
 async function extractTextFromGemini(result) {
     try {
@@ -1066,11 +1067,11 @@ router.post("/generate-final-egg", async (req, res) => {
         });
 
         console.log("[/generate-final-egg] records=", {
-      meals: mealRecords.length,
-      conversations: conversationRecords.length,
-      days: Array.from(new Set(mealRecords.map(m => m.day))).length,
-      sampleMealsHead: mealRecords.slice(0, 2).map(r => ({ day: r.day, mealType: r.mealType })),
-    });
+            meals: mealRecords.length,
+            conversations: conversationRecords.length,
+            days: Array.from(new Set(mealRecords.map(m => m.day))).length,
+            sampleMealsHead: mealRecords.slice(0, 2).map(r => ({day: r.day, mealType: r.mealType})),
+        });
 
         if (mealRecords.length === 0) {
             console.warn("[/generate-final-egg] No meal records found, returning 400");
@@ -1082,7 +1083,7 @@ router.post("/generate-final-egg", async (req, res) => {
             day: r.day,
             npcName: r.npcName,
             mealType: r.mealType,
-            content: r.mealContent,
+            content: (r.mealContent || "").slice(0, MAX_MEAL_CONTENT_LENGTH),
             answers: r.mealAnswers,
             date: r.recordedAt,
         }));
@@ -1113,7 +1114,7 @@ router.post("/generate-final-egg", async (req, res) => {
             }))
             .slice(0, 9); // 控制体量
 
-         console.log("[/generate-final-egg] compactMeals.count =", compactMeals.length, "sample =", compactMeals.slice(0, 2));
+        console.log("[/generate-final-egg] compactMeals.count =", compactMeals.length, "sample =", compactMeals.slice(0, 2));
 
 
         // 4) 调 LLM（失败则本地兜底）
@@ -1136,8 +1137,8 @@ router.post("/generate-final-egg", async (req, res) => {
             });
 
             // —— 诊断：SDK 返回结构 —— //
-      console.log("[/generate-final-egg] result keys:", Object.keys(result || {}));
-      console.log("[/generate-final-egg] response keys:", Object.keys(result?.response || {}));
+            console.log("[/generate-final-egg] result keys:", Object.keys(result || {}));
+            console.log("[/generate-final-egg] response keys:", Object.keys(result?.response || {}));
 
 
             let rawText = await extractTextFromGemini(result);
@@ -1174,7 +1175,7 @@ router.post("/generate-final-egg", async (req, res) => {
             } catch (e1) {
                 console.warn("[Gemini] JSON.parse failed once, try minor comma fix…", e1?.message);
                 console.warn("[Gemini] textForParse.head =", textForParse?.slice?.(0, 400));
-        console.warn("[Gemini] textForParse.tail =", textForParse?.slice?.(-400));
+                console.warn("[Gemini] textForParse.tail =", textForParse?.slice?.(-400));
                 // ★ 再给一次机会：去掉行尾多余逗号
                 const minor = textForParse.replace(/,\s*([}\]])/g, "$1");
                 egg = JSON.parse(minor);
