@@ -665,7 +665,7 @@ export default class NPCManager {
 //【FOR STAGES】
     // 新增：添加线索到本地存储（现在主要用于UI更新）
     addClue(npcId, clueText, day, stage = null) {
-        console.log("[NPCManager.addClue] args:", npcId, clueText?.slice(0,40), day, stage);
+        console.log("[NPCManager.addClue] args:", npcId, clueText?.slice(0, 40), day, stage);
 
         const npc = this.npcs.get(npcId);
 
@@ -932,12 +932,23 @@ export default class NPCManager {
 
     startDialogScene(npcId) {
         console.log(`Starting dialog scene with NPC: ${npcId}`);
+
+        // === 新增：计算是否需要走 ConvAI（当天第一次进入） ===
+        const currentDay = this.playerStatus?.currentDay;
+        const today = this.availableNPCs.find(n =>
+            n.npcId === npcId && n.day === currentDay
+        );
+        // 只要今天还没记过餐 -> 第一次 -> 触发 ConvAI
+        const useConvAI = today ? (today.mealsRecorded === 0) : true;
+
+
         this.scene.scene.pause("MainScene");
         this.scene.scene.launch("DialogScene", {
             npcId: npcId,
             npcManager: this,
             playerData: this.scene.playerData,
             mainScene: this.scene,
+            useConvAI
         });
     }
 

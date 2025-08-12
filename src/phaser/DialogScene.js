@@ -1,4 +1,4 @@
-// DialogScene.js - 修正餐食选择和线索逻辑
+// src/phaser/DialogScene.js - 修正餐食选择和线索逻辑
 import Phaser from "phaser";
 import npc1bg from "../assets/npc/npc1bg.png";
 import npc2bg from "../assets/npc/npc2bg.png";
@@ -62,6 +62,7 @@ export default class DialogScene extends Phaser.Scene {
         this.npcManager = data.npcManager;
         this.playerData = data.playerData;
         this.mainScene = data.mainScene;
+        this.useConvAI = !!data.useConvAI;
         this.convaiSessionId = "-1";
 
         // 获取当前NPC可选择的餐食类型
@@ -108,7 +109,7 @@ export default class DialogScene extends Phaser.Scene {
         this.setupBackground();
         this.setupUI();
         this.setupControls();
-        this.startConversation();
+        // this.startConversation();
 
         // ✅ 只实例化一次
         this.dialogSystem = new DialogSystem(this);
@@ -118,7 +119,21 @@ export default class DialogScene extends Phaser.Scene {
         this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
         this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
         this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
-    }
+
+
+  // ✅ 分支：今天第一次（当天尚无餐）才走 ConvAI，否则打招呼直接进入食记
+  if (this.useConvAI) {
+    this.startConversation(); // 你的 ConvAI 起始逻辑
+  } else {
+    const lang = this.playerData?.language || 'en';
+    const greet = (lang === 'zh')
+      ? '嗨，回来啦！我们直接记录这顿吧。'
+      : "Hey, welcome back! Let's log this meal.";
+    this.showSingleMessage('npc', greet, () => {
+      this.proceedToMealSelection(); // 直接进入餐食选择
+    });
+  }
+}
 
     async handleDialogEnded() {
         // 获取对话结果
