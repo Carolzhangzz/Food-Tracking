@@ -15,7 +15,7 @@ import {
 } from "./DialogUI.js";
 
 const MAX_TURNS_MEAL = 6;      // 记录餐食阶段
-const MAX_TURNS_NPC = 3;     // 普通闲聊阶段
+// const MAX_TURNS_NPC = 3;     // 普通闲聊阶段
 const API_URL = process.env.REACT_APP_API_URL;
 
 export default class DialogScene extends Phaser.Scene {
@@ -721,14 +721,14 @@ export default class DialogScene extends Phaser.Scene {
                         if (this.checkForTriggerPhrase(response.message)) {
                             console.log("检测到触发短语，直接进入食物选择");
                             this.proceedToMealSelection();
-                            // } else if (this.dialogTurnCount >= 4) {
-                            //     console.log("对话轮数>=4，自动进入食物选择");
-                            // this.proceedToMealSelection();
-                        } else if (this.chatCycleTurns >= 4) {
-                            console.log("chatCycleTurns>=6，自动进入食物选择（以自上次选择为起点计数）");
-                            if (this.chatCycleTurns >= 6) this.proceedToMealSelection();
-                            // } else if (this.dialogTurnCount >= 2) {
-                            //     console.log("对话轮数>=2，显示继续/跳过选择按钮");
+                            //     // } else if (this.dialogTurnCount >= 4) {
+                            //     //     console.log("对话轮数>=4，自动进入食物选择");
+                            //     // this.proceedToMealSelection();
+                            // } else if (this.chatCycleTurns >= 4) {
+                            //     console.log("chatCycleTurns>=6，自动进入食物选择（以自上次选择为起点计数）");
+                            //     if (this.chatCycleTurns >= 6) this.proceedToMealSelection();
+                            //     // } else if (this.dialogTurnCount >= 2) {
+                            //     //     console.log("对话轮数>=2，显示继续/跳过选择按钮");
 
                         } else if (this.chatCycleTurns >= 3) {
                             console.log("chatCycleTurns>=3，显示继续/跳过选择按钮");
@@ -827,6 +827,7 @@ export default class DialogScene extends Phaser.Scene {
     // 显示继续对话或跳过的选择
     showContinueOrSkipChoice() {
         this.choicePending = true; // 防止同一轮反复弹 【NEW FOR CHATTING】
+        this.disableInputBox(); // 弹出选择时禁用输入，避免用户绕过选择直接继续发消息
         //使用creatd button的方法来创建这两个按钮
         if (this.debugMode) {
             console.log("显示继续对话或跳过按钮");
@@ -844,13 +845,19 @@ export default class DialogScene extends Phaser.Scene {
                     // // 继续聊天，等待下一轮输入
                     // this.waitForUserInput();
 // NEW: 清理按钮并重置“自上次选择以来”的计数与弹窗状态
+//                     this.clearAllButtons();
+//                     this.updateStatus("");
+//                     this.chatCycleTurns = 0;   // 关键：让后续再次聊满 2/4 轮才出现选择/强转
+//                     this.choicePending = false;
+//                     // 保持在 continuing 阶段，等待下一轮输入
+//                     this.dialogPhase = "continuing";
+//                     this.waitForUserInput();   // 等用户继续发言
                     this.clearAllButtons();
                     this.updateStatus("");
-                    this.chatCycleTurns = 0;   // 关键：让后续再次聊满 2/4 轮才出现选择/强转
+                    this.chatCycleTurns = 0;   // 重置从“上次选择”开始的计数
                     this.choicePending = false;
-                    // 保持在 continuing 阶段，等待下一轮输入
                     this.dialogPhase = "continuing";
-                    this.waitForUserInput();   // 等用户继续发言
+                    this.waitForUserInput();   // 重新启用输入并继续
 
                 },
             },
@@ -867,11 +874,10 @@ export default class DialogScene extends Phaser.Scene {
                     // // 跳转到食物选择
                     // this.proceedToMealSelection();
 
-                    // NEW: 清理按钮并结束选择态，然后进入记录
                     this.clearAllButtons();
                     this.updateStatus("");
                     this.choicePending = false;
-                    this.dialogPhase = "continuing"; // 先确保状态稳定，再进入记录
+                    // 直接进入记录阶段
                     this.proceedToMealSelection();
                 },
             },
