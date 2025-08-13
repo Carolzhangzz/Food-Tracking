@@ -13,6 +13,9 @@ const sequelize = require('../db');
 const {generateFinalEggPrompt, generateFinalEggPromptPlayerOnly} = require("../utils/finalEggPrompt");
 const {buildLocalEgg} = require('../utils/eggLocal');
 const MAX_MEAL_CONTENT_LENGTH = 200;
+const ENABLE_CROSS_DAY_DELAY = process.env.ENABLE_CROSS_DAY_DELAY === 'true'
+const CROSS_DAY_WAIT_HOURS = Number(process.env.CROSS_DAY_WAIT_HOURS || 8);
+
 
 async function extractTextFromGemini(result) {
     try {
@@ -143,11 +146,16 @@ async function getPlayerFullStatus(playerId) {
     };
 }
 
+// async function hasCompletedTodaysMeals(playerId, day) {
+//     const mealRecords = await MealRecord.findAll({where: {playerId, day}});
+//     const recordedTypes = mealRecords.map(rec => rec.mealType);
+//     // 只要记录了晚饭就算完成
+//     return recordedTypes.includes('dinner');
+// }
+
 async function hasCompletedTodaysMeals(playerId, day) {
-    const mealRecords = await MealRecord.findAll({where: {playerId, day}});
-    const recordedTypes = mealRecords.map(rec => rec.mealType);
-    // 只要记录了晚饭就算完成
-    return recordedTypes.includes('dinner');
+    const dinner = await getDinnerRecord(playerId, day);
+    return !!dinner;
 }
 
 async function checkAndUnlockNextNPC(playerId, currentDay) {
@@ -550,6 +558,19 @@ router.post("/player-status", async (req, res) => {
         const currentDayProgress = availableNPCs.find(a => a.day === currentDay);
         const currentDayMealsRemaining = currentDayProgress ? currentDayProgress.availableMealTypes : ["breakfast", "lunch", "dinner"];
 
+        // NEW (optional): 若启用延迟跨天，且今天已吃晚饭但未满 8 小时，告诉前端何时能跨天
+        let nextAdvanceAt = null;
+        if (ENABLE_CROSS_DAY_DELAY) {
+            try {
+                const gate = await computeAdvanceGate(playerId, currentDay, CROSS_DAY_WAIT_HOURS);
+                if (!gate.allowed && gate.canAdvanceAt) {
+                    nextAdvanceAt = gate.canAdvanceAt; // Date 对象将会被序列化为 ISO 字符串
+                }
+            } catch (_) {
+            }
+        }
+
+
         // 6) 关键调试打印 —— 直接看日志里有没有 day=2
         console.log(`[/player-status] player=${playerId} currentDay=${currentDay}`);
         console.log("[/player-status] availableNPCs =", JSON.stringify(availableNPCs, null, 2));
@@ -568,7 +589,8 @@ router.post("/player-status", async (req, res) => {
             availableNPCs,
             mealRecords,             // 都是 plain
             clueRecords,             // 都是 plain
-            currentDayMealsRemaining // 给前端提示用
+            currentDayMealsRemaining, // 给前端提示用
+            nextAdvanceAt
         });
 
     } catch (err) {
@@ -737,37 +759,122 @@ router.post("/record-meal", async (req, res) => {
 
         // 5) 是否“完成当天”？—— 规则改为：只要有晚饭就完成
         // 5) 是否“完成当天”？—— 规则仍为：晚饭完成一天
-        const completedToday = await hasCompletedTodaysMeals(playerId, day);
+        // const completedToday = await hasCompletedTodaysMeals(playerId, day);
+        // let hasCompletedDay = completedToday;
+        // let newDay = null;
+
+        // 5) 是否“完成当天”？—— 规则：有晚饭视为“当天完成”，但跨天需要等 4 小时
+        const completedToday = await hasCompletedTodaysMeals(playerId, day); // == 是否已有 dinner
         let hasCompletedDay = completedToday;
         let newDay = null;
+        let canAdvanceAt = null;
+        let waitMs = null;
+
+        //
+        // if (completedToday) {
+        //     if (progressRecord && !progressRecord.completedAt) {
+        //         await progressRecord.update({completedAt: new Date()}, {transaction: t});
+        //     }
+        //     const targetNewDay = Math.min(day + 1, 7);
+        //     if (player.currentDay < targetNewDay) {
+        //         await player.update({currentDay: targetNewDay}, {transaction: t});
+        //         newDay = targetNewDay;
+        //
+        //         const npcMap = {
+        //             2: "shop_owner",
+        //             3: "spice_woman",
+        //             4: "restaurant_owner",
+        //             5: "fisherman",
+        //             6: "old_friend",
+        //             7: "secret_apprentice"
+        //         };
+        //         const nextNpcId = npcMap[targetNewDay];
+        //         if (nextNpcId) {
+        //             const existNext = await PlayerProgress.findOne({
+        //                 where: {playerId, day: targetNewDay},
+        //                 transaction: t
+        //             });
+        //             if (!existNext) {
+        //                 await PlayerProgress.create({
+        //                     playerId, day: targetNewDay, npcId: nextNpcId, unlockedAt: new Date(),
+        //                 }, {transaction: t});
+        //             }
+        //         }
+        //     }
+        // }
+
 
         if (completedToday) {
             if (progressRecord && !progressRecord.completedAt) {
                 await progressRecord.update({completedAt: new Date()}, {transaction: t});
             }
-            const targetNewDay = Math.min(day + 1, 7);
-            if (player.currentDay < targetNewDay) {
-                await player.update({currentDay: targetNewDay}, {transaction: t});
-                newDay = targetNewDay;
 
-                const npcMap = {
-                    2: "shop_owner",
-                    3: "spice_woman",
-                    4: "restaurant_owner",
-                    5: "fisherman",
-                    6: "old_friend",
-                    7: "secret_apprentice"
-                };
-                const nextNpcId = npcMap[targetNewDay];
-                if (nextNpcId) {
-                    const existNext = await PlayerProgress.findOne({
-                        where: {playerId, day: targetNewDay},
-                        transaction: t
-                    });
-                    if (!existNext) {
-                        await PlayerProgress.create({
-                            playerId, day: targetNewDay, npcId: nextNpcId, unlockedAt: new Date(),
-                        }, {transaction: t});
+            if (ENABLE_CROSS_DAY_DELAY) {
+                // 延迟跨天模式
+                const gate = await computeAdvanceGate(playerId, day, CROSS_DAY_WAIT_HOURS);
+                if (gate.allowed) {
+                    // 原本的跨天逻辑
+                    const targetNewDay = Math.min(day + 1, 7);
+                    if (player.currentDay < targetNewDay) {
+                        await player.update({currentDay: targetNewDay}, {transaction: t});
+                        newDay = targetNewDay;
+                        // 解锁下一天 NPC（原有逻辑）
+                        const npcMap = {
+                            2: "shop_owner",
+                            3: "spice_woman",
+                            4: "restaurant_owner",
+                            5: "fisherman",
+                            6: "old_friend",
+                            7: "secret_apprentice",
+                        };
+                        const nextNpcId = npcMap[targetNewDay];
+                        if (nextNpcId) {
+                            const existNext = await PlayerProgress.findOne({
+                                where: {playerId, day: targetNewDay},
+                                transaction: t
+                            });
+                            if (!existNext) {
+                                await PlayerProgress.create({
+                                    playerId,
+                                    day: targetNewDay,
+                                    npcId: nextNpcId,
+                                    unlockedAt: new Date(),
+                                }, {transaction: t});
+                            }
+                        }
+                    }
+                } else {
+                    canAdvanceAt = gate.canAdvanceAt || null;
+                    waitMs = gate.waitMs || null;
+                }
+            } else {
+                // 立即跨天模式（和你现在原逻辑一样）
+                const targetNewDay = Math.min(day + 1, 7);
+                if (player.currentDay < targetNewDay) {
+                    await player.update({currentDay: targetNewDay}, {transaction: t});
+                    newDay = targetNewDay;
+                    const npcMap = {
+                        2: "shop_owner",
+                        3: "spice_woman",
+                        4: "restaurant_owner",
+                        5: "fisherman",
+                        6: "old_friend",
+                        7: "secret_apprentice",
+                    };
+                    const nextNpcId = npcMap[targetNewDay];
+                    if (nextNpcId) {
+                        const existNext = await PlayerProgress.findOne({
+                            where: {playerId, day: targetNewDay},
+                            transaction: t
+                        });
+                        if (!existNext) {
+                            await PlayerProgress.create({
+                                playerId,
+                                day: targetNewDay,
+                                npcId: nextNpcId,
+                                unlockedAt: new Date(),
+                            }, {transaction: t});
+                        }
                     }
                 }
             }
@@ -791,6 +898,9 @@ router.post("/record-meal", async (req, res) => {
             nextDayUnlocked: !!newDay,
             // 可选：同步回当日剩余餐别，前端就不用本地删了
             availableMealTypes: ["breakfast", "lunch", "dinner"].filter(t => t !== mealType),
+            // NEW: 若启用延迟跨天且未到点，返回这两个
+            canAdvanceAt,
+            waitMs
         });
 
     } catch (error) {
@@ -847,10 +957,25 @@ router.post("/update-current-day", async (req, res) => {
             await transaction.rollback();
             return res.status(400).json({
                 success: false,
-                error: "Current day is not completed",
+                error: "Current day is not completed (no dinner yet)",
                 currentDay: player.currentDay
             });
         }
+
+        if (ENABLE_CROSS_DAY_DELAY) {
+            const gate = await computeAdvanceGate(playerId, currentDay, CROSS_DAY_WAIT_HOURS);
+            if (!gate.allowed) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    error: "Advance not allowed yet, need to wait",
+                    currentDay: player.currentDay,
+                    canAdvanceAt: gate.canAdvanceAt,
+                    waitMs: gate.waitMs
+                });
+            }
+        }
+
 
         // 4. 计算新天数（不超过7天）
         const newDay = Math.min(currentDay + 1, 7);
@@ -1222,6 +1347,31 @@ router.post("/generate-final-egg", async (req, res) => {
 });
 
 
+// NEW: 取当天的 dinner 记录（若有）
+async function getDinnerRecord(playerId, day) {
+    return await MealRecord.findOne({
+        where: {playerId, day, mealType: 'dinner'},
+        order: [['recordedAt', 'DESC']], // 没有就用 createdAt，也可二选一
+    });
+}
+
+// NEW: 计算是否达到“允许跨天”的时间点（默认 4 小时）
+async function computeAdvanceGate(playerId, day, waitHours = CROSS_DAY_WAIT_HOURS) {
+    const dinner = await getDinnerRecord(playerId, day);
+    if (!dinner) {
+        return {allowed: false, reason: 'no_dinner'};
+    }
+    const base = dinner.recordedAt || dinner.createdAt || new Date();
+    const canAdvanceAt = new Date(new Date(base).getTime() + waitHours * 3600 * 1000);
+    const now = new Date();
+    if (now >= canAdvanceAt) {
+        return {allowed: true, canAdvanceAt};
+    }
+    const waitMs = canAdvanceAt - now;
+    return {allowed: false, reason: 'wait', canAdvanceAt, waitMs};
+}
+
+
 // 辅助函数：找出最常互动的NPC
 function getMostInteractedNPC(mealRecords) {
     const npcCounts = {};
@@ -1304,20 +1454,48 @@ Continue cooking with love and living with heart. You have become a true chef.
 }
 
 module.exports = router;
+//
+// router.get("/gemini-health", async (req, res) => {
+//     try {
+//         const {GoogleGenAI} = await import("@google/genai");
+//         const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+//         const result = await ai.models.generateContent({
+//             model: "gemini-2.5-flash",
+//             contents: [{role: "user", parts: [{text: "ping"}]}],
+//         });
+//         res.json({ok: true, text: (result?.response?.text?.() || result?.text || "no-text")});
+//     } catch (e) {
+//         res.status(500).json({ok: false, err: String(e), code: e?.status || e?.code});
+//     }
+// });
 
 router.get("/gemini-health", async (req, res) => {
     try {
         const {GoogleGenAI} = await import("@google/genai");
         const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+
         const result = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: [{role: "user", parts: [{text: "ping"}]}],
         });
-        res.json({ok: true, text: (result?.response?.text?.() || result?.text || "no-text")});
+
+        let text = "no-text";
+        if (typeof result?.response?.text === "function") {
+            text = await result.response.text(); // ✅ 这里加 await
+        } else if (typeof result?.text === "string") {
+            text = result.text;
+        }
+
+        res.json({ok: true, text});
     } catch (e) {
-        res.status(500).json({ok: false, err: String(e), code: e?.status || e?.code});
+        res.status(500).json({
+            ok: false,
+            err: String(e),
+            code: e?.status || e?.code
+        });
     }
 });
+
 
 router.post("/dev/skip-to-day7", async (req, res) => {
     try {

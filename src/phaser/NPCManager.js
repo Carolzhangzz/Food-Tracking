@@ -2,6 +2,14 @@
 import Phaser from "phaser";
 
 const API_URL = process.env.REACT_APP_API_URL;
+const ENABLE_CROSS_DAY_DELAY_FE = (process.env.REACT_APP_ENABLE_CROSS_DAY_DELAY === 'true');
+
+// 建议放在文件顶部常量下方
+function shouldEnableDelayUI() {
+    // 如果没声明这个 env，就默认“允许显示”；声明了就按它来
+    return !('REACT_APP_ENABLE_CROSS_DAY_DELAY' in process.env) || ENABLE_CROSS_DAY_DELAY_FE;
+}
+
 
 export default class NPCManager {
     constructor(scene, mapScale) {
@@ -22,6 +30,7 @@ export default class NPCManager {
         this.finalEggContent = null;       // 已生成的内容
         this.initializeNPCs();
         this._devSkipIssued = false;
+        this._advanceTimer = null;
     }
 
     setDialogSystem(dialogSystem) {
@@ -130,6 +139,23 @@ export default class NPCManager {
 
                     // 维护 pushedClueIds，避免后面重复单条推送
                     mappedClues.forEach(c => this.pushedClueIds.add(c.id));
+                }
+
+                // 如果后端返回了 nextAdvanceAt（且前端开关允许），提示与一次性定时尝试
+                if (data.nextAdvanceAt && shouldEnableDelayUI()) {
+                    const readyTs = new Date(data.nextAdvanceAt).getTime();
+                    const waitMs = Math.max(0, readyTs - Date.now());
+                    if (waitMs > 0) {
+                        const lang = this.scene.playerData.language;
+                        const mins = Math.max(1, Math.ceil(waitMs / 60000));
+                        this.scene.showNotification(
+                            lang === "zh"
+                                ? `距离解锁下一天约 ${mins} 分钟。`
+                                : `~${mins} min left before next day unlock.`,
+                            3000
+                        );
+                        this.scheduleAdvanceCheck(waitMs);
+                    }
                 }
 
 
@@ -487,7 +513,7 @@ export default class NPCManager {
             }
 
 
-            const DEV_FAST_SKIP = true;
+            const DEV_FAST_SKIP = process.env.REACT_APP_ALLOW_DEV_SKIP === 'true';
             if (
                 DEV_FAST_SKIP &&
                 !this._devSkipIssued &&
@@ -533,6 +559,23 @@ export default class NPCManager {
                 }
             }
             // === ✅ 开发模式块结束 ===
+
+// NEW: 晚饭后已完成，但未达等待门槛（后端返回 canAdvanceAt/waitMs）
+            if (!data.newDay && data.canAdvanceAt && shouldEnableDelayUI()) {
+                const lang = this.scene.playerData.language;
+                const waitMs = Math.max(0, Number(data.waitMs || 0));
+                const mins = Math.max(1, Math.ceil(waitMs / 60000));
+
+                this.scene.showNotification(
+                    lang === "zh"
+                        ? `晚餐已记录，需等待约 ${mins} 分钟后进入下一天。`
+                        : `Dinner logged. About ${mins} min left before next day unlock.`,
+                    4000
+                );
+
+                // 到点后自动尝试一次 /update-current-day（若页面还开着）
+                this.scheduleAdvanceCheck(waitMs);
+            }
 
 
             // ❗️关键：只在后端明确给出 newDay 时才切天 + 刷新
@@ -618,6 +661,8 @@ export default class NPCManager {
             });
 
             const data = await response.json();
+
+
             if (data.success) {
                 console.log(`服务器确认天数更新：从${originalDay}→${data.newDay}`);
                 // 仅在服务器成功返回后，才更新本地天数
@@ -635,6 +680,21 @@ export default class NPCManager {
                 );
                 return true;
             } else {
+
+                if (shouldEnableDelayUI() && data.canAdvanceAt) {
+                    const lang = this.scene.playerData.language;
+                    const waitMs = Math.max(0, Number(data.waitMs || 0));
+                    const mins = Math.max(1, Math.ceil(waitMs / 60000));
+
+                    this.scene.showNotification(
+                        lang === "zh"
+                            ? `还需等待约 ${mins} 分钟才能进入下一天。`
+                            : `About ${mins} min left before next day unlock.`,
+                        3000
+                    );
+                    this.scheduleAdvanceCheck(waitMs);
+                }
+
                 console.error("服务器拒绝更新天数：", data.error || "未知错误");
                 // 服务器拒绝时，不更新本地天数
                 return false;
@@ -645,6 +705,21 @@ export default class NPCManager {
             return false;
         } finally {
             this.isUpdatingDay = false;
+        }
+    }
+
+    // 统一安排一次“到点自动尝试切天”并去重
+    scheduleAdvanceCheck(ms) {
+        const delay = Math.min(Math.max(Number(ms) || 0, 30_000), 15 * 60_000); // ≥30s 且 ≤15min
+        if (this._advanceTimer) {
+            clearTimeout(this._advanceTimer);
+            this._advanceTimer = null;
+        }
+        if (delay > 0) {
+            this._advanceTimer = setTimeout(() => {
+                this._advanceTimer = null;
+                this.forceUpdateCurrentDay?.();
+            }, delay);
         }
     }
 
@@ -808,7 +883,7 @@ export default class NPCManager {
 
         // 使用正确的资源键创建精灵
         const npcSprite = this.scene.add.sprite(0, 0, assetKey);
-        npcSprite.setScale(this.mapScale * 0.15);
+        npcSprite.setScale(this.mapScale * 0.12);
         npcSprite.setDepth(5);
         npcSprite.setVisible(false);
 
@@ -1129,9 +1204,7 @@ export default class NPCManager {
         this.mapScale = newScale;
         this.npcs.forEach((npc) => {
             if (npc.sprite) {
-                // 原来：newScale * 0.3
-                // 修改为：newScale * 0.15 (保持一致)
-                npc.sprite.setScale(newScale * 0.15); // 这里也要对应修改
+                npc.sprite.setScale(newScale * 0.12); // 这里也要对应修改
             }
             if (npc.glowEffect) {
                 npc.glowEffect.setPosition(npc.sprite.x, npc.sprite.y);
@@ -1146,6 +1219,11 @@ export default class NPCManager {
     }
 
     destroy() {
+
+        if (this._advanceTimer) {
+            clearTimeout(this._advanceTimer);
+            this._advanceTimer = null;
+        }
         this.npcs.forEach((npc) => {
             this.removeNPCHighlight(npc);
         });
