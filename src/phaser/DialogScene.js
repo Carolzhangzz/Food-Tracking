@@ -14,7 +14,7 @@ import {
     showChoiceButtons,
 } from "./DialogUI.js";
 
-const MAX_TURNS_MEAL = 5;      // 记录餐食阶段
+const MAX_TURNS_MEAL = 6;      // 记录餐食阶段
 const MAX_TURNS_NPC = 3;     // 普通闲聊阶段
 const API_URL = process.env.REACT_APP_API_URL;
 
