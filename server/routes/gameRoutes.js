@@ -757,52 +757,12 @@ router.post("/record-meal", async (req, res) => {
             await saveClueToDatabase(playerId, npcId, clueText, day, mealStage, mealType); // 幂等 + 合并到同一行
         }
 
-        // 5) 是否“完成当天”？—— 规则改为：只要有晚饭就完成
-        // 5) 是否“完成当天”？—— 规则仍为：晚饭完成一天
-        // const completedToday = await hasCompletedTodaysMeals(playerId, day);
-        // let hasCompletedDay = completedToday;
-        // let newDay = null;
-
-        // 5) 是否“完成当天”？—— 规则：有晚饭视为“当天完成”，但跨天需要等 4 小时
+        // 5) 是否“完成当天”？—— 规则：有晚饭视为“当天完成”，但跨天需要等 8 小时
         const completedToday = await hasCompletedTodaysMeals(playerId, day); // == 是否已有 dinner
         let hasCompletedDay = completedToday;
         let newDay = null;
         let canAdvanceAt = null;
         let waitMs = null;
-
-        //
-        // if (completedToday) {
-        //     if (progressRecord && !progressRecord.completedAt) {
-        //         await progressRecord.update({completedAt: new Date()}, {transaction: t});
-        //     }
-        //     const targetNewDay = Math.min(day + 1, 7);
-        //     if (player.currentDay < targetNewDay) {
-        //         await player.update({currentDay: targetNewDay}, {transaction: t});
-        //         newDay = targetNewDay;
-        //
-        //         const npcMap = {
-        //             2: "shop_owner",
-        //             3: "spice_woman",
-        //             4: "restaurant_owner",
-        //             5: "fisherman",
-        //             6: "old_friend",
-        //             7: "secret_apprentice"
-        //         };
-        //         const nextNpcId = npcMap[targetNewDay];
-        //         if (nextNpcId) {
-        //             const existNext = await PlayerProgress.findOne({
-        //                 where: {playerId, day: targetNewDay},
-        //                 transaction: t
-        //             });
-        //             if (!existNext) {
-        //                 await PlayerProgress.create({
-        //                     playerId, day: targetNewDay, npcId: nextNpcId, unlockedAt: new Date(),
-        //                 }, {transaction: t});
-        //             }
-        //         }
-        //     }
-        // }
-
 
         if (completedToday) {
             if (progressRecord && !progressRecord.completedAt) {
@@ -1392,38 +1352,6 @@ function getMostInteractedNPC(mealRecords) {
     return favoriteNPC;
 }
 
-//
-// // 生成最终彩蛋的提示词
-// function generateFinalEggPrompt(mealsSummary, statsData, language) {
-//     if (language === "zh") {
-//         return `你是一位失踪厨师的师傅，现在要给你的徒弟写一段感人的留言。这个徒弟在7天里完成了一段美食记录之旅：
-//
-// 总共记录了 ${statsData.totalMeals} 顿餐食，完成了 ${statsData.daysCompleted} 天的记录。
-// 与 ${statsData.favoriteNPC} 互动最多。
-// 进行了 ${statsData.totalConversations} 次对话。
-//
-// 餐食记录详情：
-// ${mealsSummary.map((meal, index) =>
-//             `第${meal.day}天 - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
-//         ).join('\n')}
-//
-// 请基于这些详细的记录，写一段温暖、感人的留言，告诉徒弟你看到了他的成长和用心，并给出人生的感悟。要体现出你对他记录每一餐的重视和感动。字数控制在250-350字。要有师父的语气和深度。`;
-//     } else {
-//         return `You are a missing chef's master, now writing a touching message to your apprentice. This apprentice completed a culinary journey over 7 days:
-//
-// Recorded a total of ${statsData.totalMeals} meals across ${statsData.daysCompleted} days.
-// Interacted most with ${statsData.favoriteNPC}.
-// Had ${statsData.totalConversations} conversations.
-//
-// Meal records details:
-// ${mealsSummary.map((meal, index) =>
-//             `Day ${meal.day} - ${meal.npcName}: ${meal.mealType} - ${meal.content}`
-//         ).join('\n')}
-//
-// Based on these detailed records, write a warm and touching message telling your apprentice that you see their growth and dedication, sharing life insights. Show how moved you are by their careful recording of each meal. Keep it 250-350 words. Use the tone and depth of a master chef.`;
-//     }
-// }
-
 // 生成备用彩蛋
 function generateFallbackEgg(statsData, language) {
     if (language === "zh") {
@@ -1454,20 +1382,6 @@ Continue cooking with love and living with heart. You have become a true chef.
 }
 
 module.exports = router;
-//
-// router.get("/gemini-health", async (req, res) => {
-//     try {
-//         const {GoogleGenAI} = await import("@google/genai");
-//         const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
-//         const result = await ai.models.generateContent({
-//             model: "gemini-2.5-flash",
-//             contents: [{role: "user", parts: [{text: "ping"}]}],
-//         });
-//         res.json({ok: true, text: (result?.response?.text?.() || result?.text || "no-text")});
-//     } catch (e) {
-//         res.status(500).json({ok: false, err: String(e), code: e?.status || e?.code});
-//     }
-// });
 
 router.get("/gemini-health", async (req, res) => {
     try {

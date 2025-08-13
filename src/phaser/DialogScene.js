@@ -1667,8 +1667,7 @@ I believe those records hold the key.`,
         }
     }
 
-    // 修复：添加线索到NPC管理器时确保使用当前语言
-    //【FOR STAGES_v1】
+    // 添加线索到NPC管理器时确保使用当前语言
     async handleMealCompletion(recordResult = {success: true, shouldGiveClue: false}) {
         try {
             if (this.debugMode) {
@@ -2014,17 +2013,6 @@ I believe those records hold the key.`,
         this.onUserSubmit = null;
     }
 
-    // 添加窗口大小变化监听，动态调整布局
-    // resize(gameSize, baseSize, displaySize, resolution) {
-    //   const { width, height } = this.scale;
-    //   this.isMobile = width < 768;
-
-    //   // 重新调整UI元素位置
-    //   if (this.dialogBg) {
-    //     this.setupUI();
-    //   }
-    // }
-
     // 更新状态显示
     updateStatus(text) {
         if (this.statusText) {
@@ -2111,7 +2099,7 @@ I believe those records hold the key.`,
         });
     }
 
-    // ✅ 保存餐食记录（带重入保护）
+    // 保存餐食记录（带重入保护）
     //【FOR STAGES】
     async saveMealRecord() {
         // 已经保存过就直接复用结果，避免重复写库
