@@ -54,6 +54,9 @@ export default class DialogScene extends Phaser.Scene {
         // 添加调试标志
         this.debugMode = true;
         this.dynamicButtons = [];
+        this.chatCycleTurns = 0;
+
+        this.choicePending = false;
 
     }
 
@@ -121,19 +124,19 @@ export default class DialogScene extends Phaser.Scene {
         this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
 
 
-  // ✅ 分支：今天第一次（当天尚无餐）才走 ConvAI，否则打招呼直接进入食记
-  if (this.useConvAI) {
-    this.startConversation(); // 你的 ConvAI 起始逻辑
-  } else {
-    const lang = this.playerData?.language || 'en';
-    const greet = (lang === 'zh')
-      ? '嗨，回来啦！我们直接记录这顿吧。'
-      : "Hey, welcome back! Let's log this meal.";
-    this.showSingleMessage('npc', greet, () => {
-      this.proceedToMealSelection(); // 直接进入餐食选择
-    });
-  }
-}
+        // ✅ 分支：今天第一次（当天尚无餐）才走 ConvAI，否则打招呼直接进入食记
+        if (this.useConvAI) {
+            this.startConversation(); // 你的 ConvAI 起始逻辑
+        } else {
+            const lang = this.playerData?.language || 'en';
+            const greet = (lang === 'zh')
+                ? '嗨，回来啦！我们直接记录这顿吧。'
+                : "Hey, welcome back! Let's log this meal.";
+            this.showSingleMessage('npc', greet, () => {
+                this.proceedToMealSelection(); // 直接进入餐食选择
+            });
+        }
+    }
 
     async handleDialogEnded() {
         // 获取对话结果
@@ -291,9 +294,16 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     // 检查是否显示跳过到食物选择的选项
+    // checkForSkipOption() {
+    //     if (this.dialogTurnCount >= 3 || this.canSkipToMeal) {
+    //         this.showSkipToMealOption();
+    //     }
+    // }
+// 【NEW FOR CHATTING】
     checkForSkipOption() {
-        if (this.dialogTurnCount >= 3 || this.canSkipToMeal) {
-            this.showSkipToMealOption();
+// 从“上次选择”开始累计 3 轮，或其他条件（canSkipToMeal）时出现选择
+        if ((this.chatCycleTurns >= 3 || this.canSkipToMeal) && !this.choicePending) {
+            this.showContinueOrSkipChoice();
         }
     }
 
@@ -330,6 +340,11 @@ export default class DialogScene extends Phaser.Scene {
         this.clearTextInput();
         this.clearAllButtons();
         this.dialogPhase = "meal_selection";
+
+        //【NEW FOR CHATTING】
+
+        this.choicePending = false;
+        this.chatCycleTurns = 0; // 进记录后也可复位，避免后续误判
 
         this.questionGroups = {};
         this.questionAnswers = {};
@@ -501,6 +516,11 @@ export default class DialogScene extends Phaser.Scene {
         this.dialogPhase = "continuing";
         this.dialogTurnCount = 0; // 重置对话轮数
         this.canSkipToMeal = false; // 重置跳过标志
+
+        //【NEW FOR CHATTING】
+        this.chatCycleTurns = 0;
+        this.choicePending = false;
+
         this.waitForUserInput();
     }
 
@@ -693,14 +713,25 @@ export default class DialogScene extends Phaser.Scene {
 
                     if (this.dialogPhase === "continuing") {
                         // ConvAI 对话逻辑保持不变
+
+                        //【NEW FOR CHATTING】
+                        // 进入本轮 NPC 回复后，累加“自上次选择以来”的轮数
+                        this.chatCycleTurns = (this.chatCycleTurns || 0) + 1;
+
                         if (this.checkForTriggerPhrase(response.message)) {
                             console.log("检测到触发短语，直接进入食物选择");
                             this.proceedToMealSelection();
-                        } else if (this.dialogTurnCount >= 4) {
-                            console.log("对话轮数>=4，自动进入食物选择");
-                            this.proceedToMealSelection();
-                        } else if (this.dialogTurnCount >= 2) {
-                            console.log("对话轮数>=2，显示继续/跳过选择按钮");
+                            // } else if (this.dialogTurnCount >= 4) {
+                            //     console.log("对话轮数>=4，自动进入食物选择");
+                            // this.proceedToMealSelection();
+                        } else if (this.chatCycleTurns >= 4) {
+                            console.log("chatCycleTurns>=6，自动进入食物选择（以自上次选择为起点计数）");
+                            if (this.chatCycleTurns >= 6) this.proceedToMealSelection();
+                            // } else if (this.dialogTurnCount >= 2) {
+                            //     console.log("对话轮数>=2，显示继续/跳过选择按钮");
+
+                        } else if (this.chatCycleTurns >= 3) {
+                            console.log("chatCycleTurns>=3，显示继续/跳过选择按钮");
                             this.showContinueOrSkipChoice();
                         } else {
                             console.log("继续下一轮对话（轮数:", this.dialogTurnCount, "）");
@@ -795,6 +826,7 @@ export default class DialogScene extends Phaser.Scene {
 
     // 显示继续对话或跳过的选择
     showContinueOrSkipChoice() {
+        this.choicePending = true; // 防止同一轮反复弹 【NEW FOR CHATTING】
         //使用creatd button的方法来创建这两个按钮
         if (this.debugMode) {
             console.log("显示继续对话或跳过按钮");
@@ -806,10 +838,20 @@ export default class DialogScene extends Phaser.Scene {
                     if (this.debugMode) {
                         console.log("用户选择继续聊天");
                     }
-                    // hideChoiceButtons();
+                    //【NEW FOR CHATTING】
+                    // // hideChoiceButtons();
+                    // this.updateStatus("");
+                    // // 继续聊天，等待下一轮输入
+                    // this.waitForUserInput();
+// NEW: 清理按钮并重置“自上次选择以来”的计数与弹窗状态
+                    this.clearAllButtons();
                     this.updateStatus("");
-                    // 继续聊天，等待下一轮输入
-                    this.waitForUserInput();
+                    this.chatCycleTurns = 0;   // 关键：让后续再次聊满 2/4 轮才出现选择/强转
+                    this.choicePending = false;
+                    // 保持在 continuing 阶段，等待下一轮输入
+                    this.dialogPhase = "continuing";
+                    this.waitForUserInput();   // 等用户继续发言
+
                 },
             },
             record: {
@@ -818,9 +860,18 @@ export default class DialogScene extends Phaser.Scene {
                     if (this.debugMode) {
                         console.log("用户选择记录食物");
                     }
+
+                    //【NEW FOR CHATTING】
                     // hideChoiceButtons();
+                    // this.updateStatus("");
+                    // // 跳转到食物选择
+                    // this.proceedToMealSelection();
+
+                    // NEW: 清理按钮并结束选择态，然后进入记录
+                    this.clearAllButtons();
                     this.updateStatus("");
-                    // 跳转到食物选择
+                    this.choicePending = false;
+                    this.dialogPhase = "continuing"; // 先确保状态稳定，再进入记录
                     this.proceedToMealSelection();
                 },
             },
