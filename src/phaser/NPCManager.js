@@ -883,7 +883,7 @@ export default class NPCManager {
 
         // 使用正确的资源键创建精灵
         const npcSprite = this.scene.add.sprite(0, 0, assetKey);
-        npcSprite.setScale(this.mapScale * 0.12);
+        npcSprite.setScale(this.mapScale * 0.09);
         npcSprite.setDepth(5);
         npcSprite.setVisible(false);
 
@@ -1204,7 +1204,7 @@ export default class NPCManager {
         this.mapScale = newScale;
         this.npcs.forEach((npc) => {
             if (npc.sprite) {
-                npc.sprite.setScale(newScale * 0.12); // 这里也要对应修改
+                npc.sprite.setScale(newScale * 0.09); // 这里也要对应修改
             }
             if (npc.glowEffect) {
                 npc.glowEffect.setPosition(npc.sprite.x, npc.sprite.y);
