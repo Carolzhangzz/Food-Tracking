@@ -10,7 +10,7 @@ const Clue = sequelize.define('Clue', {
   receivedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   tableName: 'Clues',
-  timestamps: true,  // 如果不需要 createdAt/updatedAt 就改 false
+  timestamps: true,
   indexes: [
     { unique: true, name: 'unique_player_npc_day_clue', fields: ['playerId','npcId','day'] },
     { name: 'idx_clues_player_id', fields: ['playerId'] },

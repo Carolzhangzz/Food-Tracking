@@ -1,6 +1,6 @@
 // server/models/AllowedId.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../db');
+const sequelize = require('../db'); 
 
 const AllowedId = sequelize.define('AllowedId', {
   id: {

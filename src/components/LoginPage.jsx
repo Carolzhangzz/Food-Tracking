@@ -179,7 +179,7 @@ function LoginPage() {
   return (
     <div style={styles.container}>
       <div style={styles.loginBox}>
-        <h1 style={styles.title}>🍳 Village Secrets</h1>
+        <h1 style={styles.title}>🍳 FEASTORY </h1>
         <h2 style={styles.subtitle}>Welcome Back!</h2>
         <p style={styles.description}>Please enter your Player ID to continue your journey</p>
         
@@ -207,7 +207,7 @@ function LoginPage() {
         </div>
         
         <div style={styles.hint}>
-          <p>💡 First time? Just enter any username to create your account!</p>
+          <p>💡 First time? Enter the given player id to start your journey !</p>
         </div>
       </div>
     </div>
