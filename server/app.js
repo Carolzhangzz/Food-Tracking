@@ -1,22 +1,18 @@
 // server/app.js - 支持前端页面的版本
 const express = require("express");
 const cors = require("cors");
-const path = require("path"); // 新增：用于路径处理模块
-require("dotenv").config({
-  path: require("path").join(__dirname, "..", ".env"),
-});
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// app.options('*', cors()); // 预检
 
 // 中间件
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// 数据库连接
+// 数据库连接（你 models/index.js 需导出 { sequelize }）
 const { sequelize } = require("./models");
 
 // 导入核心模型
@@ -26,130 +22,84 @@ const MealRecord = require("./models/MealRecord");
 const GameSession = require("./models/GameSession");
 const AllowedId = require("./models/AllowedId");
 
-// 设置模型关联
-Player.hasMany(PlayerProgress, {
-  foreignKey: "playerId",
-  sourceKey: "playerId",
-  as: "progresses",
-});
-PlayerProgress.belongsTo(Player, {
-  foreignKey: "playerId",
-  targetKey: "playerId",
-  as: "player",
-});
+// 模型关联
+Player.hasMany(PlayerProgress, { foreignKey: "playerId", sourceKey: "playerId", as: "progresses" });
+PlayerProgress.belongsTo(Player, { foreignKey: "playerId", targetKey: "playerId", as: "player" });
 
-Player.hasMany(MealRecord, {
-  foreignKey: "playerId",
-  sourceKey: "playerId",
-  as: "mealRecords",
-});
-MealRecord.belongsTo(Player, {
-  foreignKey: "playerId",
-  targetKey: "playerId",
-  as: "player",
-});
+Player.hasMany(MealRecord, { foreignKey: "playerId", sourceKey: "playerId", as: "mealRecords" });
+MealRecord.belongsTo(Player, { foreignKey: "playerId", targetKey: "playerId", as: "player" });
 
-Player.hasMany(GameSession, {
-  foreignKey: "playerId",
-  sourceKey: "playerId",
-  as: "sessions",
-});
-GameSession.belongsTo(Player, {
-  foreignKey: "playerId",
-  targetKey: "playerId",
-  as: "player",
-});
+Player.hasMany(GameSession, { foreignKey: "playerId", sourceKey: "playerId", as: "sessions" });
+GameSession.belongsTo(Player, { foreignKey: "playerId", targetKey: "playerId", as: "player" });
 
-// 导入路由
+// 路由
 const gameRoutes = require("./routes/gameRoutes");
 const geminiRoutes = require("./routes/geminiRoutes");
 const convaiRoutes = require("./routes/convaiRoutes");
 
-// 静态资源目录：根目录的 build 文件夹（React 构建后可直接运行的产物）
-const buildPath = path.join(__dirname, "../build"); // 从 server 目录向上找根目录的 build
-// 只托管 build 目录（包含转译后的 JS、CSS、index.html）
+// 静态资源目录（React build）
+const buildPath = path.join(__dirname, "..", "build");
 app.use(express.static(buildPath));
 
-// 注册API路由
+// API 路由固定挂在 /api（不要用完整 URL 或 REACT_APP_API_URL）
 app.use("/api", gameRoutes);
 app.use("/api", geminiRoutes);
 app.use("/api", convaiRoutes);
 
-// 修复后的通配符路由app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {  const indexPath = path.join(buildPath, "index.html");
-res.sendFile(indexPath, (err) => {
-  if (err) {
-    console.error("无法加载 build/index.html：", err);
-    res.status(500).send("页面加载失败");
-  }
-});
-
-// app.get("/*path", (req, res) => {
-//   if (!req.path.startsWith("/api")) {
-//     // 指向构建后的入口 HTML（根目录 build 下的 index.html）
-//     const indexPath = path.join(buildPath, "index.html");
-//     res.sendFile(indexPath, (err) => {
-//       if (err) {
-//         console.error("无法加载 build/index.html：", err);
-//         res.status(500).send("页面加载失败");
-//       }
-//     });
-//   } else {
-//     res.status(404).json({ message: "API endpoint not found" });
-//   }
-// });
-
-// 健康检查端点
+// 健康检查
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: "connected",
-  });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), database: "connected" });
 });
 
-// 测试数据库连接的端点
+// DB 测试
 app.get("/api/test-db", async (req, res) => {
   try {
     await sequelize.authenticate();
-    const playerCount = await Player.count();
-    const progressCount = await PlayerProgress.count();
-    const mealCount = await MealRecord.count();
-
+    const [playerCount, progressCount, mealCount] = await Promise.all([
+      Player.count(),
+      PlayerProgress.count(),
+      MealRecord.count(),
+    ]);
     res.json({
       success: true,
       message: "Database connection successful",
-      stats: {
-        players: playerCount,
-        progresses: progressCount,
-        meals: mealCount,
-      },
+      stats: { players: playerCount, progresses: progressCount, meals: mealCount },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Database connection failed", error: error.message });
   }
 });
 
-// 数据库同步和服务器启动
+// SPA 兜底：所有非 /api 的路由都返回前端 index.html
+// 方式 A：正则（严谨）
+app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {
+  res.sendFile(path.join(buildPath, "index.html"), (err) => {
+    if (err) {
+      console.error("无法加载 build/index.html：", err);
+      res.status(500).send("页面加载失败");
+    }
+  });
+});
+
+// 如果你更喜欢通配符：
+// app.get("*", (req, res) => {
+//   if (req.path.startsWith("/api")) return res.status(404).json({ message: "API endpoint not found" });
+//   res.sendFile(path.join(buildPath, "index.html"));
+// });
+
+// 启动
 async function startServer() {
   try {
     await sequelize.authenticate();
     console.log("✅ Database connection established successfully.");
-
-    await sequelize.sync({
-      alter: false,
-      force: false,
-    });
+    await sequelize.sync({ alter: false, force: false });
     console.log("✅ Database models synchronized successfully.");
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🎮 Game API: http://localhost:${PORT}/api/player-status`);
-      console.log(`🖥️ Frontend: http://localhost:${PORT}`); // 新增：前端访问地址
+      console.log(`🖥️ Frontend: http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Unable to start server:", error);
@@ -169,11 +119,9 @@ process.on("SIGINT", async () => {
     process.exit(1);
   }
 });
-
 process.on("unhandledRejection", (reason, promise) => {
   console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
 });
-
 process.on("uncaughtException", (error) => {
   console.error("❌ Uncaught Exception:", error);
   process.exit(1);
