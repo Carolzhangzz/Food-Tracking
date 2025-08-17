@@ -8,9 +8,12 @@ const API_URL = process.env.REACT_APP_API_URL;
 function LoginPage() {
   const [playerIdInput, setPlayerIdInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
   const { setPlayerId, setPlayerData } = useContext(PlayerContext);
   const navigate = useNavigate();
 
+  const [tempUserData, setTempUserData] = useState(null);
+  const [selectedLang, setSelectedLang] = useState("en");
 
   // 登录处理函数
   const handleLogin = async () => {
@@ -18,9 +21,8 @@ function LoginPage() {
       alert("Please enter your Player ID!");
       return;
     }
-
     setIsLoading(true);
-    
+
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
@@ -36,14 +38,13 @@ function LoginPage() {
         return;
       }
 
-      // 成功
       console.log("Logged in:", data);
       setPlayerId(playerIdInput);
       setPlayerData(data);
 
-      // Show responsive language selection
-      showLanguageSelection(data);
-
+      // 显示语言选择弹窗
+      setTempUserData(data);
+      setShowLangModal(true);
     } catch (error) {
       console.error("Login failed:", error);
       alert("Network error or server not responding");
@@ -51,138 +52,36 @@ function LoginPage() {
     }
   };
 
-  const showLanguageSelection = (userData) => {
-    const languageOptions = [
-      { code: "en", name: "English", flag: "🇺🇸" },
-      { code: "zh", name: "中文", flag: "🇨🇳" },
-    ];
-
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 2000;
-      backdrop-filter: blur(10px);
-    `;
-
-    const languageBox = document.createElement("div");
-    languageBox.style.cssText = `
-      background: linear-gradient(135deg, #2a2a2a 0%, #1a1a2e 100%);
-      border: 4px solid #4a5568;
-      border-radius: 15px;
-      padding: clamp(20px, 5vw, 40px);
-      font-family: 'Courier New', monospace;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-      max-width: min(400px, 90vw);
-      width: 100%;
-      animation: slideIn 0.3s ease-out;
-    `;
-
-    languageBox.innerHTML = `
-      <style>
-        @keyframes slideIn {
-          from { transform: translateY(-50px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .lang-option {
-          color: #e2e8f0;
-          padding: clamp(10px, 3vw, 16px);
-          margin: clamp(6px, 2vw, 10px) 0;
-          border: 2px solid transparent;
-          border-radius: 10px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: clamp(8px, 2vw, 15px);
-          transition: all 0.3s ease;
-          font-size: clamp(14px, 3vw, 18px);
-          background: rgba(74, 85, 104, 0.3);
-        }
-        .lang-option:hover {
-          background: rgba(102, 126, 234, 0.4);
-          border-color: #667eea;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
-        }
-        .lang-flag {
-          font-size: clamp(20px, 5vw, 28px);
-        }
-      </style>
-      <h3 style="
-        color: #ffd700; 
-        margin-top: 0; 
-        text-align: center; 
-        font-size: clamp(16px, 4vw, 24px); 
-        margin-bottom: clamp(15px, 4vw, 25px);
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      ">SELECT LANGUAGE / 选择语言</h3>
-      ${languageOptions
-        .map(
-          (lang) => `
-        <div class="lang-option" data-lang="${lang.code}">
-          <span class="lang-flag">${lang.flag}</span>
-          <span>${lang.name}</span>
-        </div>
-      `
-        )
-        .join("")}
-    `;
-
-    overlay.appendChild(languageBox);
-    document.body.appendChild(overlay);
-
-    // Add click handlers
-    languageBox.querySelectorAll(".lang-option").forEach((option) => {
-      option.addEventListener("click", async () => {
-        const selectedLang = option.dataset.lang;
-        console.log(`Language selected: ${selectedLang}`);
-        
-        // Store language preference
-        setPlayerData((prevData) => ({
-          ...prevData,
-          language: selectedLang,
-        }));
-
-        try {
-          let result = await updateUserContext(playerIdInput, {
-            ...userData,
-            language: selectedLang,
-          }); 
-          console.log("Language updated:", result);
-        } catch (error) {
-          console.error("Error updating language:", error);
-        }
-
-        if (document.body.contains(overlay)) {
-          document.body.removeChild(overlay);
-        }
-        
-        setIsLoading(false);
-        navigate("/intro");
+  // 确认语言选择
+  const confirmLanguage = async () => {
+    try {
+      setPlayerData((prev) => ({ ...prev, language: selectedLang }));
+      await updateUserContext(playerIdInput, {
+        ...tempUserData,
+        language: selectedLang,
       });
-    });
+      console.log("Language updated:", selectedLang);
+    } catch (error) {
+      console.error("Error updating language:", error);
+    }
+    setShowLangModal(false);
+    setIsLoading(false);
+    navigate("/intro");
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleLogin();
-    }
+    if (e.key === "Enter") handleLogin();
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.loginBox}>
-        <h1 style={styles.title}>🍳 FEASTORY </h1>
+        <h1 style={styles.title}>🍳 FEASTORY</h1>
         <h2 style={styles.subtitle}>Welcome Back!</h2>
-        <p style={styles.description}>Please enter your Player ID to continue your journey</p>
-        
+        <p style={styles.description}>
+          Please enter your Player ID to continue your journey
+        </p>
+
         <div style={styles.inputContainer}>
           <input
             type="text"
@@ -193,183 +92,155 @@ function LoginPage() {
             placeholder="Your Player ID"
             disabled={isLoading}
           />
-          <button 
-            onClick={handleLogin} 
+          <button
+            onClick={handleLogin}
             style={{
               ...styles.button,
               opacity: isLoading ? 0.6 : 1,
-              cursor: isLoading ? 'not-allowed' : 'pointer'
+              cursor: isLoading ? "not-allowed" : "pointer",
             }}
             disabled={isLoading}
           >
             {isLoading ? "Logging in..." : "Login"}
           </button>
         </div>
-        
+
         <div style={styles.hint}>
-          <p>💡 First time? Enter the given player id to start your journey !</p>
+          <p>💡 First time? Enter the given player id to start your journey!</p>
         </div>
       </div>
+
+      {/* 语言选择弹窗 */}
+      {showLangModal && (
+        <div style={modalStyles.overlay}>
+          <div style={modalStyles.box}>
+            <h3 style={{ marginBottom: "16px" }}>
+              SELECT LANGUAGE / 选择语言
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <button
+                style={{
+                  ...modalStyles.option,
+                  borderColor: selectedLang === "en" ? "#667eea" : "#ccc",
+                }}
+                onClick={() => setSelectedLang("en")}
+              >
+                🇺🇸 English
+              </button>
+              <button
+                style={{
+                  ...modalStyles.option,
+                  borderColor: selectedLang === "zh" ? "#667eea" : "#ccc",
+                }}
+                onClick={() => setSelectedLang("zh")}
+              >
+                🇨🇳 中文
+              </button>
+            </div>
+            <button style={modalStyles.confirm} onClick={confirmLanguage}>
+              {selectedLang === "zh" ? "好的" : "Got it!"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 const styles = {
   container: {
     minHeight: "100vh",
     width: "100vw",
     display: "flex",
-    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
     background: "#1a1a2e",
-    backgroundImage: `
-      repeating-linear-gradient(
-        0deg,
-        #1a1a2e,
-        #1a1a2e 2px,
-        #16213e 2px,
-        #16213e 4px
-      )
-    `,
-    padding: "clamp(15px, 5vw, 30px)",
-    boxSizing: "border-box",
-    position: "fixed",
-    top: 0,
-    left: 0,
-    overflow: "auto"
   },
   loginBox: {
     background: "#2a2a2a",
-    borderRadius: "0",
-    padding: "clamp(20px, 6vw, 50px)",
+    borderRadius: "8px",
+    padding: "30px",
     boxShadow: "8px 8px 0px #000",
     textAlign: "center",
-    maxWidth: "min(450px, 90vw)",
+    maxWidth: "400px",
     width: "100%",
     border: "4px solid #4a5568",
-    position: "relative"
   },
   title: {
-    fontSize: "clamp(1.8rem, 6vw, 3rem)",
-    margin: "0 0 clamp(5px, 2vw, 15px) 0",
+    fontSize: "2rem",
     color: "#ffd700",
-    fontWeight: "bold",
-    textShadow: "3px 3px 0px #000",
-    fontFamily: "'Courier New', monospace",
-    letterSpacing: "2px"
   },
   subtitle: {
-    fontSize: "clamp(1.2rem, 4vw, 2rem)",
-    margin: "0 0 clamp(5px, 2vw, 15px) 0",
+    fontSize: "1.2rem",
     color: "#e2e8f0",
-    fontWeight: "600",
-    fontFamily: "'Courier New', monospace",
-    textShadow: "2px 2px 0px #000"
   },
   description: {
-    fontSize: "clamp(0.9rem, 2.5vw, 1.1rem)",
     color: "#94a3b8",
-    marginBottom: "clamp(20px, 5vw, 35px)",
-    lineSpacing: "1.5",
-    fontFamily: "'Courier New', monospace"
+    marginBottom: "20px",
   },
-  inputContainer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "clamp(10px, 3vw, 20px)",
-    marginBottom: "clamp(15px, 4vw, 25px)",
-  },
+  inputContainer: { display: "flex", flexDirection: "column", gap: "15px" },
   input: {
-    padding: "clamp(12px, 3vw, 18px) clamp(15px, 4vw, 25px)",
-    fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
-    border: "3px solid #4a5568",
-    borderRadius: "0",
-    outline: "none",
-    fontFamily: "'Courier New', monospace",
-    width: "100%",
-    boxSizing: "border-box",
+    padding: "12px",
+    fontSize: "1rem",
+    border: "2px solid #4a5568",
     background: "#1a1a2e",
     color: "#e2e8f0",
-    boxShadow: "inset 2px 2px 0px #000"
   },
   button: {
-    padding: "clamp(12px, 3vw, 18px) clamp(20px, 5vw, 30px)",
-    fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
+    padding: "12px",
+    fontSize: "1rem",
     background: "#4a5568",
     color: "#ffd700",
     border: "3px solid #2F1B14",
-    borderRadius: "0",
     cursor: "pointer",
-    fontWeight: "bold",
-    fontFamily: "'Courier New', monospace",
-    width: "100%",
-    boxSizing: "border-box",
-    boxShadow: "4px 4px 0px #000",
-    textTransform: "uppercase",
-    letterSpacing: "1px",
-    position: "relative",
-    transition: "all 0.1s ease"
   },
-  hint: {
-    background: "#1a1a2e",
-    border: "2px solid #667eea",
-    borderRadius: "0",
-    padding: "clamp(10px, 3vw, 20px)",
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
-    color: "#94a3b8",
-    marginTop: "clamp(15px, 4vw, 25px)",
-    lineHeight: "1.4",
-    fontFamily: "'Courier New', monospace",
-    boxShadow: "3px 3px 0px #000"
-  },
+  hint: { marginTop: "15px", color: "#94a3b8" },
 };
 
-// Enhanced CSS for better responsiveness
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement("style");
-  styleSheet.type = "text/css";
-  styleSheet.innerText = `
-    input:focus {
-      border-color: #667eea !important;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-    }
-    button:hover:not(:disabled) {
-      transform: translateY(-2px) !important;
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3) !important;
-    }
-    button:active:not(:disabled) {
-      transform: translateY(0px) !important;
-    }
-    
-    /* Mobile optimizations */
-    @media (max-width: 768px) {
-      input {
-        font-size: 16px !important; /* Prevent zoom on iOS */
-      }
-    }
-    
-    @media (max-height: 600px) {
-      .login-box {
-        padding: 20px !important;
-        margin: 10px !important;
-      }
-    }
-    
-    /* Landscape mobile */
-    @media (orientation: landscape) and (max-height: 500px) {
-      .container {
-        padding: 10px !important;
-      }
-      .login-box {
-        padding: 15px !important;
-        max-height: 90vh !important;
-        overflow-y: auto !important;
-      }
-    }
-  `;
-  if (document.head) {
-    document.head.appendChild(styleSheet);
-  }
-}
+const modalStyles = {
+  overlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    background: "rgba(0,0,0,0.8)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2000,
+  },
+  box: {
+    background: "white",
+    padding: "30px",
+    borderRadius: "12px",
+    width: "320px",
+    textAlign: "center",
+  },
+  option: {
+    padding: "12px",
+    border: "2px solid #ccc",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "16px",
+  },
+  confirm: {
+    marginTop: "20px",
+    padding: "12px",
+    background: "#667eea",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    width: "100%",
+    fontSize: "16px",
+  },
+};
 
 export default LoginPage;

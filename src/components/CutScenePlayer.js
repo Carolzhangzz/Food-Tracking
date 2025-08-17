@@ -59,7 +59,7 @@ function CutScenePlayer() {
     if (currentLine < storyLines.length) {
       const timer = setTimeout(() => {
         setCurrentLine(currentLine + 1);
-      }, 500); // 调慢一点
+      }, 1000); // 调慢一点
       return () => clearTimeout(timer);
     } else {
       const buttonTimer = setTimeout(() => {
@@ -195,7 +195,7 @@ function CutScenePlayer() {
                 onClick={handleStartGame}
                 animation="fadeIn 1s ease-in-out forwards"
               >
-                {playerData.language === "zh" ? "开始游戏" : "Start Game"}
+                {playerData.language === "zh" ? "了解了" : "Got it"}
               </Button>
             </div>
           )}
@@ -216,109 +216,6 @@ function CutScenePlayer() {
       </div>
     </>
   );
-
-  // return (
-  //   <>
-  //     <Control />
-  //     <div
-  //       className="cutscene-player"
-  //       style={{
-  //         background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
-  //         color: '#e2e8f0',
-  //         minHeight: '100vh',
-  //         width: '100vw',
-  //         display: 'flex',
-  //         flexDirection: 'column',
-  //         justifyContent: 'center',
-  //         alignItems: 'center',
-  //         padding: '20px',
-  //         boxSizing: 'border-box',
-  //         position: 'fixed',
-  //         top: 0,
-  //         left: 0,
-  //         overflowY: 'auto',   // 添加这一行
-  //       }}
-  //     >
-  //       <div style={{
-  //         textAlign: 'center',
-  //         maxWidth: '800px',
-  //         width: '100%',
-  //         maxHeight: '70vh',
-  //         overflowY: 'auto',
-  //         padding: '0 1rem'
-  //       }}>
-  //         <p style={{
-  //           fontSize: 'clamp(1.2rem, 4vw, 1.8rem)',
-  //           color: '#ffd700',
-  //           marginBottom: '2rem',
-  //           textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
-  //         }}>
-  //           {playerData.language === 'zh' ?
-  //             `欢迎回来，${playerData.firstName || '玩家'}` :
-  //             `Welcome back, ${playerData.firstName || 'Player'}`
-  //           }
-  //         </p>
-
-  //         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-  //           {storyLines.slice(0, currentLine).map((line, index) => (
-  //             <p
-  //               key={index}
-  //               style={{
-  //                 fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
-  //                 lineHeight: '1.6',
-  //                 margin: '1rem 0',
-  //                 opacity: 0,
-  //                 animation: `fadeIn 1s ease-in-out ${index * 0.5}s forwards`,
-  //                 textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
-  //               }}
-  //             >
-  //               {line}
-  //             </p>
-  //           ))}
-  //         </div>
-  //       </div>
-
-  //       {/* {showStartButton && currentLine >= storyLines.length && (
-  //         <div style={{ marginTop: '2rem' }}>
-  //           <Button
-  //             onClick={handleStartGame}
-  //             animation="fadeIn 1s ease-in-out forwards"
-  //           >
-  //             {playerData.language === "zh" ? "开始游戏" : "Start Game"}
-  //           </Button>
-  //         </div>
-  //       )} */}
-
-  //       {/* //它固定在屏幕底部： */}
-  //     {showStartButton && currentLine >= storyLines.length && (
-  //       <div style={{
-  //         position: 'relative',  // 从 fixed 改为 relative
-  //         marginTop: '2rem',
-  //         width: '100%',
-  //         textAlign: 'center',
-  //       }}>
-  //         <Button
-  //           onClick={handleStartGame}
-  //           animation="fadeIn 1s ease-in-out forwards"
-  //         >
-  //           {playerData.language === "zh" ? "开始游戏" : "Start Game"}
-  //         </Button>
-  //       </div>
-  //     )}
-
-  //       <style jsx>{`
-  //         @keyframes fadeIn {
-  //           from { opacity: 0; transform: translateY(20px); }
-  //           to { opacity: 1; transform: translateY(0); }
-  //         }
-  //         @keyframes pulse {
-  //           0%, 100% { opacity: 1; }
-  //           50% { opacity: 0.5; }
-  //         }
-  //       `}</style>
-  //     </div>
-  //   </>
-  // );
 }
 
 export default CutScenePlayer;

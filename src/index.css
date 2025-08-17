@@ -1,12 +1,13 @@
-/* 响应式重置和基础样式 */
+/* ===== 响应式重置和基础样式 ===== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* 基础全屏设置 */
-html, body {
+/* ===== 键盘适配的基础全局设置 ===== */
+html,
+body {
   width: 100vw;
   height: 100vh;
   margin: 0;
@@ -15,15 +16,22 @@ html, body {
   position: fixed;
   top: 0;
   left: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+
+  /* iOS Safari 特殊处理 */
+  /* Prevent content from being cut off */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  height: -webkit-fill-available;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-overflow-scrolling: touch;
   background: #000;
-  
-  /* 防止用户缩放 */
+
+  /* 防止用户缩放和选择 */
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -34,29 +42,55 @@ html, body {
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
+
+  /* 防止橡皮筋效果和意外滚动 */
+  overscroll-behavior: none;
+  touch-action: none;
+
+  /* 环境变量支持 - 现代浏览器键盘检测 */
+  --keyboard-height: env(keyboard-inset-height, 0px);
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* React根元素 */
 #root {
   width: 100vw !important;
   height: 100vh !important;
+  height: -webkit-fill-available !important;
+  min-height: 100vh !important;
+  min-height: -webkit-fill-available !important;
+
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   overflow: hidden !important;
   background: #000;
+
+  /* 强制硬件加速 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 /* 游戏容器 */
-#game, #test-game {
+#game,
+#test-game {
   width: 100vw !important;
   height: 100vh !important;
+  height: -webkit-fill-available !important;
+  min-height: 100vh !important;
+  min-height: -webkit-fill-available !important;
+
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
   display: block !important;
   overflow: hidden !important;
   background: #000;
+
+  /* 使用transform3d强制硬件加速 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 /* Phaser Canvas样式 */
@@ -69,27 +103,91 @@ canvas {
   left: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
+
+  /* 防止点击穿透和选择 */
   touch-action: none !important;
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+
+  /* 像素渲染优化 */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+
   background: #000;
+
+  /* 强制硬件加速 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+/* ===== 移动设备输入框键盘适配 ===== */
+input,
+textarea,
+select {
+  font-size: 16px !important; /* iOS防缩放的关键 */
+  font-family: "Courier New", monospace !important;
+
+  /* 防止系统样式干扰 */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* 边框和背景 */
+  border-radius: clamp(4px, 1vw, 8px);
+  border: 2px solid #4a5568;
+  background: #2a2a2a;
+  color: #e2e8f0;
+
+  /* 布局属性 */
+  box-sizing: border-box;
+  outline: none;
+  padding: clamp(8px, 2vw, 12px);
+
+  /* 确保在键盘弹出时可见 */
+  position: relative;
+  z-index: 1000;
+
+  /* 硬件加速 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+/* 聚焦状态 */
+input:focus,
+textarea:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  /* 防止iOS缩放 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+button {
+  font-family: "Courier New", monospace !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: clamp(4px, 1vw, 8px);
+  outline: none;
 }
 
 /* 代码字体 */
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
 
 /* 禁用所有滚动条 */
-html, body, #root, #game, #test-game {
+html,
+body,
+#root,
+#game,
+#test-game {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
@@ -102,7 +200,7 @@ body::-webkit-scrollbar,
   display: none !important; /* Chrome/Safari */
 }
 
-/* 控制按钮基础样式 */
+/* ===== 控制按钮基础样式 ===== */
 .control-button {
   background: rgba(0, 0, 0, 0.8) !important;
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
@@ -114,19 +212,23 @@ body::-webkit-scrollbar,
   z-index: 1000 !important;
   padding: clamp(6px, 2vw, 12px) clamp(8px, 3vw, 16px) !important;
   font-size: clamp(10px, 2.5vw, 16px) !important;
-  font-family: 'Courier New', monospace !important;
+  font-family: "Courier New", monospace !important;
   backdrop-filter: blur(10px) !important;
+
+  /* 硬件加速 */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 .control-button:hover {
   background: rgba(102, 126, 234, 0.8) !important;
   border-color: rgba(255, 255, 255, 0.8) !important;
-  transform: translateY(-1px) !important;
+  transform: translateY(-1px) translate3d(0, 0, 0) !important;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 .control-button:active {
-  transform: translateY(0px) !important;
+  transform: translateY(0px) translate3d(0, 0, 0) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
@@ -135,66 +237,137 @@ body::-webkit-scrollbar,
   position: fixed !important;
   z-index: 999 !important;
   pointer-events: auto !important;
-  font-family: 'Courier New', monospace !important;
+  font-family: "Courier New", monospace !important;
 }
 
-/* 动画定义 */
+/* ===== 键盘适配特殊处理 ===== */
+
+/* 现代浏览器键盘检测支持 */
+@supports (height: env(keyboard-inset-height)) {
+  .keyboard-adjusted {
+    height: calc(100vh - env(keyboard-inset-height));
+    min-height: calc(100vh - env(keyboard-inset-height));
+  }
+
+  .bottom-safe {
+    bottom: calc(
+      env(safe-area-inset-bottom, 0px) + env(keyboard-inset-height, 0px)
+    );
+  }
+}
+
+/* ⭐ FIXED: Safe area for mobile devices */
+@media screen and (max-height: 600px) {
+  .dialog-ui {
+    top: 5px !important;
+    bottom: 5px !important;
+    height: calc(100vh - 10px) !important;
+    max-height: calc(100vh - 10px) !important;
+  }
+  
+  .control-button {
+    min-height: 36px; /* Ensure buttons are always touchable */
+  }
+}
+
+/* ===== 动画定义 ===== */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translate3d(0, 0, 0);
   }
   50% {
     opacity: 0.6;
-    transform: scale(1.05);
+    transform: scale(1.05) translate3d(0, 0, 0);
   }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) translate3d(0, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translate3d(0, 0, 0);
   }
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(-50px);
+    transform: translateY(-50px) translate3d(0, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translate3d(0, 0, 0);
   }
 }
 
-/* 响应式媒体查询 */
+/* ===== 键盘动画过渡 ===== */
+.keyboard-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.keyboard-transition * {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== 响应式媒体查询 ===== */
 
 /* 超小屏幕 (手机竖屏) */
 @media screen and (max-width: 480px) {
+  /* 键盘弹出检测 - 通过高度变化 */
+  @media screen and (max-height: 500px) {
+    .dialog-ui {
+      top: 10px !important;
+      height: calc(100vh - 20px) !important;
+      max-height: calc(100vh - 20px) !important;
+    }
+
+    .control-button {
+      font-size: 12px !important;
+      padding: 6px 8px !important;
+    }
+
+    /* 隐藏不必要的UI元素 */
+    .non-essential {
+      display: none !important;
+    }
+  }
+
   .control-button {
     padding: 4px 8px !important;
     font-size: 11px !important;
     border-radius: 4px !important;
   }
-  
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     font-size: 14px;
   }
 }
 
 /* 小屏幕 (手机横屏/小平板) */
 @media screen and (min-width: 481px) and (max-width: 768px) {
+  /* 键盘弹出适配 */
+  @media screen and (max-height: 400px) {
+    .dialog-ui {
+      top: 5px !important;
+      height: calc(100vh - 10px) !important;
+    }
+  }
+
   .control-button {
     padding: 6px 10px !important;
     font-size: 12px !important;
   }
-  
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     font-size: 15px;
   }
 }
@@ -205,8 +378,10 @@ body::-webkit-scrollbar,
     padding: 8px 12px !important;
     font-size: 14px !important;
   }
-  
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     font-size: 16px;
   }
 }
@@ -217,26 +392,33 @@ body::-webkit-scrollbar,
     padding: 10px 16px !important;
     font-size: 16px !important;
   }
-  
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     font-size: 18px;
   }
 }
 
 /* 超宽屏幕 */
 @media screen and (min-width: 1440px) {
-  html, body, #root {
+  html,
+  body,
+  #root {
     font-size: 20px;
   }
 }
 
+/* ===== 屏幕方向优化 ===== */
+
 /* 横屏优化 */
 @media screen and (orientation: landscape) {
-  html, body {
+  html,
+  body {
     height: 100vh;
     height: -webkit-fill-available; /* iOS Safari */
   }
-  
+
   #root {
     height: 100vh;
     height: -webkit-fill-available; /* iOS Safari */
@@ -250,9 +432,69 @@ body::-webkit-scrollbar,
   }
 }
 
-/* 高DPI屏幕优化 */
+/* ===== iOS Safari 特殊处理 ===== */
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    /* iOS Safari特殊视口处理 */
+    height: -webkit-fill-available !important;
+    min-height: -webkit-fill-available !important;
+    position: fixed;
+    overflow: hidden;
+  }
+
+  #root {
+    height: -webkit-fill-available !important;
+    min-height: -webkit-fill-available !important;
+  }
+
+  /* iOS键盘弹出时的特殊处理 */
+  input,
+  textarea {
+    /* 防止iOS页面滚动 */
+    position: relative;
+    z-index: 1001;
+  }
+
+  /* iOS状态栏适配 */
+  @media screen and (orientation: portrait) {
+    .ios-status-bar-padding {
+      padding-top: env(safe-area-inset-top, 20px);
+    }
+  }
+
+  /* 防止Safari工具栏干扰 */
+  @media screen and (max-height: 500px) {
+    html,
+    body,
+    #root {
+      height: 100vh !important;
+      min-height: 100vh !important;
+    }
+  }
+
+  /* iOS横屏特殊处理 */
+  @media screen and (orientation: landscape) and (max-height: 500px) {
+    html,
+    body,
+    #root {
+      height: 100vh !important;
+      min-height: 100vh !important;
+    }
+  }
+}
+
+/* ===== Android特殊处理 ===== */
+@media screen and (-webkit-min-device-pixel-ratio: 1) {
+  /* Android Chrome浏览器 */
+  .android-keyboard-compensation {
+    transition: height 0.2s ease-out;
+  }
+}
+
+/* ===== 高DPI屏幕优化 ===== */
 @media screen and (-webkit-min-device-pixel-ratio: 2),
-       screen and (min-resolution: 192dpi) {
+  screen and (min-resolution: 192dpi) {
   canvas {
     image-rendering: -webkit-optimize-contrast;
     image-rendering: -webkit-crisp-edges;
@@ -260,81 +502,76 @@ body::-webkit-scrollbar,
   }
 }
 
-/* iOS Safari 特殊处理 */
-@supports (-webkit-touch-callout: none) {
-  html, body {
-    height: -webkit-fill-available;
-    position: fixed;
-    overflow: hidden;
-  }
-  
-  #root {
-    height: -webkit-fill-available;
-  }
-  
-  /* 防止Safari工具栏干扰 */
-  @media screen and (max-height: 500px) {
-    html, body, #root {
-      height: 100vh !important;
-    }
-  }
-}
-
-/* 低高度屏幕优化 (如横屏手机) */
+/* ===== 低高度屏幕优化 (如横屏手机) ===== */
 @media screen and (max-height: 500px) {
   .control-button {
     padding: 4px 8px !important;
     font-size: 10px !important;
   }
-  
-  html, body, #root {
+
+  html,
+  body,
+  #root {
     font-size: 12px;
   }
 }
 
-/* 确保全屏游戏体验的强制样式 */
+/* ===== 确保全屏游戏体验的强制样式 ===== */
 .game-fullscreen {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
+  height: -webkit-fill-available !important;
   overflow: hidden !important;
   background: #000 !important;
   z-index: 1 !important;
 }
 
-/* 防止页面意外滚动 */
-html {
-  touch-action: none;
-  overscroll-behavior: none;
-}
-
-body {
-  touch-action: none;
-  overscroll-behavior: none;
-  position: fixed;
-  width: 100%;
-  height: 100%;
-}
-
-/* 输入框样式优化 */
-input, button, textarea {
-  font-family: 'Courier New', monospace !important;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  border-radius: clamp(4px, 1vw, 8px);
-  outline: none;
-}
-
-/* 移动端输入框防止缩放 */
+/* ===== 移动端输入框防止缩放 ===== */
 @media screen and (max-width: 768px) {
-  input {
+  input,
+  textarea {
     font-size: 16px !important; /* 防止iOS缩放 */
     transform: translateZ(0); /* 强制硬件加速 */
   }
 }
+
+/* ===== 调试模式样式 ===== */
+.debug-keyboard-info {
+  position: fixed;
+  top: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 9999;
+  pointer-events: none;
+  display: none; /* 默认隐藏，调试时可开启 */
+}
+
+/* ===== 性能优化 ===== */
+/* 减少重绘重排 */
+.performance-optimized {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+/* GPU加速的元素 */
+.gpu-accelerated {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+/* ===== 兼容性和可访问性 ===== */
 
 /* 打印样式 (隐藏游戏内容) */
 @media print {
@@ -353,24 +590,39 @@ input, button, textarea {
 
 /* 减少动画模式支持 */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
+    0%,
+    100% {
+      opacity: 1;
+    }
   }
-  
+
   @keyframes fadeIn {
-    to { opacity: 1; }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideIn {
+    to {
+      opacity: 1;
+    }
   }
 }
 
 /* 深色模式自动适配 */
 @media (prefers-color-scheme: dark) {
-  html, body, #root {
+  html,
+  body,
+  #root {
     background: #000 !important;
     color: #fff !important;
   }
@@ -379,7 +631,26 @@ input, button, textarea {
 /* 浅色模式自动适配 */
 @media (prefers-color-scheme: light) {
   /* 游戏保持深色背景 */
-  #game, #test-game, canvas {
+  #game,
+  #test-game,
+  canvas {
     background: #000 !important;
+  }
+}
+
+/* ===== 兜底样式 ===== */
+/* 当新特性不支持时的回退方案 */
+@supports not (height: env(keyboard-inset-height)) {
+  /* 传统viewport单位兜底 */
+  .fallback-height {
+    height: 100vh;
+    max-height: 100vh;
+  }
+
+  /* 固定像素值兜底 */
+  @media screen and (max-height: 600px) {
+    .keyboard-safe-area {
+      padding-bottom: 200px;
+    }
   }
 }
