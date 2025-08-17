@@ -2,14 +2,14 @@
   "name": "food-tracking",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://foodtracking-t1-4d8572bed4a3.herokuapp.com/",
+  "homepage": ".",
   "engines": {
     "node": "22.17.1",
     "npm": "10.9.2"
   },
   "scripts": {
     "start": "node server/app.js",
-    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install && npm run build",
+    "heroku-postbuild": "npm run build",
     "build": "CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
