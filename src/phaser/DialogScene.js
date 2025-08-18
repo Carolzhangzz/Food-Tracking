@@ -349,7 +349,7 @@ export default class DialogScene extends Phaser.Scene {
         textPadding,
         boxY + 20,
         width - textPadding * 2,
-        boxHeight - 60
+        boxHeight - 40
       );
       const mask = this.scrollMask.createGeometryMask();
       this.dialogText.setMask(mask);
@@ -3008,77 +3008,85 @@ Because if anyone can follow the path he left, it’s you.`,
   }
 
   returnToMainScene() {
-    // 清理输入框
-    this.clearTextInput();
-    if (this.mainScene?.cameras?.main) {
-      const w = this.mainScene.scale.width;
-      const h = this.mainScene.scale.height;
-      this.mainScene.cameras.main.setViewport(0, 0, w, h);
-      if (this.mainScene.keyboardState) {
-        this.mainScene.keyboardState.isOpen = false;
-        this.mainScene.keyboardState.currentHeight = h;
+    try {
+      // 1) 先清理本场景 UI/事件
+      this.shutdown();
+
+      // 2) 恢复 MainScene 的交互与移动
+      if (this.mainScene) {
+        this.mainScene.input.enabled = true;
+        // 若有自定义的恢复逻辑，调用之
+        this.mainScene.improvedEndDialog?.();
+
+        // 关闭可能残留的“键盘打开状态”位移
+        this.mainScene.uiManager?.handleKeyboardToggle?.(false);
+
+        // 3) 刷新 NPC：保证同一天可继续点击 NPC 记录午餐/晚餐
+        this.npcManager?.refreshAvailableNPCs?.();
+        this.npcManager?.rebindClickAreasForCurrentDay?.();
       }
+    } finally {
+      // 4) 停掉 DialogScene 自己
+      this.scene.stop();
+      // 把主场景放到最上层，确保可见可操作
+      this.mainScene?.scene?.bringToTop?.();
+      this.mainScene?.scene?.resume?.();
     }
-
-    this.scene.stop();
-    this.scene.resume("MainScene");
-
-    // 清理滚动指示器
-    if (this.scrollIndicator) {
-      this.scrollIndicator.destroy();
-      this.scrollIndicator = null;
-    }
-
-    // 返回主场景
-    this.scene.stop();
-    this.scene.resume("MainScene");
   }
 
   shutdown() {
-    if (this.debugMode) {
-      console.log("=== DialogScene 关闭清理 ===");
+    // 停掉打字/计时器
+    if (this.timers && Array.isArray(this.timers)) {
+      this.timers.forEach((t) => {
+        try {
+          this.time.removeEvent(t);
+        } catch {}
+      });
+      this.timers.length = 0;
     }
 
-    // 🔑 新增：清理提交进度指示器
-    this.hideSubmissionProgress();
-
-    // 清理所有定时器
-    this.timers.forEach((timer) => {
-      if (timer && !timer.hasDispatched) {
-        timer.destroy();
-      }
-    });
-    this.timers = [];
-
-    // ... 其他现有的清理代码保持不变
-    // 清理事件监听器
-    this.eventListeners.forEach(({ event, handler }) => {
-      if (this.input && this.input.removeListener) {
-        this.input.removeListener(event, handler);
-      }
-    });
-    this.eventListeners = [];
-
-    // 正确移除键盘监听
-    if (this._onSpaceKey && this.input?.keyboard?.off) {
-      this.input.keyboard.off("keydown-SPACE", this._onSpaceKey);
-      this._onSpaceKey = null;
+    // 移除所有注册的 DOM/viewport 监听
+    if (this.eventListeners && Array.isArray(this.eventListeners)) {
+      this.eventListeners.forEach((l) => {
+        try {
+          l.target.removeEventListener(l.event, l.handler);
+        } catch {}
+      });
+      this.eventListeners.length = 0;
     }
 
-    // 清理输入框
-    this.clearTextInput();
+    // 解除文本 mask，避免遮罩留在画面上
+    try {
+      this.dialogText?.clearMask?.();
+    } catch {}
+    try {
+      this.scrollMask?.destroy?.();
+    } catch {}
 
-    // 清理滚动指示器
-    if (this.scrollIndicator) {
-      this.scrollIndicator.destroy();
-      this.scrollIndicator = null;
+    // 销毁对话 UI
+    try {
+      this.dialogBg?.destroy?.();
+    } catch {}
+    try {
+      this.dialogText?.destroy?.();
+    } catch {}
+    try {
+      this.continueHint?.destroy?.();
+    } catch {}
+    if (this.dynamicButtons && Array.isArray(this.dynamicButtons)) {
+      this.dynamicButtons.forEach((b) => {
+        try {
+          b.destroy?.();
+        } catch {}
+      });
+      this.dynamicButtons.length = 0;
     }
-
-    // 清理所有按钮
-    this.clearAllButtons();
-
-    // 重置回调函数
-    this.onUserSubmit = null;
+    try {
+      this.returnButton?.destroy?.();
+    } catch {}
+    try {
+      this.statusText?.destroy?.();
+    } catch {}
   }
   // 更新状态显示
   updateStatus(text) {

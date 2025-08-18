@@ -25,7 +25,7 @@ const UI_FONT = "'Arial', sans-serif"; // 你也可以换成游戏里更清晰�
 
 // 1. 在 MainScene.js 中添加更好的事件清理
 export function improvedEndDialog() {
-  // 清理所有可能的浮动文本
+  // 先清理浮动文本（你现有的逻辑）
   this.children.list.forEach((child) => {
     if (child.type === "Text") {
       const text = child.text || "";
@@ -42,9 +42,25 @@ export function improvedEndDialog() {
     }
   });
 
-  // 重新启用NPC交互
+  this.input.enabled = true;
+
+  // 再保险：恢复 NPC 可点击
+  this.npcManager?.rebindClickAreasForCurrentDay?.();
+
+  // ✅ 关键：恢复玩家移动与动画绑定
+  try {
+    if (this.gridEngine && this.playerLoc) {
+      this.gridEngine.movePlayer("player", this.playerLoc);
+    }
+    if (this.walkAnims) {
+      this.gridEngine.setWalkingAnimationMapping("player", this.walkAnims);
+    }
+  } catch (e) {
+    this.elog?.("恢复玩家移动失败:", e);
+  }
+
   this.time.delayedCall(200, () => {
-    this.resetNPCInteractionStates();
+    this.resetNPCInteractionStates?.();
   });
 }
 
@@ -952,8 +968,6 @@ export default class MainScene extends Phaser.Scene {
     // 保存新的缩放值
     this.mapScale = scale;
   }
-
-  
 
   resetNPCInteractionStates() {
     if (!this.npcManager) return;

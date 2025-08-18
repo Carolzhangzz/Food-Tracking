@@ -161,6 +161,44 @@ export default class NPCManager {
     }
   }
 
+  // 供 DialogScene / MainScene 在返回地图后调用：重新拉取后端并刷新 NPC 可见/可点状态
+  async refreshAvailableNPCs() {
+    try {
+      await this.loadPlayerStatus(); // 会更新 this.playerStatus, this.availableNPCs 等
+    } catch (e) {
+      console.warn("refreshAvailableNPCs: loadPlayerStatus failed:", e);
+    }
+    this.updateNPCStates();
+  }
+
+  // 仅根据现有内存状态重绑“今天”的点击区域（不访问后端）
+  rebindClickAreasForCurrentDay() {
+    const day = this.playerStatus?.currentDay || 1;
+    const today = (this.availableNPCs || []).find((n) => n.day === day);
+    if (!today) return;
+
+    const npc = this.npcs.get(today.npcId);
+    if (!npc || !npc.sprite) return;
+
+    // 先清理提示，避免 UI 残留
+    if (npc.mealHint) {
+      npc.mealHint.destroy();
+      npc.mealHint = null;
+    }
+
+    npc.sprite?.setVisible(true);
+    this.addNPCClickArea?.(npc);
+    this.highlightNPC?.(npc);
+
+    const mealTypes =
+      today.availableMealTypes && today.availableMealTypes.length > 0
+        ? today.availableMealTypes
+        : ["breakfast", "lunch", "dinner"];
+    this.addMealTypeHint?.(npc, mealTypes);
+
+    npc.hasRecordedMeal = false;
+  }
+
   addMealTypeHint(npc, mealTypes = []) {
     if (npc.mealHint) {
       npc.mealHint.destroy();
@@ -316,77 +354,42 @@ export default class NPCManager {
       }
     }
   }
-
   updateNPCStates() {
-    console.log("🔄 更新NPC状态开始", {
-      availableNPCs: this.availableNPCs.length,
-      currentDay: this.playerStatus?.currentDay,
-    });
+    const day = this.playerStatus?.currentDay || 1;
 
-    // 强制清理所有NPC的UI元素
+    // 1) 先隐藏并禁用所有 NPC
     this.npcs.forEach((npc) => {
-      npc.isUnlocked = false;
-      npc.hasRecordedMeal = false;
-      npc.sprite.setVisible(false);
-      this.removeNPCHighlight(npc);
+      npc.sprite?.setVisible(false);
+      npc.sprite?.disableInteractive?.();
+      this.removeNPCHighlight?.(npc);
       if (npc.mealHint) {
         npc.mealHint.destroy();
         npc.mealHint = null;
       }
     });
 
-    if (!this.availableNPCs || this.availableNPCs.length === 0) {
-      this.setDefaultNPCStates();
-      return;
-    }
+    // 2) 找到“今天”的 NPC（来自后端 /login 或 /player-status 的 availableNPCs）
+    const today = (this.availableNPCs || []).find((n) => n.day === day);
+    if (!today) return;
 
-    // 根据服务器数据更新NPC状态
-    this.availableNPCs.forEach((availableNPC) => {
-      const npc = this.npcs.get(availableNPC.npcId);
-      if (npc) {
-        console.log(`🔧 更新NPC ${availableNPC.npcId}:`, {
-          day: availableNPC.day,
-          unlocked: availableNPC.unlocked,
-          mealsRecorded: availableNPC.mealsRecorded,
-          availableMealTypes: availableNPC.availableMealTypes,
-        });
+    const npc = this.npcs.get(today.npcId);
+    if (!npc || !npc.sprite) return;
 
-        npc.name = this.getNPCNameByLanguage(availableNPC.npcId);
-        npc.isUnlocked = availableNPC.unlocked;
-        npc.hasRecordedMeal = availableNPC.hasRecordedMeal;
-        npc.mealsRecorded = availableNPC.mealsRecorded;
-        npc.availableMealTypes = availableNPC.availableMealTypes || [];
-        npc.sprite.setVisible(true);
+    // 3) 显示、可点、高亮，并提示可记录餐别
+    npc.sprite.setVisible(true);
+    this.addNPCClickArea?.(npc);
+    this.highlightNPC?.(npc);
 
-        // ✅ 简化的交互条件：只要是当前天的已解锁NPC就高亮并允许交互
-        const isCurrentDay = availableNPC.day === this.playerStatus.currentDay;
-        const isUnlocked = availableNPC.unlocked;
+    const mealTypes =
+      today.availableMealTypes && today.availableMealTypes.length > 0
+        ? today.availableMealTypes
+        : ["breakfast", "lunch", "dinner"];
+    this.addMealTypeHint?.(npc, mealTypes);
 
-        if (isCurrentDay && isUnlocked) {
-          console.log(`✅ 激活NPC ${availableNPC.npcId} 交互`);
-          this.highlightNPC(npc);
-          this.addNPCClickArea(npc);
-
-          // 显示可记录的餐食提示（如果还有的话）
-          const hasAvailableMeals =
-            availableNPC.availableMealTypes &&
-            availableNPC.availableMealTypes.length > 0;
-
-          if (hasAvailableMeals) {
-            this.addMealTypeHint(npc, availableNPC.availableMealTypes);
-          } else {
-            // 即使没有可记录的餐食，也显示可以对话的提示
-            this.addChatOnlyHint(npc);
-          }
-        } else {
-          console.log(`❌ NPC ${availableNPC.npcId} 不可交互:`, {
-            是当前天: isCurrentDay,
-            是否解锁: isUnlocked,
-          });
-        }
-      }
-    });
+    // 4) 护栏：同一天允许运营多次进入（不要把 hasRecordedMeal 锁死）
+    npc.hasRecordedMeal = false;
   }
+
   // 新增：显示"可对话"提示（当没有可记录餐食时）
   addChatOnlyHint(npc) {
     if (npc.mealHint) {
