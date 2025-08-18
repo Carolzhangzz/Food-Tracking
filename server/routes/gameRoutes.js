@@ -1062,6 +1062,16 @@ router.get("/gemini-health", async (req, res) => {
 router.post("/dev/skip-to-day7", async (req, res) => {
   try {
     const { playerId } = req.body;
+
+    if (process.env.NODE_ENV === "production") {
+      return res
+        .status(403)
+        .json({ success: false, error: "DEV skip disabled in production" });
+    }
+    if (req.headers["x-admin-token"] !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
     if (!playerId) {
       return res
         .status(400)

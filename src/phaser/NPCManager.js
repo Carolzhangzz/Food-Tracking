@@ -190,12 +190,13 @@ export default class NPCManager {
     this.addNPCClickArea?.(npc);
     this.highlightNPC?.(npc);
 
-    const mealTypes =
-      today.availableMealTypes && today.availableMealTypes.length > 0
-        ? today.availableMealTypes
-        : ["breakfast", "lunch", "dinner"];
-    this.addMealTypeHint?.(npc, mealTypes);
-
+    const mealTypes = today.availableMealTypes || [];
+    if (mealTypes.length > 0) {
+      this.addMealTypeHint?.(npc, mealTypes);
+    } else {
+      // 餐都记完了，但还没解锁下一天 -> 给“可对话”提示
+      this.addChatOnlyHint?.(npc);
+    }
     npc.hasRecordedMeal = false;
   }
 
@@ -576,6 +577,7 @@ export default class NPCManager {
 
   // 🔑 关键修复：记录餐食后正确更新本地状态
   // 🔑 关键修复：记录餐食后正确更新本地状态
+  // 🔑 关键修复：记录餐食后正确更新本地状态（无 DEV 跳天）
   async recordMeal(
     npcId,
     mealType,
@@ -595,7 +597,7 @@ export default class NPCManager {
           ?.availableMealTypes,
       });
 
-      // 先保存对话历史到数据库
+      // 1) 可选：先把这次对话历史保存到数据库（不影响主流程，失败也不阻塞）
       if (conversationHistory && Array.isArray(conversationHistory)) {
         for (const dialog of conversationHistory) {
           await this.saveConversationToDatabase(
@@ -607,8 +609,8 @@ export default class NPCManager {
         }
       }
 
-      // 调后端
-      const response = await fetch(`${API_URL}/record-meal`, {
+      // 2) 调用后端 /record-meal
+      const resp = await fetch(`${API_URL}/record-meal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -628,177 +630,136 @@ export default class NPCManager {
         }),
       });
 
-      if (!response.ok) {
-        const ct = response.headers.get("content-type") || "";
+      if (!resp.ok) {
+        const ct = resp.headers.get("content-type") || "";
         let detail = "";
         try {
           detail = ct.includes("application/json")
-            ? JSON.stringify(await response.json())
-            : await response.text();
+            ? JSON.stringify(await resp.json())
+            : await resp.text();
         } catch (_) {}
-        throw new Error(
-          `HTTP ${response.status}${detail ? ` - ${detail}` : ""}`
-        );
+        throw new Error(`HTTP ${resp.status}${detail ? ` - ${detail}` : ""}`);
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
+      const ct = resp.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
         throw new Error("Invalid response format, expected JSON");
       }
 
-      const data = await response.json();
+      const data = await resp.json();
       if (!data.success) throw new Error(data.error || "Failed to record meal");
 
-      console.log(`✅ 后端响应:`, {
+      console.log(`✅ /record-meal 响应:`, {
         success: data.success,
         shouldGiveClue: data.shouldGiveClue,
         availableMealTypes: data.availableMealTypes,
         hasCompletedDay: data.hasCompletedDay,
         newDay: data.newDay,
+        canAdvanceAt: data.canAdvanceAt || data.nextAdvanceAt,
+        waitMs: data.waitMs,
       });
 
-      // 🔑 关键修改：正确更新本地可用 NPC 状态
-      const availableNPC = this.availableNPCs.find(
+      // 3) 更新本地 today NPC 的状态（以服务器为准）
+      const todayNPC = this.availableNPCs.find(
         (n) => n.npcId === npcId && n.day === currentDay
       );
+      if (todayNPC) {
+        // 已记录次数 +1
+        todayNPC.mealsRecorded = (todayNPC.mealsRecorded || 0) + 1;
+        todayNPC.hasRecordedMeal = true;
 
-      if (availableNPC) {
-        // 更新餐食记录数
-        availableNPC.mealsRecorded = (availableNPC.mealsRecorded || 0) + 1;
-        availableNPC.hasRecordedMeal = true;
-
-        // ✅ 优先使用后端返回的 availableMealTypes
+        // 可用餐别：优先用服务端返回；否则本地从列表里去掉本次餐别
         if (Array.isArray(data.availableMealTypes)) {
-          availableNPC.availableMealTypes = data.availableMealTypes;
-          console.log(`🔄 服务器更新可用餐食为:`, data.availableMealTypes);
+          todayNPC.availableMealTypes = data.availableMealTypes;
         } else {
-          // 备用方案：本地删除当前餐别
-          availableNPC.availableMealTypes = (
-            availableNPC.availableMealTypes || []
+          todayNPC.availableMealTypes = (
+            todayNPC.availableMealTypes || []
           ).filter((t) => t !== mealType);
-          console.log(
-            `🔄 本地删除餐食 ${mealType}，剩余:`,
-            availableNPC.availableMealTypes
-          );
         }
 
-        // ✅ 关键修复：以服务器为准设置完成状态
+        // 完成状态：若服务端给了布尔值就覆盖
         if (typeof data.hasCompletedDay === "boolean") {
-          availableNPC.hasCompletedDay = data.hasCompletedDay;
-          console.log(`🔄 服务器设置完成状态:`, data.hasCompletedDay);
+          todayNPC.hasCompletedDay = data.hasCompletedDay;
         }
-        // 如果服务器没有明确返回，保持原状态不变
 
-        console.log(`📊 更新后NPC状态:`, {
-          mealsRecorded: availableNPC.mealsRecorded,
-          availableMealTypes: availableNPC.availableMealTypes,
-          hasCompletedDay: availableNPC.hasCompletedDay,
+        console.log(`📊 更新后 (todayNPC):`, {
+          mealsRecorded: todayNPC.mealsRecorded,
+          availableMealTypes: todayNPC.availableMealTypes,
+          hasCompletedDay: todayNPC.hasCompletedDay,
         });
       }
 
-      // 🔑 关键：立即更新NPC显示状态，确保交互正确
+      // 4) 立刻刷新 NPC 显示（保证“可点/提示”正确）
       this.updateNPCStates();
 
-      // 🔑 关键修改：预处理线索数据，让DialogScene能立即使用
+      // 5) 预处理线索数据：让 DialogScene 能立即拿到
       let processedClueData = { ...data };
       if (data.shouldGiveClue) {
+        // 推断餐食阶段（1/2/3）
         const stage =
           data.mealStage ??
           (mealType === "breakfast" ? 1 : mealType === "lunch" ? 2 : 3);
 
-        // 如果后端没有提供clueText，本地生成
+        // 如无 clueText，提供兜底文案：非最终餐用“模糊提示”，最终餐用“NPC 固定线索”
         if (!data.clueText || !data.clueText.trim()) {
-          if (stage === 1 || stage === 2) {
-            processedClueData.clueText = this.getVagueResponse(npcId, stage);
-          } else {
-            processedClueData.clueText = this.getClueForNPC(npcId);
-          }
+          processedClueData.clueText =
+            stage === 3
+              ? this.getNPCClue(npcId)
+              : this.getVagueResponse(npcId, stage);
         }
 
         processedClueData.mealStage = stage;
 
-        // 🔑 重要：预先添加线索到本地缓存，但不触发UI更新
-        // 这样DialogScene可以立即访问到线索数据
+        // 先把线索预塞到本地缓存（不立即刷 UI，等 DialogScene 确认时再正式 addClue）
         this.preAddClue(npcId, processedClueData.clueText, currentDay, stage);
       }
 
-      // DEV跳过逻辑...
-      const DEV_FAST_SKIP = process.env.REACT_APP_ALLOW_DEV_SKIP === "true";
-      if (
-        DEV_FAST_SKIP &&
-        !this._devSkipIssued &&
-        currentDay === 1 &&
-        mealType === "dinner"
-      ) {
-        this._devSkipIssued = true;
-        try {
-          const resp = await fetch(`${API_URL}/dev/skip-to-day7`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerId: this.scene.playerId }),
-          });
-          const j = await resp.json();
-
-          if (j.success && j.newDay === 7) {
-            await this.loadPlayerStatus();
-            this.updateNPCStates();
-            this.scene.showNotification(
-              this.scene.playerData.language === "zh"
-                ? "已跳转到第7天（开发模式）"
-                : "Jumped to Day 7 (dev mode)",
-              2000
-            );
-            return {
-              success: true,
-              shouldGiveClue: !!data.shouldGiveClue,
-              clueText: processedClueData.clueText,
-              mealStage: processedClueData.mealStage,
-              nextDayUnlocked: true,
-              newDay: 7,
-            };
-          } else {
-            this._devSkipIssued = false;
-            console.warn("DEV skip-to-day7 failed:", j);
-          }
-        } catch (e) {
-          this._devSkipIssued = false;
-          console.error("DEV skip-to-day7 error:", e);
+      // 6) 处理“需要等待才能切到下一天”的体验（仅当启用延迟 UI）
+      const nextAt = data.canAdvanceAt || data.nextAdvanceAt || null;
+      if (!data.newDay && nextAt && shouldEnableDelayUI()) {
+        const readyTs = new Date(nextAt).getTime();
+        const waitMs =
+          Number.isFinite(Number(data.waitMs)) && Number(data.waitMs) > 0
+            ? Number(data.waitMs)
+            : Math.max(0, readyTs - Date.now());
+        if (waitMs > 0) {
+          const lang = this.scene.playerData.language;
+          const mins = Math.max(1, Math.ceil(waitMs / 60000));
+          this.scene.showNotification(
+            lang === "zh"
+              ? `已记录${
+                  mealType === "breakfast"
+                    ? "早餐"
+                    : mealType === "lunch"
+                    ? "午餐"
+                    : "晚餐"
+                }，约 ${mins} 分钟后解锁下一天。`
+              : `Meal logged. About ${mins} min left before next day unlock.`,
+            4000
+          );
+          this.scheduleAdvanceCheck(waitMs);
         }
       }
 
-      // 处理等待逻辑
-      if (!data.newDay && data.canAdvanceAt && shouldEnableDelayUI()) {
-        const lang = this.scene.playerData.language;
-        const waitMs = Math.max(0, Number(data.waitMs || 0));
-        const mins = Math.max(1, Math.ceil(waitMs / 60000));
-
-        this.scene.showNotification(
-          lang === "zh"
-            ? `晚餐已记录，需等待约 ${mins} 分钟后进入下一天。`
-            : `Dinner logged. About ${mins} min left before next day unlock.`,
-          4000
-        );
-
-        this.scheduleAdvanceCheck(waitMs);
-      }
-
-      // 处理切天
+      // 7) 处理切天（服务器允许时立即切）
       if (data.newDay) {
         this.playerStatus.currentDay = data.newDay;
 
         this.scene.showNotification(
           this.scene.playerData.language === "zh"
-            ? `已进入第${data.newDay}天！`
+            ? `已进入第 ${data.newDay} 天！`
             : `Day ${data.newDay} started!`,
           2500
         );
 
+        // 稍等片刻让 UI 有过渡，再拉一次后端状态
         setTimeout(async () => {
           await this.loadPlayerStatus();
           this.updateNPCStates();
         }, 800);
       }
 
+      // 8) 返回给 DialogScene 使用
       return {
         success: true,
         shouldGiveClue: !!data.shouldGiveClue,
