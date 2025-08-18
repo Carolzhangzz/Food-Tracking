@@ -1,13 +1,13 @@
-// src/phaser/NPCManager.js - 更新线索和对话存储版本
+// src/phaser/NPCManager.js - 修复 NPC 交互逻辑
 import Phaser from "phaser";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001/api";
 const ENABLE_CROSS_DAY_DELAY_FE =
   process.env.REACT_APP_ENABLE_CROSS_DAY_DELAY === "true";
+const UI_FONT =
+  "Noto Sans TC, Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif";
 
-// 建议放在文件顶部常量下方
 function shouldEnableDelayUI() {
-  // 如果没声明这个 env，就默认“允许显示”；声明了就按它来
   return (
     !("REACT_APP_ENABLE_CROSS_DAY_DELAY" in process.env) ||
     ENABLE_CROSS_DAY_DELAY_FE
@@ -25,15 +25,19 @@ export default class NPCManager {
     this.playerStatus = null;
     this.availableNPCs = [];
     this.mealRecords = [];
-    this.clueRecords = []; // 从服务器加载的线索记录
+    this.clueRecords = [];
     this.isUpdatingDay = false;
     this.pushedClueIds = new Set();
-    this.isGeneratingFinalEgg = false; // 正在请求中
-    this.finalEggReady = false; // 已经生成好了（缓存于前端）
-    this.finalEggContent = null; // 已生成的内容
+    this.isGeneratingFinalEgg = false;
+    this.finalEggReady = false;
+    this.finalEggContent = null;
     this.initializeNPCs();
     this._devSkipIssued = false;
     this._advanceTimer = null;
+
+    // 护栏状态
+    this._advanceInFlight = false;
+    this.advanceGateBlockedUntil = null;
   }
 
   setDialogSystem(dialogSystem) {
@@ -41,7 +45,6 @@ export default class NPCManager {
   }
 
   async initializeNPCs() {
-    // 7个NPC配置数据
     const npcConfigs = [
       {
         id: "village_head",
@@ -100,25 +103,21 @@ export default class NPCManager {
       },
     ];
 
-    // 创建所有NPC
     npcConfigs.forEach((config) => {
       this.createNPC(config);
     });
-    // 修复：先显示默认状态，再加载服务器状态
+
     this.setDefaultNPCStates();
-    // 从服务器加载玩家状态
+
     try {
       await this.loadPlayerStatus();
       console.log("NPCs initialized with player status");
     } catch (error) {
       console.warn("Failed to load player status, using defaults:", error);
     }
-    console.log("NPCs initialized with player status");
   }
 
-  // 添加新方法：设置默认NPC状态（立即显示第一天的NPC）
   setDefaultNPCStates() {
-    // 重置所有NPC状态
     this.npcs.forEach((npc) => {
       npc.isUnlocked = false;
       npc.hasRecordedMeal = false;
@@ -126,7 +125,6 @@ export default class NPCManager {
       this.removeNPCHighlight(npc);
     });
 
-    // 默认显示第一天的NPC（村长）
     const firstDayNPC = this.npcs.get("village_head");
     if (firstDayNPC) {
       firstDayNPC.isUnlocked = true;
@@ -136,13 +134,10 @@ export default class NPCManager {
       firstDayNPC.availableMealTypes = ["breakfast", "lunch", "dinner"];
       firstDayNPC.sprite.setVisible(true);
 
-      // 高亮显示
       this.highlightNPC(firstDayNPC);
       this.addNPCClickArea(firstDayNPC);
-      //   this.addMealTypeHint(firstDayNPC, ["breakfast", "lunch", "dinner"]);
     }
 
-    // 设置默认可用NPC列表
     if (!this.availableNPCs || this.availableNPCs.length === 0) {
       this.availableNPCs = [
         {
@@ -156,7 +151,6 @@ export default class NPCManager {
       ];
     }
 
-    // 设置默认玩家状态
     if (!this.playerStatus) {
       this.playerStatus = {
         playerId: this.scene.playerId,
@@ -167,9 +161,7 @@ export default class NPCManager {
     }
   }
 
-  // 在 NPCManager 类中新增
   addMealTypeHint(npc, mealTypes = []) {
-    // 清理旧的
     if (npc.mealHint) {
       npc.mealHint.destroy();
       npc.mealHint = null;
@@ -197,7 +189,7 @@ export default class NPCManager {
 
     const t = this.scene.add.text(npc.sprite.x, npc.sprite.y - 60, text, {
       fontSize: "13px",
-      fontFamily: "monospace",
+      fontFamily: UI_FONT,
       fill: "#00ffcc",
       backgroundColor: "#000000",
       padding: { x: 6, y: 3 },
@@ -205,7 +197,6 @@ export default class NPCManager {
     t.setOrigin(0.5);
     t.setDepth(20);
 
-    // 轻微呼吸动画
     this.scene.tweens.add({
       targets: t,
       y: t.y - 8,
@@ -218,7 +209,6 @@ export default class NPCManager {
     npc.mealHint = t;
   }
 
-  // 【FOR STAGES】
   async loadPlayerStatus() {
     try {
       const response = await fetch(`${API_URL}/player-status`, {
@@ -233,27 +223,23 @@ export default class NPCManager {
         this.availableNPCs = data.availableNPCs;
         this.mealRecords = data.mealRecords;
         this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
+
         const mappedClues = (data.clueRecords || []).map((clue) => ({
           ...clue,
           npcName: this.getNPCNameByLanguage(clue.npcId),
         }));
 
-        // 统一更新本地缓存（以 id 为主键）
         const byId = new Map();
         [...(this.clueRecords || []), ...mappedClues].forEach((c) =>
           byId.set(c.id, c)
         );
         this.clueRecords = Array.from(byId.values());
 
-        // 一次性给 UI（由 UI 根据模板匹配补全 stage，并做去重）
         if (this.scene.uiManager && Array.isArray(mappedClues)) {
           this.scene.uiManager.setClues(mappedClues);
-
-          // 维护 pushedClueIds，避免后面重复单条推送
           mappedClues.forEach((c) => this.pushedClueIds.add(c.id));
         }
 
-        // 如果后端返回了 nextAdvanceAt（且前端开关允许），提示与一次性定时尝试
         if (data.nextAdvanceAt && shouldEnableDelayUI()) {
           const readyTs = new Date(data.nextAdvanceAt).getTime();
           const waitMs = Math.max(0, readyTs - Date.now());
@@ -270,22 +256,18 @@ export default class NPCManager {
           }
         }
 
-        // 更新NPC状态
         this.updateNPCStates();
-
-        // 新增：加载完状态后检查是否需要更新天数（关键修改）
         await this.checkAndUpdateCurrentDay();
 
-        // 补充调试信息：检查第一天完成状态和当前天数
         const firstDayNPC = this.availableNPCs.find((npc) => npc.day === 1);
         console.log("自动跳转调试信息：", {
-          currentDay: this.playerStatus.currentDay, // 当前天数
-          firstDayMealsRecorded: firstDayNPC?.mealsRecorded || 0, // 第一天已记录餐数
-          firstDayIsCompleted: firstDayNPC?.hasCompletedDay || false, // 第一天是否完成
-          currentDayMealsRemaining: this.currentDayMealsRemaining.length, // 当前天剩余餐数
+          currentDay: this.playerStatus.currentDay,
+          firstDayMealsRecorded: firstDayNPC?.mealsRecorded || 0,
+          firstDayIsCompleted: firstDayNPC?.hasCompletedDay || false,
+          currentDayMealsRemaining: this.currentDayMealsRemaining.length,
           hasNextDayNPC: this.availableNPCs.some(
             (npc) => npc.day === this.playerStatus.currentDay + 1
-          ), // 是否有下一天NPC
+          ),
         });
 
         console.log(`Player status loaded:`, {
@@ -310,7 +292,6 @@ export default class NPCManager {
         );
       }
 
-      // 如果真的没有任何本地状态（第一次加载失败），才初始化一次
       if (!this.playerStatus || !this.playerStatus.currentDay) {
         this.playerStatus = {
           playerId: this.scene.playerId,
@@ -337,27 +318,23 @@ export default class NPCManager {
   }
 
   updateNPCStates() {
+    console.log("🔄 更新NPC状态开始", {
+      availableNPCs: this.availableNPCs.length,
+      currentDay: this.playerStatus?.currentDay,
+    });
+
     // 强制清理所有NPC的UI元素
     this.npcs.forEach((npc) => {
       npc.isUnlocked = false;
       npc.hasRecordedMeal = false;
       npc.sprite.setVisible(false);
-
-      // 强制清理所有UI元素
       this.removeNPCHighlight(npc);
-
-      // 额外清理，防止遗漏
       if (npc.mealHint) {
         npc.mealHint.destroy();
         npc.mealHint = null;
       }
-      if (npc.hoverText) {
-        npc.hoverText.destroy();
-        npc.hoverText = null;
-      }
     });
 
-    // 如果还没有可用NPC数据，使用默认状态
     if (!this.availableNPCs || this.availableNPCs.length === 0) {
       this.setDefaultNPCStates();
       return;
@@ -367,37 +344,81 @@ export default class NPCManager {
     this.availableNPCs.forEach((availableNPC) => {
       const npc = this.npcs.get(availableNPC.npcId);
       if (npc) {
-        // 更新NPC名称为当前语言
-        npc.name = this.getNPCNameByLanguage(availableNPC.npcId);
+        console.log(`🔧 更新NPC ${availableNPC.npcId}:`, {
+          day: availableNPC.day,
+          unlocked: availableNPC.unlocked,
+          mealsRecorded: availableNPC.mealsRecorded,
+          availableMealTypes: availableNPC.availableMealTypes,
+        });
 
+        npc.name = this.getNPCNameByLanguage(availableNPC.npcId);
         npc.isUnlocked = availableNPC.unlocked;
         npc.hasRecordedMeal = availableNPC.hasRecordedMeal;
         npc.mealsRecorded = availableNPC.mealsRecorded;
-        npc.hasCompletedDay = availableNPC.hasCompletedDay;
         npc.availableMealTypes = availableNPC.availableMealTypes || [];
         npc.sprite.setVisible(true);
 
-        // 高亮显示当前天的NPC（如果还没完成完整记录）
-        if (
-          availableNPC.day === this.playerStatus.currentDay &&
-          !availableNPC.hasCompletedDay
-        ) {
+        // ✅ 简化的交互条件：只要是当前天的已解锁NPC就高亮并允许交互
+        const isCurrentDay = availableNPC.day === this.playerStatus.currentDay;
+        const isUnlocked = availableNPC.unlocked;
+
+        if (isCurrentDay && isUnlocked) {
+          console.log(`✅ 激活NPC ${availableNPC.npcId} 交互`);
           this.highlightNPC(npc);
           this.addNPCClickArea(npc);
 
-          // 只有当前活跃的NPC才显示餐食提示
-          if (
+          // 显示可记录的餐食提示（如果还有的话）
+          const hasAvailableMeals =
             availableNPC.availableMealTypes &&
-            availableNPC.availableMealTypes.length > 0
-          ) {
+            availableNPC.availableMealTypes.length > 0;
+
+          if (hasAvailableMeals) {
             this.addMealTypeHint(npc, availableNPC.availableMealTypes);
+          } else {
+            // 即使没有可记录的餐食，也显示可以对话的提示
+            this.addChatOnlyHint(npc);
           }
+        } else {
+          console.log(`❌ NPC ${availableNPC.npcId} 不可交互:`, {
+            是当前天: isCurrentDay,
+            是否解锁: isUnlocked,
+          });
         }
       }
     });
   }
+  // 新增：显示"可对话"提示（当没有可记录餐食时）
+  addChatOnlyHint(npc) {
+    if (npc.mealHint) {
+      npc.mealHint.destroy();
+      npc.mealHint = null;
+    }
 
-  // 清理所有NPC的提示和高亮
+    const lang = this.scene.playerData.language;
+    const text = lang === "zh" ? "可对话" : "Can talk";
+
+    const t = this.scene.add.text(npc.sprite.x, npc.sprite.y - 60, text, {
+      fontSize: "13px",
+      fontFamily: UI_FONT,
+      fill: "#60a5fa", // 蓝色表示纯对话
+      backgroundColor: "#000000",
+      padding: { x: 6, y: 3 },
+    });
+    t.setOrigin(0.5);
+    t.setDepth(20);
+
+    this.scene.tweens.add({
+      targets: t,
+      y: t.y - 8,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    npc.mealHint = t;
+  }
+
   clearAllNPCHints() {
     this.npcs.forEach((npc) => {
       if (npc.mealHint) {
@@ -419,7 +440,6 @@ export default class NPCManager {
     });
   }
 
-  // 新增：根据当前语言获取NPC名称
   getNPCNameByLanguage(npcId) {
     const language = this.scene.playerData.language;
 
@@ -458,23 +478,39 @@ export default class NPCManager {
     return nameObj ? nameObj[language] || nameObj.en : "Unknown NPC";
   }
 
-  // 检查是否可以与NPC交互
+  // 🔑 关键修复：简化交互检查逻辑
   canInteractWithNPC(npc) {
     const availableNPC = this.availableNPCs.find((a) => a.npcId === npc.id);
 
-    if (availableNPC?.hasCompletedDay) return false;
-    if (!availableNPC || !availableNPC.unlocked) return false;
-    if (availableNPC.day !== this.playerStatus.currentDay) return false;
-    if (availableNPC.hasCompletedDay) return false;
+    console.log(`🔍 检查NPC ${npc.id} 交互权限:`, {
+      找到匹配NPC: !!availableNPC,
+      解锁状态: availableNPC?.unlocked,
+      当前天: this.playerStatus?.currentDay,
+      NPC天数: availableNPC?.day,
+    });
 
-    //FIXED: Allow interaction if ANY meal is available (not just all meals)
-    return (
-      availableNPC.availableMealTypes &&
-      availableNPC.availableMealTypes.length > 0
-    );
+    if (!availableNPC) {
+      console.log(`❌ 未找到NPC ${npc.id} 的可用配置`);
+      return false;
+    }
+
+    if (!availableNPC.unlocked) {
+      console.log(`❌ NPC ${npc.id} 未解锁`);
+      return false;
+    }
+
+    if (availableNPC.day !== this.playerStatus.currentDay) {
+      console.log(
+        `❌ NPC ${npc.id} 不是当前天 (${availableNPC.day} vs ${this.playerStatus.currentDay})`
+      );
+      return false;
+    }
+
+    // ✅ 关键修复：只要是当前天的已解锁NPC就可以对话
+    // 不再检查餐食记录状态或完成状态
+    console.log(`✅ NPC ${npc.id} 可以交互 - 当前天已解锁NPC`);
+    return true;
   }
-
-  // 显示交互阻止消息
   showInteractionBlockedMessage(npc) {
     const language = this.scene.playerData.language;
     let message;
@@ -498,20 +534,8 @@ export default class NPCManager {
         language === "zh"
           ? "这是之前的NPC，当前无法再次对话"
           : "This is a previous day's NPC, cannot interact again";
-    } else if (availableNPC.hasCompletedDay) {
-      message =
-        language === "zh"
-          ? "今天已完成记录（已记录晚餐）。"
-          : "Today is complete (dinner recorded).";
-    } else if (
-      !availableNPC.availableMealTypes ||
-      availableNPC.availableMealTypes.length === 0
-    ) {
-      message =
-        language === "zh"
-          ? "今天已经没有可记录的餐食了"
-          : "No more meals available to record today";
     } else {
+      // ✅ 移除"已完成"的概念，因为可以无限对话
       message =
         language === "zh"
           ? "暂时无法与此NPC对话"
@@ -521,7 +545,6 @@ export default class NPCManager {
     this.scene.showNotification(message, 3000);
   }
 
-  // 新增：保存对话到数据库
   async saveConversationToDatabase(npcId, speaker, content, mealType = null) {
     try {
       const currentDay = this.playerStatus.currentDay;
@@ -533,10 +556,10 @@ export default class NPCManager {
           playerId: this.scene.playerId,
           npcId: npcId,
           day: currentDay,
-          speaker: speaker, // 'player' or 'npc'
+          speaker: speaker,
           content: content,
           mealType: mealType,
-          sessionId: null, // 可以添加session管理
+          sessionId: null,
         }),
       });
 
@@ -548,9 +571,8 @@ export default class NPCManager {
     }
   }
 
-  // 记录餐食到数据库 - 更新版本，自动保存线索
-  // NPCManager.js
-  //【FOR STAGES】
+  // 🔑 关键修复：记录餐食后正确更新本地状态
+  // 🔑 关键修复：记录餐食后正确更新本地状态
   async recordMeal(
     npcId,
     mealType,
@@ -562,7 +584,15 @@ export default class NPCManager {
       const npc = this.npcs.get(npcId);
       const currentDay = this.playerStatus.currentDay;
 
-      // 先保存对话历史到数据库（保持不变）
+      console.log(`🍽️ 开始记录餐食:`, {
+        npcId,
+        mealType,
+        currentDay,
+        当前可用餐食: this.availableNPCs.find((n) => n.npcId === npcId)
+          ?.availableMealTypes,
+      });
+
+      // 先保存对话历史到数据库
       if (conversationHistory && Array.isArray(conversationHistory)) {
         for (const dialog of conversationHistory) {
           await this.saveConversationToDatabase(
@@ -607,6 +637,7 @@ export default class NPCManager {
           `HTTP ${response.status}${detail ? ` - ${detail}` : ""}`
         );
       }
+
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Invalid response format, expected JSON");
@@ -615,34 +646,80 @@ export default class NPCManager {
       const data = await response.json();
       if (!data.success) throw new Error(data.error || "Failed to record meal");
 
-      // 本地可用 NPC 状态最小更新（把当前餐别移出）
+      console.log(`✅ 后端响应:`, {
+        success: data.success,
+        shouldGiveClue: data.shouldGiveClue,
+        availableMealTypes: data.availableMealTypes,
+        hasCompletedDay: data.hasCompletedDay,
+        newDay: data.newDay,
+      });
+
+      // 🔑 关键修改：正确更新本地可用 NPC 状态
       const availableNPC = this.availableNPCs.find(
         (n) => n.npcId === npcId && n.day === currentDay
       );
 
       if (availableNPC) {
+        // 更新餐食记录数
         availableNPC.mealsRecorded = (availableNPC.mealsRecorded || 0) + 1;
         availableNPC.hasRecordedMeal = true;
 
-        // ✅ 优先使用后端返回的 availableMealTypes；若无则本地删掉当前餐别
+        // ✅ 优先使用后端返回的 availableMealTypes
         if (Array.isArray(data.availableMealTypes)) {
           availableNPC.availableMealTypes = data.availableMealTypes;
+          console.log(`🔄 服务器更新可用餐食为:`, data.availableMealTypes);
         } else {
+          // 备用方案：本地删除当前餐别
           availableNPC.availableMealTypes = (
             availableNPC.availableMealTypes || []
           ).filter((t) => t !== mealType);
+          console.log(
+            `🔄 本地删除餐食 ${mealType}，剩余:`,
+            availableNPC.availableMealTypes
+          );
         }
 
-        // ✅ 以服务器为准
+        // ✅ 关键修复：以服务器为准设置完成状态
         if (typeof data.hasCompletedDay === "boolean") {
           availableNPC.hasCompletedDay = data.hasCompletedDay;
+          console.log(`🔄 服务器设置完成状态:`, data.hasCompletedDay);
         }
+        // 如果服务器没有明确返回，保持原状态不变
+
+        console.log(`📊 更新后NPC状态:`, {
+          mealsRecorded: availableNPC.mealsRecorded,
+          availableMealTypes: availableNPC.availableMealTypes,
+          hasCompletedDay: availableNPC.hasCompletedDay,
+        });
       }
 
-      if (data.shouldGiveClue && data.clueText) {
-        this.addClue(npcId, data.clueText, currentDay, data.mealStage); // ★ 传 stage(1/2/3)
+      // 🔑 关键：立即更新NPC显示状态，确保交互正确
+      this.updateNPCStates();
+
+      // 🔑 关键修改：预处理线索数据，让DialogScene能立即使用
+      let processedClueData = { ...data };
+      if (data.shouldGiveClue) {
+        const stage =
+          data.mealStage ??
+          (mealType === "breakfast" ? 1 : mealType === "lunch" ? 2 : 3);
+
+        // 如果后端没有提供clueText，本地生成
+        if (!data.clueText || !data.clueText.trim()) {
+          if (stage === 1 || stage === 2) {
+            processedClueData.clueText = this.getVagueResponse(npcId, stage);
+          } else {
+            processedClueData.clueText = this.getClueForNPC(npcId);
+          }
+        }
+
+        processedClueData.mealStage = stage;
+
+        // 🔑 重要：预先添加线索到本地缓存，但不触发UI更新
+        // 这样DialogScene可以立即访问到线索数据
+        this.preAddClue(npcId, processedClueData.clueText, currentDay, stage);
       }
 
+      // DEV跳过逻辑...
       const DEV_FAST_SKIP = process.env.REACT_APP_ALLOW_DEV_SKIP === "true";
       if (
         DEV_FAST_SKIP &&
@@ -650,7 +727,7 @@ export default class NPCManager {
         currentDay === 1 &&
         mealType === "dinner"
       ) {
-        this._devSkipIssued = true; // 防抖
+        this._devSkipIssued = true;
         try {
           const resp = await fetch(`${API_URL}/dev/skip-to-day7`, {
             method: "POST",
@@ -660,7 +737,6 @@ export default class NPCManager {
           const j = await resp.json();
 
           if (j.success && j.newDay === 7) {
-            // 强制刷新到第7天
             await this.loadPlayerStatus();
             this.updateNPCStates();
             this.scene.showNotification(
@@ -669,27 +745,25 @@ export default class NPCManager {
                 : "Jumped to Day 7 (dev mode)",
               2000
             );
-            // 跳天成功就直接返回，避免下面的 data.newDay=2 又触发一次刷新造成抖动
             return {
               success: true,
               shouldGiveClue: !!data.shouldGiveClue,
-              clueText: data.clueText,
+              clueText: processedClueData.clueText,
+              mealStage: processedClueData.mealStage,
               nextDayUnlocked: true,
               newDay: 7,
             };
           } else {
-            // 如果 dev 接口失败，允许后面正常走 data.newDay 的逻辑
             this._devSkipIssued = false;
             console.warn("DEV skip-to-day7 failed:", j);
           }
         } catch (e) {
-          // 请求异常也允许走正常流程
           this._devSkipIssued = false;
           console.error("DEV skip-to-day7 error:", e);
         }
       }
 
-      // NEW: 晚饭后已完成，但未达等待门槛（后端返回 canAdvanceAt/waitMs）
+      // 处理等待逻辑
       if (!data.newDay && data.canAdvanceAt && shouldEnableDelayUI()) {
         const lang = this.scene.playerData.language;
         const waitMs = Math.max(0, Number(data.waitMs || 0));
@@ -702,11 +776,10 @@ export default class NPCManager {
           4000
         );
 
-        // 到点后自动尝试一次 /update-current-day（若页面还开着）
         this.scheduleAdvanceCheck(waitMs);
       }
 
-      // ❗️关键：只在后端明确给出 newDay 时才切天 + 刷新
+      // 处理切天
       if (data.newDay) {
         this.playerStatus.currentDay = data.newDay;
 
@@ -717,7 +790,6 @@ export default class NPCManager {
           2500
         );
 
-        // 用服务器状态兜底一次（无需“乐观NPC覆盖”，以服务端为准）
         setTimeout(async () => {
           await this.loadPlayerStatus();
           this.updateNPCStates();
@@ -727,7 +799,8 @@ export default class NPCManager {
       return {
         success: true,
         shouldGiveClue: !!data.shouldGiveClue,
-        clueText: data.clueText,
+        clueText: processedClueData.clueText,
+        mealStage: processedClueData.mealStage,
         nextDayUnlocked: !!data.nextDayUnlocked,
         newDay: data.newDay || null,
       };
@@ -735,6 +808,45 @@ export default class NPCManager {
       console.error("Error recording meal:", error);
       return { success: false, error: error.message };
     }
+  }
+
+  preAddClue(npcId, clueText, day, stage = null) {
+    const stagePart =
+      stage === 1 || stage === 2 || stage === 3 ? `_${stage}` : "";
+    const clueId = `${npcId}_${day}${stagePart}`;
+
+    // 检查是否已存在
+    const existingIndex = (this.clueRecords || []).findIndex(
+      (c) => c.id === clueId
+    );
+    if (existingIndex !== -1) {
+      console.log("线索已存在于预缓存，跳过:", clueId);
+      return;
+    }
+
+    const npc = this.npcs.get(npcId);
+    const npcDisplayName =
+      npc && npc.name
+        ? npc.name
+        : this.getNPCNameByLanguage
+        ? this.getNPCNameByLanguage(npcId)
+        : npcId;
+
+    const clue = {
+      id: clueId,
+      npcId,
+      npcName: npcDisplayName,
+      clue: clueText && clueText.trim() ? clueText : "…",
+      day,
+      stage: stage || undefined,
+      receivedAt: new Date(),
+      _preAdded: true, // 标记为预添加，避免重复
+    };
+
+    this.clueRecords = this.clueRecords || [];
+    this.clueRecords.push(clue);
+
+    console.log("线索已预添加到本地缓存:", clue);
   }
 
   async checkAndUpdateCurrentDay() {
@@ -751,7 +863,6 @@ export default class NPCManager {
     const currentNPC = this.availableNPCs.find((npc) => npc.day === currentDay);
     if (!currentNPC) return;
 
-    // DINNER_OK：只要服务器确认完成就切天（不再要求本地餐别清空）
     const isServerCompleted = currentNPC.hasCompletedDay === true;
     const hasNextDayNPC = this.availableNPCs.some(
       (npc) => npc.day === currentDay + 1
@@ -761,12 +872,22 @@ export default class NPCManager {
       console.log(
         `DINNER_OK: 服务器已标记完成，尝试请求切天（无需等待下一天NPC出现在列表）`
       );
-      const ok = await this.forceUpdateCurrentDay();
-      if (!ok) {
-        // 可选：稍后再拉一次，给后端一点时间落库/解锁NPC
-        setTimeout(
-          () => this.loadPlayerStatus().then(() => this.updateNPCStates()),
-          1200
+
+      if (
+        !this.advanceGateBlockedUntil ||
+        Date.now() >= this.advanceGateBlockedUntil.getTime()
+      ) {
+        const ok = await this.forceUpdateCurrentDay();
+        if (!ok) {
+          setTimeout(
+            () => this.loadPlayerStatus().then(() => this.updateNPCStates()),
+            1200
+          );
+        }
+      } else {
+        console.log(
+          "[AdvanceGate] blocked until:",
+          this.advanceGateBlockedUntil
         );
       }
     } else {
@@ -778,74 +899,78 @@ export default class NPCManager {
     }
   }
 
-  // 在NPCManager类中添加
   async forceUpdateCurrentDay() {
-    if (this.isUpdatingDay) {
-      console.log("正在更新天数中，跳过重复调用");
-      return false;
-    }
-    this.isUpdatingDay = true;
-
     try {
-      const originalDay = this.playerStatus.currentDay;
-      const response = await fetch(`${API_URL}/update-current-day`, {
+      if (this._advanceInFlight) return false;
+      this._advanceInFlight = true;
+
+      const body = {
+        playerId: this.scene.playerId,
+        currentDay: this.playerStatus.currentDay,
+      };
+
+      const resp = await fetch(`${API_URL}/update-current-day`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerId: this.scene.playerId,
-          currentDay: originalDay,
-        }),
+        body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      const data = await resp.json();
 
-      if (data.success) {
-        console.log(`服务器确认天数更新：从${originalDay}→${data.newDay}`);
-        // 仅在服务器成功返回后，才更新本地天数
-        this.playerStatus.currentDay = data.newDay;
-        // 延迟重新加载，确保服务器数据已写入
-        setTimeout(async () => {
-          await this.loadPlayerStatus();
-          this.updateNPCStates();
-        }, 1500); // 延长延迟至1.5秒，确保服务器同步
-        this.scene.showNotification(
-          this.scene.playerData.language === "zh"
-            ? `已进入第${data.newDay}天！`
-            : `Day ${data.newDay} started!`,
-          3000
-        );
-        return true;
-      } else {
-        if (shouldEnableDelayUI() && data.canAdvanceAt) {
-          const lang = this.scene.playerData.language;
-          const waitMs = Math.max(0, Number(data.waitMs || 0));
-          const mins = Math.max(1, Math.ceil(waitMs / 60000));
+      if (!data.success) {
+        if (
+          data.error &&
+          data.error.toLowerCase().includes("advance not allowed")
+        ) {
+          if (data.canAdvanceAt) {
+            this.advanceGateBlockedUntil = new Date(data.canAdvanceAt);
+          } else {
+            const t = new Date();
+            t.setDate(t.getDate() + 1);
+            t.setHours(0, 5, 0, 0);
+            this.advanceGateBlockedUntil = t;
+          }
 
-          this.scene.showNotification(
-            lang === "zh"
-              ? `还需等待约 ${mins} 分钟才能进入下一天。`
-              : `About ${mins} min left before next day unlock.`,
-            3000
+          this.scene.uiManager?.toast?.(
+            this.scene.playerData.language === "zh"
+              ? "已记录任意一餐。下一天的 NPC 将在“第二天”解锁。"
+              : "Meal logged. Next day's NPC unlocks tomorrow."
           );
-          this.scheduleAdvanceCheck(waitMs);
+          return false;
         }
 
-        console.error("服务器拒绝更新天数：", data.error || "未知错误");
-        // 服务器拒绝时，不更新本地天数
+        console.warn("Update day rejected:", data);
+        this.scene.uiManager?.toast?.(
+          (this.scene.playerData.language === "zh"
+            ? "切天失败："
+            : "Advance failed: ") + (data.error || "Unknown error")
+        );
         return false;
       }
-    } catch (error) {
-      console.error("天数更新请求失败：", error);
-      // 网络错误时，保持本地原天数
+
+      this.playerStatus.currentDay = data.newDay;
+      await this.loadPlayerStatus();
+      this.scene.uiManager?.toast?.(
+        this.scene.playerData.language === "zh"
+          ? `已进入第 ${data.newDay} 天`
+          : `Advanced to Day ${data.newDay}`
+      );
+      return true;
+    } catch (e) {
+      console.error("forceUpdateCurrentDay error:", e);
+      this.scene.uiManager?.toast?.(
+        this.scene.playerData.language === "zh"
+          ? "切天请求出错"
+          : "Failed to advance day"
+      );
       return false;
     } finally {
-      this.isUpdatingDay = false;
+      this._advanceInFlight = false;
     }
   }
 
-  // 统一安排一次“到点自动尝试切天”并去重
   scheduleAdvanceCheck(ms) {
-    const delay = Math.min(Math.max(Number(ms) || 0, 30_000), 15 * 60_000); // ≥30s 且 ≤15min
+    const delay = Math.min(Math.max(Number(ms) || 0, 30_000), 15 * 60_000);
     if (this._advanceTimer) {
       clearTimeout(this._advanceTimer);
       this._advanceTimer = null;
@@ -858,7 +983,6 @@ export default class NPCManager {
     }
   }
 
-  // 获取每日进度
   getDailyProgress() {
     const currentDay = this.getCurrentDay();
     const currentNPC = this.availableNPCs.find((npc) => npc.day === currentDay);
@@ -872,8 +996,6 @@ export default class NPCManager {
     };
   }
 
-  //【FOR STAGES】
-  // 新增：添加线索到本地存储（现在主要用于UI更新）
   addClue(npcId, clueText, day, stage = null) {
     console.log(
       "[NPCManager.addClue] args:",
@@ -883,23 +1005,34 @@ export default class NPCManager {
       stage
     );
 
-    const npc = this.npcs.get(npcId);
-
-    // 线索唯一ID：npc_天_阶段（阶段可为空）
     const stagePart =
       stage === 1 || stage === 2 || stage === 3 ? `_${stage}` : "";
     const clueId = `${npcId}_${day}${stagePart}`;
 
-    // 已存在则跳过（避免重复插入）
+    // 🔑 检查是否已存在（包括预添加的）
     const existingIndex = (this.clueRecords || []).findIndex(
       (c) => c.id === clueId
     );
     if (existingIndex !== -1) {
-      console.log("线索已存在，跳过添加:", clueId);
+      console.log("线索已存在，直接触发UI更新:", clueId);
+      const existingClue = this.clueRecords[existingIndex];
+
+      // 如果是预添加的线索，现在正式添加到UI
+      if (existingClue._preAdded) {
+        delete existingClue._preAdded;
+
+        if (
+          this.scene.uiManager &&
+          typeof this.scene.uiManager.addClue === "function"
+        ) {
+          this.scene.uiManager.addClue(existingClue);
+        }
+      }
       return;
     }
 
-    // 渲染用 NPC 名称：优先取当前地图NPC名，退化到多语言名
+    // 如果不存在，正常添加新线索
+    const npc = this.npcs.get(npcId);
     const npcDisplayName =
       npc && npc.name
         ? npc.name
@@ -927,7 +1060,6 @@ export default class NPCManager {
     this.clueRecords = this.clueRecords || [];
     this.clueRecords.push(clue);
 
-    // 同步到 UI（如果 UIManager 支持 addClue）
     if (
       this.scene.uiManager &&
       typeof this.scene.uiManager.addClue === "function"
@@ -938,8 +1070,36 @@ export default class NPCManager {
     console.log("新线索已添加到本地:", clue);
   }
 
-  // 获取所有线索
-  //【FOR STAGES】
+  getVagueResponse(npcId, version = 1) {
+    const language = this.scene.playerData.language;
+
+    // NPC-specific vague responses
+    const npcVagueResponses = {
+      village_head: {
+        zh: {
+          1: "你师父常有个地方，他总去的...\n嗯，那又是哪里来着？\n啊，我记性不如从前了。\n\n哦！现在该我准备下顿饭的时候了。过几个小时再回来吧。兴许到时候什么会想起来的。",
+          2: "我记得他总是去拜访一个女人...\n嗯，她又是谁来着？\n再给我点时间——等你吃完今天最后一顿饭后我们再聊吧。",
+        },
+        en: {
+          1: "Your master used to have a place he visited all the time...\nHmm, where was it again?\nAh, my memory's not what it used to be.\n\nOh! It's time for me to prep for my next meal. Come back in a few hours. Maybe something will come back to me.",
+          2: "I remember he always visited a woman...\nHmm, who was she again?\nGive me a bit more time — let's talk again after you've finished your last meal of the day.",
+        },
+      },
+      // 可以为其他 NPC 添加更多响应
+    };
+
+    const npcResponses = npcVagueResponses[npcId];
+    if (!npcResponses) {
+      // 默认回复
+      return language === "zh"
+        ? "让我想想...等你下顿饭后再来吧。"
+        : "Let me think... come back after your next meal.";
+    }
+
+    const languageResponses = npcResponses[language] || npcResponses.en;
+    return languageResponses[version] || languageResponses[1];
+  }
+
   getAllClues() {
     return (this.clueRecords || []).slice().sort((a, b) => {
       if (a.day !== b.day) return a.day - b.day;
@@ -947,7 +1107,6 @@ export default class NPCManager {
     });
   }
 
-  // 移除NPC高亮时也要清理餐食提示
   removeNPCHighlight(npc) {
     if (npc.glowEffect) {
       npc.glowEffect.destroy();
@@ -964,7 +1123,6 @@ export default class NPCManager {
     this.hideNPCHover(npc);
   }
 
-  // 显示NPC悬停信息
   showNPCHover(npc) {
     if (npc.hoverText) return;
 
@@ -998,7 +1156,9 @@ export default class NPCManager {
       hintText,
       {
         fontSize: "14px",
-        fontFamily: "monospace",
+        fontFamily: UI_FONT,
+        stroke: "#000000",
+        strokeThickness: 1,
         fill: "#ffd700",
         backgroundColor: "#000000",
         padding: { x: 8, y: 4 },
@@ -1017,9 +1177,7 @@ export default class NPCManager {
     });
   }
 
-  // 其他方法保持不变
   createNPC(config) {
-    // 定义 NPC id 与资源键的映射（对应 MainScene 中预加载的 npc1 到 npc7）
     const npcAssetMap = {
       village_head: "npc1",
       shop_owner: "npc2",
@@ -1030,25 +1188,19 @@ export default class NPCManager {
       secret_apprentice: "npc7",
     };
 
-    // 根据 NPC id 获取对应的资源键
-    const assetKey = npcAssetMap[config.id] || "npc1"; // 默认使用 npc1
-
-    // 使用正确的资源键创建精灵
+    const assetKey = npcAssetMap[config.id] || "npc1";
     const npcSprite = this.scene.add.sprite(0, 0, assetKey);
 
-    npcSprite.setScale(this.mapScale * 0.045); // Was 0.09, now 0.045 (1/2)
+    npcSprite.setScale(this.mapScale * 0.045);
     npcSprite.setDepth(5);
     npcSprite.setVisible(false);
 
-    // 添加到GridEngine
     this.scene.gridEngine.addCharacter({
       id: config.id,
       sprite: npcSprite,
-      // walkingAnimationMapping: 6,
       startPosition: config.position,
     });
 
-    // NPC数据
     const npcData = {
       id: config.id,
       name: config.name,
@@ -1093,17 +1245,14 @@ export default class NPCManager {
   }
 
   highlightNPC(npc) {
-    // 移除旧的高亮
     this.removeNPCHighlight(npc);
 
-    // 创建新的高亮效果
     const glowEffect = this.scene.add.graphics();
     glowEffect.lineStyle(3, 0xffd700, 0.8);
     glowEffect.strokeCircle(0, 0, 25);
     glowEffect.setPosition(npc.sprite.x, npc.sprite.y);
     glowEffect.setDepth(4);
 
-    // 添加脉冲动画
     this.scene.tweens.add({
       targets: glowEffect,
       scaleX: { from: 1, to: 1.3 },
@@ -1117,6 +1266,7 @@ export default class NPCManager {
     npc.glowEffect = glowEffect;
   }
 
+  // 🔑 关键修复：确保点击区域被正确设置
   addNPCClickArea(npc) {
     if (npc.clickArea) {
       npc.clickArea.destroy();
@@ -1134,7 +1284,7 @@ export default class NPCManager {
     );
 
     npc.clickArea.on("pointerdown", () => {
-      console.log(`NPC ${npc.id} clicked directly!`);
+      console.log(`🖱️ NPC ${npc.id} 被直接点击！`);
       if (this.canInteractWithNPC(npc)) {
         this.startDialogScene(npc.id);
       } else {
@@ -1149,6 +1299,8 @@ export default class NPCManager {
     npc.clickArea.on("pointerout", () => {
       this.hideNPCHover(npc);
     });
+
+    console.log(`✅ 为NPC ${npc.id} 添加了点击区域`);
   }
 
   hideNPCHover(npc) {
@@ -1159,18 +1311,21 @@ export default class NPCManager {
   }
 
   startDialogScene(npcId) {
-    console.log(`Starting dialog scene with NPC: ${npcId}`);
+    console.log(`🎭 开始与NPC ${npcId} 的对话场景`);
 
-    //清理所有提示
     this.clearAllNPCHints();
 
-    // === 新增：计算是否需要走 ConvAI（当天第一次进入） ===
     const currentDay = this.playerStatus?.currentDay;
     const today = this.availableNPCs.find(
       (n) => n.npcId === npcId && n.day === currentDay
     );
-    // 只要今天还没记过餐 -> 第一次 -> 触发 ConvAI
     const useConvAI = today ? today.mealsRecorded === 0 : true;
+
+    console.log(`📋 对话配置:`, {
+      当前天: currentDay,
+      NPC记录餐数: today?.mealsRecorded,
+      使用ConvAI: useConvAI,
+    });
 
     this.scene.scene.pause("MainScene");
     this.scene.scene.launch("DialogScene", {
@@ -1182,7 +1337,6 @@ export default class NPCManager {
     });
   }
 
-  // 完成NPC交互
   async completeNPCInteraction(npcId) {
     try {
       const currentDay = this.playerStatus.currentDay;
@@ -1200,19 +1354,16 @@ export default class NPCManager {
       const data = await response.json();
 
       if (data.success) {
-        // 更新本地状态
         const availableNPC = this.availableNPCs.find((n) => n.npcId === npcId);
         if (availableNPC) {
           availableNPC.completed = true;
         }
 
-        // 移除高亮效果
         const npc = this.npcs.get(npcId);
         if (npc) {
           this.removeNPCHighlight(npc);
         }
 
-        // 检查是否游戏完成
         if (
           !this.finalEggReady &&
           !this.isGeneratingFinalEgg &&
@@ -1235,7 +1386,6 @@ export default class NPCManager {
   async triggerGameCompletion() {
     const language = this.scene.playerData.language;
 
-    // 已经生成过 or 正在生成 -> 直接返回
     if (this.finalEggReady || this.isGeneratingFinalEgg) return;
 
     this.scene.showNotification(
@@ -1245,7 +1395,6 @@ export default class NPCManager {
       3000
     );
 
-    // 这里就别再 setTimeout 了，直接调一次；防止计时器重复
     await this.triggerFinalEgg();
   }
 
@@ -1267,16 +1416,14 @@ export default class NPCManager {
       if (!data.success)
         throw new Error(data.error || "Failed to generate final egg");
 
-      // ★ 关键：无论后端返回 egg（对象）还是 eggContent（字符串），都统一成对象
       const egg = normalizeEggPayload(data);
       this.finalEggContent = egg;
       this.finalEggReady = true;
 
-      this.showFinalEggDialog(egg); // 传对象
+      this.showFinalEggDialog(egg);
     } catch (error) {
       console.error("Error generating final egg:", error);
 
-      // 你本地的 fallback 目前返回字符串，这里也统一转对象
       const egg = normalizeEggPayload({
         eggContent: this.generateLocalFinalEgg(),
       });
@@ -1363,7 +1510,7 @@ export default class NPCManager {
     this.mapScale = newScale;
     this.npcs.forEach((npc) => {
       if (npc.sprite) {
-        npc.sprite.setScale(newScale * 0.09); // 这里也要对应修改
+        npc.sprite.setScale(newScale * 0.09);
       }
       if (npc.glowEffect) {
         npc.glowEffect.setPosition(npc.sprite.x, npc.sprite.y);

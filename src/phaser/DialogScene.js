@@ -14,6 +14,7 @@ import {
   showChoiceButtons,
 } from "./DialogUI.js";
 
+const UI_FONT = "'Arial', sans-serif"; // 你也可以换成游戏里更清晰的字体
 const MAX_TURNS_MEAL = 6;
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -71,9 +72,17 @@ export default class DialogScene extends Phaser.Scene {
       listeners: [],
       resizeTimer: null,
     };
+
+    // 新增：防止重复提问的机制
+    this.askedQuestions = new Set(); // 追踪已问过的问题
+    this.questionAttempts = 0; // 当前问题尝试次数
+    this.maxQuestionAttempts = 2; // 单个问题最大尝试次数
+    this.geminiQuestionOrder = ["Q4", "Q5", "Q6"]; // 问题顺序
+    this.currentQuestionIndex = 0; // 当前问题索引
   }
 
   init(data) {
+    this.quickLogMode = false; // 默认关闭
     this.currentNPC = data.npcId;
     this.npcManager = data.npcManager;
     this.playerData = data.playerData;
@@ -215,7 +224,23 @@ export default class DialogScene extends Phaser.Scene {
     if (this.dialogPhase === "meal_recording") return;
     const dialogResult = this.dialogSystem.getDialogResult();
     console.log("对话结束，准备处理结果:", dialogResult);
-    this.returnToMainScene();
+    // 显示“完成”按钮，玩家点了再返回
+    this.clearAllButtons?.();
+    const text = this.playerData?.language === "zh" ? "完成" : "Done";
+    const { width, height } = this.scale;
+    const btn = this.add
+      .text(width / 2, height * 0.82, text, {
+        fontSize: this.isMobile ? "18px" : "20px",
+        fontFamily: UI_FONT,
+        backgroundColor: "#4a5568",
+        padding: this.isMobile ? { x: 22, y: 14 } : { x: 28, y: 16 },
+        color: "#fff",
+      })
+      .setOrigin(0.5)
+      .setDepth(50)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.returnToMainScene());
+    this.showDoneButtons(); // 统一入口
   }
 
   // 🔸 在这里添加键盘处理方法
@@ -282,6 +307,67 @@ export default class DialogScene extends Phaser.Scene {
     }
   }
 
+  recreateDialogBox(boxHeight, boxY) {
+    const { width } = this.scale;
+    const padding = this.isMobile ? 15 : 20;
+    const borderRadius = this.isMobile ? 8 : 12;
+    const textPadding = this.isMobile ? 20 : 25;
+
+    if (this.dialogBg) {
+      this.dialogBg.clear();
+      this.dialogBg.fillStyle(0x1a1a2e, 0.9);
+      this.dialogBg.fillRoundedRect(
+        padding,
+        boxY,
+        width - padding * 2,
+        boxHeight,
+        borderRadius
+      );
+      this.dialogBg.lineStyle(2, 0x4a5568);
+      this.dialogBg.strokeRoundedRect(
+        padding,
+        boxY,
+        width - padding * 2,
+        boxHeight,
+        borderRadius
+      );
+    }
+
+    if (this.dialogText) {
+      this.dialogText.setPosition(textPadding, boxY + 20);
+      this.dialogText.setWordWrapWidth(width - textPadding * 2);
+    }
+
+    if (this.continueHint) {
+      this.continueHint.setPosition(width - 40, boxHeight + boxY - 25);
+    }
+
+    if (this.scrollMask) {
+      this.scrollMask.clear();
+      this.scrollMask.fillStyle(0xffffff);
+      this.scrollMask.fillRect(
+        textPadding,
+        boxY + 20,
+        width - textPadding * 2,
+        boxHeight - 60
+      );
+      const mask = this.scrollMask.createGeometryMask();
+      this.dialogText.setMask(mask);
+    }
+
+    // 同步记录
+    this.dialogBoxInfo = {
+      x: textPadding,
+      y: boxY + 20,
+      width: width - textPadding * 2,
+      height: boxHeight - 40,
+      maxHeight: boxHeight - 40,
+    };
+
+    // 重新刷新一遍当前显示内容
+    this.updateConversationDisplay?.();
+  }
+
   restoreDialogPosition() {
     const { height } = this.scale;
     const boxHeight = this.isMobile ? height * 0.45 : height * 0.4;
@@ -340,9 +426,9 @@ export default class DialogScene extends Phaser.Scene {
   createTopDialogBox() {
     const { width, height } = this.scale;
 
-    // 增加顶部边距，避免挡住按钮
-    const topMargin = 100; // 从80增加到100
-    const boxHeight = this.isMobile ? height * 0.3 : height * 0.25; // 减小高度
+    // 顶部对话框：移动端更矮一些，避免挡按钮
+    const topMargin = 50;
+    const boxHeight = this.isMobile ? height * 0.3 : height * 0.25;
     const boxY = topMargin;
 
     const padding = this.isMobile ? 15 : 20;
@@ -351,7 +437,7 @@ export default class DialogScene extends Phaser.Scene {
     const textPadding = this.isMobile ? 20 : 25;
     const lineSpacing = this.isMobile ? 4 : 6;
 
-    // 对话框背景
+    // 背景
     this.dialogBg = this.add.graphics();
     this.dialogBg.fillStyle(0x1a1a2e, 0.9);
     this.dialogBg.fillRoundedRect(
@@ -371,30 +457,35 @@ export default class DialogScene extends Phaser.Scene {
     );
     this.dialogBg.setDepth(5);
 
-    // 对话文本 - 修复自动换行
-    this.dialogText = this.add.text(textPadding, boxY + 20, "", {
-      fontSize,
-      fontFamily: "monospace",
-      fill: "#e2e8f0",
-      wordWrap: {
-        width: width - textPadding * 2,
-        useAdvancedWrap: true, // 启用高级换行
-      },
-      lineSpacing,
-      align: "left", // 左对齐以便更好的换行效果
-    });
+    // 🔑 关键修复：改进文本换行设置
+    this.dialogText = this.add
+      .text(textPadding, boxY + 20, "", {
+        fontSize,
+        fontFamily: UI_FONT,
+        fill: "#f8fafc",
+        wordWrap: {
+          width: width - textPadding * 2,
+          useAdvancedWrap: true, // 🔑 启用高级换行
+        },
+        lineSpacing: lineSpacing + 2,
+        align: "left",
+        // 🔑 新增：处理文本断行的设置
+        metrics: {
+          ascent: 16,
+          descent: 4,
+          fontSize: parseInt(fontSize),
+        },
+      })
+      .setShadow(0, 1, "#000000", 2);
     this.dialogText.setDepth(10);
 
-    // 继续提示符
-    const hintX = width - 40;
-    const hintY = boxY + boxHeight - 25;
-    this.continueHint = this.add.text(hintX, hintY, "▼", {
+    // 继续提示
+    this.continueHint = this.add.text(width - 40, boxY + boxHeight - 25, "▼", {
       fontSize: this.isMobile ? "14px" : "16px",
       fontFamily: "monospace",
       fill: "#ffd700",
     });
     this.continueHint.setOrigin(0.5).setVisible(false).setDepth(15);
-
     this.tweens.add({
       targets: this.continueHint,
       alpha: { from: 1, to: 0.3 },
@@ -403,7 +494,7 @@ export default class DialogScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // 保存对话框信息供其他方法使用
+    // 对话框尺寸信息（给滚动/点击区域使用）
     this.dialogBoxInfo = {
       x: textPadding,
       y: boxY + 20,
@@ -412,7 +503,7 @@ export default class DialogScene extends Phaser.Scene {
       maxHeight: boxHeight - 40,
     };
 
-    // 添加滚动遮罩
+    // 滚动遮罩
     this.scrollMask = this.add.graphics();
     this.scrollMask.fillStyle(0xffffff);
     this.scrollMask.fillRect(
@@ -422,9 +513,73 @@ export default class DialogScene extends Phaser.Scene {
       boxHeight - 60
     );
     this.scrollMask.setVisible(false);
-
     const mask = this.scrollMask.createGeometryMask();
     this.dialogText.setMask(mask);
+  }
+
+  // 🔑 新增：智能文本预处理方法
+  preprocessDialogText(text) {
+    if (!text || typeof text !== "string") return text;
+
+    // 检测语言
+    const hasChineseChars = /[\u4e00-\u9fff]/.test(text);
+    const hasEnglishWords = /[a-zA-Z]{2,}/.test(text);
+
+    if (hasChineseChars && hasEnglishWords) {
+      // 混合语言文本：在中英文之间添加适当的分隔处理
+      return (
+        text
+          // 在中文和英文之间添加零宽空格，帮助换行
+          .replace(/([\u4e00-\u9fff])([a-zA-Z])/g, "$1​$2") // 中文后接英文
+          .replace(/([a-zA-Z])([\u4e00-\u9fff])/g, "$1​$2") // 英文后接中文
+          // 在标点后添加换行提示
+          .replace(/([.!?。！？])\s+/g, "$1\n")
+          // 处理长英文单词的换行
+          .replace(/(\w{10,})/g, (match) => {
+            // 对于特别长的英文单词，在适当位置插入软换行符
+            return match.replace(/(.{8})/g, "$1​");
+          })
+      );
+    }
+
+    // 纯英文文本：改善单词换行
+    if (!hasChineseChars && hasEnglishWords) {
+      return (
+        text
+          // 在句号、感叹号、问号后添加换行提示
+          .replace(/([.!?])\s+/g, "$1\n")
+          // 在逗号后添加软换行机会
+          .replace(/,\s+/g, ", ")
+      );
+    }
+
+    // 纯中文或其他情况，直接返回
+    return text;
+  }
+
+  showDoneButtons() {
+    // 清理旧按钮
+    this.clearAllButtons?.();
+
+    const { width, height } = this.scale;
+    const y = height * 0.86; // 不挡住其它元素
+    const fontSize = this.isMobile ? "18px" : "20px";
+
+    const text = this.playerData?.language === "zh" ? "完成" : "Done";
+    const btn = this.add
+      .text(width / 2, y, text, {
+        fontSize,
+        fontFamily: "'Arial', sans-serif",
+        backgroundColor: "#475569",
+        padding: this.isMobile ? { x: 22, y: 12 } : { x: 28, y: 14 },
+        color: "#fff",
+      })
+      .setOrigin(0.5)
+      .setDepth(50)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => this.returnToMainScene());
+
+    this.dynamicButtons.push(btn);
   }
 
   setupControls() {
@@ -458,7 +613,8 @@ export default class DialogScene extends Phaser.Scene {
 
     // 🔸 修改：使用新的 handleScroll 方法
     const wheelHandler = (pointer, gameObjects, deltaX, deltaY) => {
-      this.handleScroll(deltaY > 0 ? 1 : -1);
+      // 反向：向下滚动 => 查看更晚/更靠后的内容
+      this.handleScroll(deltaY > 0 ? -1 : 1);
     };
 
     this.input.on("wheel", wheelHandler);
@@ -487,7 +643,7 @@ export default class DialogScene extends Phaser.Scene {
         if (isDragging) {
           const deltaY = pointer.y - startY;
           if (Math.abs(deltaY) > 20) {
-            this.handleScroll(deltaY > 0 ? -1 : 1);
+            this.handleScroll(deltaY > 0 ? 1 : -1);
             startY = pointer.y;
           }
         }
@@ -1080,6 +1236,57 @@ Because if anyone can follow the path he left, it’s you.`,
     });
   }
 
+  showSubmissionProgress() {
+    if (this.submissionProgress) return; // 避免重复创建
+
+    const { width, height } = this.scale;
+
+    // 创建半透明遮罩
+    this.submissionOverlay = this.add.graphics();
+    this.submissionOverlay.fillStyle(0x000000, 0.3);
+    this.submissionOverlay.fillRect(0, 0, width, height);
+    this.submissionOverlay.setDepth(199);
+
+    // 创建进度指示器
+    this.submissionProgress = this.add.text(
+      width / 2,
+      height / 2,
+      this.playerData.language === "zh"
+        ? "正在记录餐食..."
+        : "Recording meal...",
+      {
+        fontSize: this.isMobile ? "16px" : "18px",
+        fontFamily: "Arial, sans-serif",
+        fill: "#ffffff",
+        backgroundColor: "#4a5568",
+        padding: { x: 20, y: 12 },
+      }
+    );
+
+    this.submissionProgress.setOrigin(0.5);
+    this.submissionProgress.setDepth(200);
+
+    // 添加旋转动画
+    this.tweens.add({
+      targets: this.submissionProgress,
+      angle: 360,
+      duration: 2000,
+      repeat: -1,
+      ease: "Linear",
+    });
+  }
+
+  hideSubmissionProgress() {
+    if (this.submissionProgress) {
+      this.submissionProgress.destroy();
+      this.submissionProgress = null;
+    }
+    if (this.submissionOverlay) {
+      this.submissionOverlay.destroy();
+      this.submissionOverlay = null;
+    }
+  }
+
   // DialogScene.js
   async submitMealOnce() {
     const dayKey = this.npcManager?.getCurrentDay
@@ -1098,6 +1305,10 @@ Because if anyone can follow the path he left, it’s you.`,
     }
 
     this.isSubmittingMeal = true;
+
+    // 🔑 关键修改：立即显示提交状态
+    this.showSubmissionProgress();
+
     try {
       const mealContent = this.extractMealContentFromHistory() || "";
       const result = await this.npcManager.recordMeal(
@@ -1122,6 +1333,7 @@ Because if anyone can follow the path he left, it’s you.`,
         this.npcManager.checkAndUpdateCurrentDay?.();
       }
 
+      // 🔑 关键修改：立即处理完成状态
       await this.handleMealCompletion(result);
     } catch (err) {
       console.error("提交餐食记录失败:", err);
@@ -1131,6 +1343,8 @@ Because if anyone can follow the path he left, it’s you.`,
       });
     } finally {
       this.isSubmittingMeal = false;
+      // 🔑 关键修改：确保隐藏进度指示器
+      this.hideSubmissionProgress();
     }
   }
 
@@ -1397,6 +1611,7 @@ Because if anyone can follow the path he left, it’s you.`,
   }
 
   // 显示单条消息（用于打字效果）
+  // 🔑 修改 showSingleMessage 方法，使用预处理
   showSingleMessage(speaker, message, callback) {
     if (!this.sys || this.sys.isDestroyed) return;
 
@@ -1404,7 +1619,10 @@ Because if anyone can follow the path he left, it’s you.`,
     const npcName = npc ? npc.name : "NPC";
     const displayName = speaker === "npc" ? npcName : "Player";
 
-    const fullMessage = `${displayName}: ${message}`;
+    // 🔑 关键：预处理文本以改善换行
+    const processedMessage = this.preprocessDialogText(message);
+    const fullMessage = `${displayName}: ${processedMessage}`;
+
     this.currentText = fullMessage;
 
     this.isTyping = true;
@@ -1428,7 +1646,11 @@ Because if anyone can follow the path he left, it’s you.`,
           return;
         }
         currentChar++;
-        const currentDisplayText = fullMessage.substring(0, currentChar);
+        let currentDisplayText = fullMessage.substring(0, currentChar);
+
+        // 🔑 清理显示文本中的零宽字符
+        currentDisplayText = currentDisplayText.replace(/​/g, "");
+
         try {
           if (this.dialogText) this.dialogText.setText(currentDisplayText);
         } catch (_) {}
@@ -1436,6 +1658,7 @@ Because if anyone can follow the path he left, it’s you.`,
         if (currentChar >= totalChars) {
           this.isTyping = false;
           if (this.continueHint) this.continueHint.setVisible(true);
+          // 添加到对话历史时使用原始消息（不含预处理标记）
           this.addToConversationHistory(speaker, message);
           if (callback) callback();
         }
@@ -1444,6 +1667,28 @@ Because if anyone can follow the path he left, it’s you.`,
 
     // 追踪定时器以便清理
     this.timers.push(typewriterTimer);
+  }
+
+  // 🔑 可选：添加CSS样式优化（如果需要更精细控制）
+  addCustomTextStyles() {
+    // 如果需要更精细的控制，可以考虑使用DOM元素
+    const style = document.createElement("style");
+    style.textContent = `
+    .dialog-text {
+      word-break: break-word;
+      word-wrap: break-word;
+      hyphens: auto;
+      line-height: 1.4;
+      overflow-wrap: break-word;
+    }
+    
+    .dialog-text-mixed {
+      /* 混合语言文本的特殊处理 */
+      word-spacing: 0.1em;
+      letter-spacing: 0.02em;
+    }
+  `;
+    document.head.appendChild(style);
   }
 
   // 修改：创建输入框 - 放在底部
@@ -1708,13 +1953,23 @@ Because if anyone can follow the path he left, it’s you.`,
     if (this.debugMode) {
       console.log("=== 调用 Gemini API ===");
       console.log("用户输入:", userInput);
-      console.log("当前NPC:", this.currentNPC);
-      console.log("餐食类型:", this.selectedMealType);
-      console.log("当前轮数:", this.geminiTurnCount);
-      console.log("使用默认模式:", this.useGeminiDefault);
+      console.log("当前问题索引:", this.currentQuestionIndex);
+      console.log("已问问题:", Array.from(this.askedQuestions));
     }
 
-    // 如果启用了默认模式，使用默认问题
+    // 检查是否已完成所有问题
+    if (this.currentQuestionIndex >= this.geminiQuestionOrder.length) {
+      return {
+        success: true,
+        message:
+          this.playerData.language === "zh"
+            ? "谢谢你详细的分享！我已经记录下了你的餐食信息。"
+            : "Thank you for sharing your meal with me! I have recorded your meal information.",
+        isComplete: true,
+      };
+    }
+
+    // 如果使用默认模式
     if (this.useGeminiDefault) {
       return this.getGeminiDefaultResponse(userInput);
     }
@@ -1727,11 +1982,13 @@ Because if anyone can follow the path he left, it’s you.`,
         mealAnswers: this.mealAnswers,
         dialogHistory: this.dialogHistory,
         turnCount: this.geminiTurnCount,
+        // 新增：提供问题控制信息
+        questionControl: {
+          currentQuestionIndex: this.currentQuestionIndex,
+          askedQuestions: Array.from(this.askedQuestions),
+          maxQuestions: this.geminiQuestionOrder.length,
+        },
       };
-
-      if (this.debugMode) {
-        console.log("Gemini 请求体:", requestBody);
-      }
 
       const response = await fetch(`${API_URL}/gemini-chat`, {
         method: "POST",
@@ -1741,15 +1998,14 @@ Because if anyone can follow the path he left, it’s you.`,
 
       const data = await response.json();
 
-      if (this.debugMode) {
-        console.log("Gemini 响应数据:", data);
-        console.log("响应消息:", data.message);
-      }
-
       if (data.success) {
+        // 检查响应是否包含问题推进
+        this.analyzeResponseAndUpdateProgress(data.message, userInput);
+
         return {
           success: true,
           message: data.message,
+          isComplete: data.isComplete || this.shouldEndDialog(),
         };
       } else {
         throw new Error(data.error);
@@ -1829,6 +2085,95 @@ Because if anyone can follow the path he left, it’s you.`,
     };
   }
 
+  analyzeResponseAndUpdateProgress(response, userInput) {
+    const lowerResponse = response.toLowerCase();
+
+    // 检查是否是有效的用户回答（不是问候语或无关内容）
+    if (this.isValidFoodResponse(userInput)) {
+      // 根据当前应该问的问题来推进
+      const currentQuestion =
+        this.geminiQuestionOrder[this.currentQuestionIndex];
+
+      if (!this.askedQuestions.has(currentQuestion)) {
+        this.askedQuestions.add(currentQuestion);
+
+        // 如果回答了当前问题，推进到下一个
+        if (this.responseAnswersCurrentQuestion(userInput, currentQuestion)) {
+          this.currentQuestionIndex++;
+          this.questionAttempts = 0;
+        }
+      }
+    }
+
+    // 检查响应是否包含结束标志
+    if (this.detectThankYouMessage(response)) {
+      this.currentQuestionIndex = this.geminiQuestionOrder.length; // 强制结束
+    }
+  }
+
+  // 新增：检查是否是有效的食物相关回答
+  isValidFoodResponse(input) {
+    const foodKeywords = [
+      "吃",
+      "饭",
+      "菜",
+      "肉",
+      "鱼",
+      "米",
+      "面",
+      "汤",
+      "eat",
+      "food",
+      "meal",
+      "rice",
+      "fish",
+      "meat",
+      "soup",
+      "chicken",
+      "vegetable",
+    ];
+    const lowerInput = input.toLowerCase();
+
+    return (
+      foodKeywords.some((keyword) => lowerInput.includes(keyword)) &&
+      input.trim().length > 3
+    ); // 避免太短的无意义回答
+  }
+
+  // 新增：检查回答是否针对当前问题
+  responseAnswersCurrentQuestion(input, questionType) {
+    const lowerInput = input.toLowerCase();
+
+    switch (questionType) {
+      case "Q4": // 吃了什么
+        return this.isValidFoodResponse(input);
+      case "Q5": // 分量和感觉
+        return (
+          lowerInput.includes("分量") ||
+          lowerInput.includes("感觉") ||
+          lowerInput.includes("portion") ||
+          lowerInput.includes("feel")
+        );
+      case "Q6": // 选择原因
+        return (
+          lowerInput.includes("因为") ||
+          lowerInput.includes("选择") ||
+          lowerInput.includes("because") ||
+          lowerInput.includes("choice")
+        );
+      default:
+        return true;
+    }
+  }
+
+  // 新增：检查是否应该结束对话
+  shouldEndDialog() {
+    return (
+      this.currentQuestionIndex >= this.geminiQuestionOrder.length ||
+      this.geminiTurnCount >= this.maxGeminiTurns
+    );
+  }
+
   // 获取餐食名称
   getMealName() {
     const mealNames = {
@@ -1853,6 +2198,21 @@ Because if anyone can follow the path he left, it’s you.`,
     if (this.debugMode) {
       console.log("=== 选择餐食 ===");
       console.log("选择的餐食:", mealType);
+      console.log("可用餐食类型:", this.availableMealTypes);
+    }
+
+    // ✅ 允许重复记录同一餐别（如果玩家想要的话）
+    if (!this.availableMealTypes.includes(mealType)) {
+      const lang = this.playerData?.language;
+      const warning =
+        lang === "zh"
+          ? `${displayName}今天已记录过，确定要重新记录吗？`
+          : `${displayName} already recorded today. Record again?`;
+
+      const userConfirmed = await this.showCustomConfirm(warning);
+      if (!userConfirmed) {
+        return; // 用户取消
+      }
     }
 
     // 清理餐食选择按钮
@@ -1874,7 +2234,89 @@ Because if anyone can follow the path he left, it’s you.`,
     this.showAllFixedQuestions();
   }
 
-  // 替换整个方法 - 修改固定问题显示，增加间距并隐藏对话框
+  // 添加自定义确认对话框方法
+  showCustomConfirm(message) {
+    return new Promise((resolve) => {
+      const { width, height } = this.scale;
+
+      // 创建遮罩
+      const overlay = this.add.graphics();
+      overlay.fillStyle(0x000000, 0.7);
+      overlay.fillRect(0, 0, width, height);
+      overlay.setDepth(200);
+
+      // 创建对话框
+      const dialogWidth = Math.min(400, width * 0.8);
+      const dialogHeight = 150;
+      const dialogX = (width - dialogWidth) / 2;
+      const dialogY = (height - dialogHeight) / 2;
+
+      const dialog = this.add.graphics();
+      dialog.fillStyle(0x2d3748, 1);
+      dialog.fillRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, 10);
+      dialog.lineStyle(2, 0x4a5568);
+      dialog.strokeRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, 10);
+      dialog.setDepth(201);
+
+      // 添加文本
+      const text = this.add.text(width / 2, dialogY + 50, message, {
+        fontSize: this.isMobile ? "14px" : "16px",
+        fontFamily: "Arial, sans-serif",
+        fill: "#ffffff",
+        align: "center",
+        wordWrap: { width: dialogWidth - 40 },
+      });
+      text.setOrigin(0.5);
+      text.setDepth(202);
+
+      // 添加按钮
+      const buttonY = dialogY + dialogHeight - 40;
+      const yesText = this.playerData?.language === "zh" ? "确定" : "Yes";
+      const noText = this.playerData?.language === "zh" ? "取消" : "No";
+
+      const yesButton = this.add.text(width / 2 - 60, buttonY, yesText, {
+        fontSize: "14px",
+        fontFamily: "Arial, sans-serif",
+        fill: "#ffffff",
+        backgroundColor: "#48bb78",
+        padding: { x: 20, y: 10 },
+      });
+      yesButton.setOrigin(0.5);
+      yesButton.setDepth(202);
+      yesButton.setInteractive({ useHandCursor: true });
+
+      const noButton = this.add.text(width / 2 + 60, buttonY, noText, {
+        fontSize: "14px",
+        fontFamily: "Arial, sans-serif",
+        fill: "#ffffff",
+        backgroundColor: "#e53e3e",
+        padding: { x: 20, y: 10 },
+      });
+      noButton.setOrigin(0.5);
+      noButton.setDepth(202);
+      noButton.setInteractive({ useHandCursor: true });
+
+      // 按钮事件
+      const cleanup = () => {
+        overlay.destroy();
+        dialog.destroy();
+        text.destroy();
+        yesButton.destroy();
+        noButton.destroy();
+      };
+
+      yesButton.on("pointerdown", () => {
+        cleanup();
+        resolve(true);
+      });
+
+      noButton.on("pointerdown", () => {
+        cleanup();
+        resolve(false);
+      });
+    });
+  }
+
   // 修复 showAllFixedQuestions 方法
   showAllFixedQuestions() {
     if (this.debugMode) {
@@ -2207,6 +2649,59 @@ Because if anyone can follow the path he left, it’s you.`,
       console.log("文本输入框清理完成");
     }
   }
+  showClueObtainedNotification() {
+    const { width, height } = this.scale;
+
+    const notification = this.add.text(
+      width / 2,
+      height * 0.3,
+      this.playerData.language === "zh"
+        ? "🎉 获得新线索！"
+        : "🎉 New clue obtained!",
+      {
+        fontSize: this.isMobile ? "18px" : "20px",
+        fontFamily: "Arial, sans-serif",
+        fill: "#ffd700",
+        backgroundColor: "#10b981",
+        padding: { x: 16, y: 10 },
+      }
+    );
+
+    notification.setOrigin(0.5);
+    notification.setDepth(150);
+    notification.setAlpha(0);
+
+    // 弹入动画
+    this.tweens.add({
+      targets: notification,
+      alpha: { from: 0, to: 1 },
+      scaleX: { from: 0.5, to: 1.1 },
+      scaleY: { from: 0.5, to: 1.1 },
+      duration: 300,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        // 缩回正常大小
+        this.tweens.add({
+          targets: notification,
+          scaleX: 1,
+          scaleY: 1,
+          duration: 200,
+          ease: "Power2",
+          onComplete: () => {
+            // 延迟后淡出
+            this.tweens.add({
+              targets: notification,
+              alpha: 0,
+              y: notification.y - 30,
+              duration: 800,
+              delay: 1500,
+              onComplete: () => notification.destroy(),
+            });
+          },
+        });
+      },
+    });
+  }
 
   // 添加线索到NPC管理器时确保使用当前语言
   async handleMealCompletion(
@@ -2220,61 +2715,64 @@ Because if anyone can follow the path he left, it’s you.`,
         throw new Error(recordResult.error || "Failed to record meal");
       }
 
-      // 不给线索的普通结束
-      if (!recordResult.shouldGiveClue) {
-        const endMessage =
-          this.playerData.language === "zh"
-            ? "谢谢你的分享！记得按时吃饭哦。"
-            : "Thanks for sharing! Remember to eat on time.";
-        this.showSingleMessage("npc", endMessage, () => {
+      // 🔑 关键修改：如果有线索，立即显示而不是等待消息显示完成
+      if (recordResult.shouldGiveClue) {
+        // 立即添加线索到本地和UI
+        const stage =
+          recordResult?.mealStage ??
+          (this.selectedMealType === "breakfast"
+            ? 1
+            : this.selectedMealType === "lunch"
+            ? 2
+            : 3);
+
+        let clueText = recordResult?.clueText;
+        if (!clueText || !clueText.trim()) {
+          if (stage === 1 || stage === 2) {
+            clueText = this.getVagueResponse(this.currentNPC, stage);
+          } else {
+            clueText = this.getClueForNPC(this.currentNPC);
+          }
+        }
+
+        // 🔑 立即添加线索，不等待消息显示
+        this.npcManager.addClue(
+          this.currentNPC,
+          clueText,
+          this.npcManager.getCurrentDay(),
+          stage
+        );
+
+        // 🔑 立即显示线索获得通知
+        this.showClueObtainedNotification();
+
+        // 显示NPC消息
+        this.showSingleMessage("npc", clueText, async () => {
           this.dialogPhase = "completed";
+
+          // 仅晚餐（stage=3）才标记 NPC 交互完成
+          if (stage === 3) {
+            await this.npcManager.completeNPCInteraction(this.currentNPC);
+            this.npcManager.checkAndUpdateCurrentDay?.();
+          }
+
+          // 通知主场景刷新
+          this.notifyMealRecorded();
+          this.showDoneButtons();
         });
+
         return;
       }
 
-      // === 给线索的路径 ===
-      // 1) 计算阶段（优先后端传回的 mealStage）
-      const stage =
-        recordResult?.mealStage ??
-        (this.selectedMealType === "breakfast"
-          ? 1
-          : this.selectedMealType === "lunch"
-          ? 2
-          : 3);
+      // 不给线索的普通结束
+      const endMessage =
+        this.playerData.language === "zh"
+          ? "谢谢你的分享！记得按时吃饭哦。"
+          : "Thanks for sharing! Remember to eat on time.";
 
-      // 2) 选择线索文本（优先后端传回的 clueText）
-      let clueText = recordResult?.clueText;
-      if (!clueText || !clueText.trim()) {
-        if (stage === 1 || stage === 2) {
-          // 模糊提示：版本 1/2 分别对应早/午餐
-          clueText = this.getVagueResponse(this.currentNPC, stage);
-        } else {
-          // 晚餐：完整线索
-          clueText = this.getClueForNPC(this.currentNPC);
-        }
-      }
-
-      // 3) 记录到本地 & UI（把 stage 传进去，面板就能区分餐别）
-      this.npcManager.addClue(
-        this.currentNPC,
-        clueText,
-        this.npcManager.getCurrentDay(),
-        stage
-      );
-
-      // 4) 呈现并根据阶段决定是否标记交互完成
-      this.showSingleMessage("npc", clueText, async () => {
+      this.showSingleMessage("npc", endMessage, () => {
         this.dialogPhase = "completed";
-
-        // 仅晚餐（stage=3）才标记 NPC 交互完成
-        if (stage === 3) {
-          await this.npcManager.completeNPCInteraction(this.currentNPC);
-          // 如需强制检查切天，可保留这句（后端会做最终校验）
-          this.npcManager.checkAndUpdateCurrentDay?.();
-        }
-
-        // 通知主场景刷新
-        this.notifyMealRecorded();
+        this.showDoneButtons();
       });
     } catch (error) {
       console.error("处理食物记录完成时出错:", error);
@@ -2512,6 +3010,18 @@ Because if anyone can follow the path he left, it’s you.`,
   returnToMainScene() {
     // 清理输入框
     this.clearTextInput();
+    if (this.mainScene?.cameras?.main) {
+      const w = this.mainScene.scale.width;
+      const h = this.mainScene.scale.height;
+      this.mainScene.cameras.main.setViewport(0, 0, w, h);
+      if (this.mainScene.keyboardState) {
+        this.mainScene.keyboardState.isOpen = false;
+        this.mainScene.keyboardState.currentHeight = h;
+      }
+    }
+
+    this.scene.stop();
+    this.scene.resume("MainScene");
 
     // 清理滚动指示器
     if (this.scrollIndicator) {
@@ -2529,6 +3039,9 @@ Because if anyone can follow the path he left, it’s you.`,
       console.log("=== DialogScene 关闭清理 ===");
     }
 
+    // 🔑 新增：清理提交进度指示器
+    this.hideSubmissionProgress();
+
     // 清理所有定时器
     this.timers.forEach((timer) => {
       if (timer && !timer.hasDispatched) {
@@ -2537,6 +3050,7 @@ Because if anyone can follow the path he left, it’s you.`,
     });
     this.timers = [];
 
+    // ... 其他现有的清理代码保持不变
     // 清理事件监听器
     this.eventListeners.forEach(({ event, handler }) => {
       if (this.input && this.input.removeListener) {
@@ -2566,7 +3080,6 @@ Because if anyone can follow the path he left, it’s you.`,
     // 重置回调函数
     this.onUserSubmit = null;
   }
-
   // 更新状态显示
   updateStatus(text) {
     if (this.statusText) {
@@ -2623,6 +3136,10 @@ Because if anyone can follow the path he left, it’s you.`,
     this.clearAllButtons();
     this.dialogPhase = "meal_recording";
 
+    this.askedQuestions = new Set(); // 清空已问集合（很关键）
+    this.questionAttempts = 0; // 重置单题重试计数
+    this.geminiQuestionIndex = 0; // 默认问题游标从头开始
+
     // 新增：初始化 Gemini 对话轮数和默认模式状态
     this.mealSubmitted = false;
     this.isSubmittingMeal = false;
@@ -2643,10 +3160,13 @@ Because if anyone can follow the path he left, it’s you.`,
           : "I notice you had your meal at an unusual time. Why did you eat at this time rather than earlier or later?";
       this.needDetailedDescription = true;
     } else {
+      // 改为：使用默认问题生成器的第一问（通常是 Q4：你这顿吃了什么？）
+      const firstQ = this.getNextGeminiDefaultQuestion();
       startMessage =
-        this.playerData.language === "zh"
-          ? `谢谢你的回答。接下来我可以问问你有什么其他特别的感受吗？`
-          : `Thank you for your answers. Could I ask you more?`;
+        firstQ ||
+        (this.playerData.language === "zh"
+          ? "我们从这顿吃了什么开始吧。"
+          : "Let's start with what you had.");
       this.needDetailedDescription = false;
     }
 

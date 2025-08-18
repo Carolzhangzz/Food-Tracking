@@ -21,6 +21,7 @@ const API_URL = process.env.REACT_APP_API_URL;
 // ===== 雪碧图单元尺寸 =====
 const CELL_W = 26;
 const CELL_H = 36;
+const UI_FONT = "'Arial', sans-serif"; // 你也可以换成游戏里更清晰的字体
 
 // 1. 在 MainScene.js 中添加更好的事件清理
 export function improvedEndDialog() {
@@ -213,7 +214,119 @@ export default class MainScene extends Phaser.Scene {
     this.load.image("npc7", npc7);
   }
 
+  // 新增：强制复位视口
+  playCutSceneWithSkip(onFinish) {
+    const { width, height } = this.scale;
+    this.cutSceneGroup = this.add.container(0, 0);
+
+    // ... 你的过场内容（图片/文本/动画）都 add 到 this.cutSceneGroup
+
+    // 跳过按钮
+    const skip = this.add
+      .text(width - 60, 30, "Skip", {
+        fontSize: "14px",
+        fontFamily: UI_FONT,
+        backgroundColor: "#00000088",
+        padding: { x: 10, y: 6 },
+        color: "#fff",
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setInteractive({ useHandCursor: true });
+
+    skip.on("pointerdown", () => {
+      this.cutSceneGroup.destroy(true);
+      onFinish?.();
+    });
+
+    this.cutSceneGroup.add(skip);
+
+    // 播放完自动结束（例如 8 秒）
+    this.time.delayedCall(8000, () => {
+      if (this.cutSceneGroup && !this.cutSceneGroup.destroyed) {
+        this.cutSceneGroup.destroy(true);
+        onFinish?.();
+      }
+    });
+  }
+
+  forceViewportReset() {
+    if (this.debugMode) {
+      console.log("🔄 强制重置视口");
+    }
+
+    try {
+      const { width, height } = this.scale;
+
+      // 重置摄像机视口
+      this.cameras.main.setViewport(0, 0, width, height);
+
+      // 重置键盘状态
+      if (this.keyboardState) {
+        this.keyboardState.isOpen = false;
+        this.keyboardState.currentHeight = height;
+      }
+
+      // 重新调整UI元素
+      if (this.uiManager) {
+        this.uiManager.handleKeyboardToggle(false);
+      }
+
+      // 确保游戏元素正确定位
+      this.restoreGameElements();
+    } catch (error) {
+      console.error("视口重置失败:", error);
+    }
+  }
+
+  // 修复: 添加缺失的 restoreNPCInteractions 方法
+  restoreNPCInteractions() {
+    if (this.debugMode) {
+      console.log("🔄 恢复NPC交互状态");
+    }
+
+    if (!this.npcManager) {
+      console.warn("NPCManager 不存在，无法恢复交互");
+      return;
+    }
+
+    try {
+      // 清理所有NPC的旧交互状态
+      this.npcManager.npcs.forEach((npc) => {
+        if (npc.clickArea) {
+          npc.clickArea.removeAllListeners();
+          npc.clickArea.destroy();
+          npc.clickArea = null;
+        }
+      });
+
+      // 强制更新NPC状态
+      this.npcManager.updateNPCStates();
+
+      // 延迟确保交互区域正确创建
+      this.time.delayedCall(100, () => {
+        this.npcManager.npcs.forEach((npc) => {
+          const availableNPC = this.npcManager.availableNPCs.find(
+            (a) => a.npcId === npc.id
+          );
+
+          if (
+            availableNPC &&
+            availableNPC.unlocked &&
+            availableNPC.day === this.npcManager.playerStatus.currentDay
+          ) {
+            this.npcManager.addNPCClickArea(npc);
+          }
+        });
+      });
+    } catch (error) {
+      console.error("恢复NPC交互失败:", error);
+    }
+  }
+
   create() {
+    this.game.canvas.style.imageRendering = "pixelated"; // 浏览器端像素化渲染
+
     this.setupMap();
     this.setupPlayer();
     this.setupGameSystems();
@@ -237,15 +350,34 @@ export default class MainScene extends Phaser.Scene {
     this.gameStarted = true;
 
     this.events.on("resume", () => {
-      this.dlog("MainScene resumed from dialog");
+      console.log("🔄 MainScene resumed from dialog");
 
+      // 延迟执行，确保对话场景完全关闭
       this.time.delayedCall(100, () => {
+        // 清理可能残留的浮动文本
         this.emergencyCleanupFloatingTexts();
+
+        // 刷新NPC状态
         this.refreshNPCs("resume-from-dialog");
 
-        // 关键：重新添加 NPC 点击区域
+        // 🔑 关键：重新添加 NPC 点击区域和更新状态
         if (this.npcManager) {
-          this.npcManager.updateNPCStates(); // 会重新调用 addNPCClickArea
+          console.log("🔄 强制更新NPC交互状态");
+          this.npcManager.updateNPCStates();
+
+          // 确保所有可交互的NPC都有正确的点击区域
+          this.restoreNPCInteractions();
+        }
+      });
+    });
+
+    this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      this.forceViewportReset();
+
+      // 额外的状态恢复
+      this.time.delayedCall(200, () => {
+        if (this.npcManager) {
+          this.restoreNPCInteractions();
         }
       });
     });
@@ -626,7 +758,7 @@ export default class MainScene extends Phaser.Scene {
       : lang === "zh"
       ? `欢迎来到神秘村庄！\n这是你的第1天\n点击发光的NPC开始对话\n记录你的餐食来获取线索`
       : `Welcome to the mysterious village!\nThis is your Day 1\nTap the glowing NPC to start conversation\nRecord your meals to get clues`;
-    this.showNotification(message, 5000);
+    this.showNotification(message, 10000);
   }
 
   showNotification(message, duration = 3000) {
@@ -763,40 +895,65 @@ export default class MainScene extends Phaser.Scene {
   }
 
   handleResize(gameSize) {
+    if (!gameSize) {
+      gameSize = this.scale.gameSize;
+    }
+
     const width = gameSize.width;
     const height = gameSize.height;
 
-    if (this.keyboardState.isOpen && window.visualViewport) {
+    if (this.debugMode) {
+      console.log("🔄 处理窗口大小变化:", { width, height });
+    }
+
+    // 检查键盘状态
+    if (
+      this.keyboardState &&
+      this.keyboardState.isOpen &&
+      window.visualViewport
+    ) {
       const vvHeight = window.visualViewport.height;
       this.cameras.main.setViewport(0, 0, width, vvHeight);
       return;
     }
 
+    // 重新计算地图缩放
     const mapWidth = this.fieldMapTileMap.widthInPixels;
     const mapHeight = this.fieldMapTileMap.heightInPixels;
     const scale = Math.min(width / mapWidth, height / mapHeight);
 
+    // 更新地图层
     const mainLayer = this.fieldMapTileMap.getLayer("layer");
     if (mainLayer?.tilemapLayer) {
       mainLayer.tilemapLayer.setScale(scale);
       mainLayer.tilemapLayer.setPosition(0, 0);
     }
 
+    // 更新玩家位置和缩放
     if (this.playerSprite && this.gridEngine) {
       const pos = this.gridEngine.getPosition("player");
       if (pos) {
         const x = pos.x * this.fieldMapTileMap.tileWidth * scale;
         const y = pos.y * this.fieldMapTileMap.tileHeight * scale;
         this.playerSprite.setPosition(x, y);
-        this.playerSprite.setScale(scale * 1.5);
+        this.playerSprite.setScale(scale * 1.125); // 修正缩放比例
       }
     }
 
-    this.npcManager?.updateScale(scale * 0.5);
+    // 更新NPC缩放
+    if (this.npcManager) {
+      this.npcManager.updateScale(scale * 0.5);
+    }
+
+    // 更新摄像机边界
     this.cameras.main.setBounds(0, 0, mapWidth * scale, mapHeight * scale);
     this.cameras.main.startFollow(this.playerSprite, true);
+
+    // 保存新的缩放值
     this.mapScale = scale;
   }
+
+  
 
   resetNPCInteractionStates() {
     if (!this.npcManager) return;
@@ -924,6 +1081,16 @@ export default class MainScene extends Phaser.Scene {
     if (this.keyboardState.listeners) {
       this.keyboardState.listeners.forEach(({ target, event, handler }) => {
         target.removeEventListener(event, handler);
+      });
+      this.keyboardState.listeners = [];
+    }
+
+    // 额外：移除 window/document/visualViewport 监听
+    if (this.keyboardState?.listeners?.length) {
+      this.keyboardState.listeners.forEach(({ target, event, handler }) => {
+        try {
+          target?.removeEventListener?.(event, handler);
+        } catch (_) {}
       });
       this.keyboardState.listeners = [];
     }

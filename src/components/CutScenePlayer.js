@@ -1,10 +1,9 @@
-import React, {useState, useContext,useEffect } from "react";
+import React, { useState, useContext, useEffect, useMemo } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import Button from "./Button";
 import { useNavigate } from "react-router-dom";
 import Control from "./Control";
-import { playBGM } from "../utils/audioManager";
-import { stopBGM } from "../utils/audioManager"; 
+import { playBGM, stopBGM } from "../utils/audioManager";
 
 function CutScenePlayer() {
   const { playerId, playerData } = useContext(PlayerContext);
@@ -12,7 +11,21 @@ function CutScenePlayer() {
   const [showStartButton, setShowStartButton] = useState(false);
   const navigate = useNavigate();
 
-  // 播放背景音乐
+  // 以“玩家ID”为粒度记忆是否看过过场
+  const SEEN_KEY = useMemo(
+    () => (playerId ? `cutsceneSeen_v1_${playerId}` : "cutsceneSeen_v1"),
+    [playerId]
+  );
+
+  // ① 若该玩家之前看过（或点击跳过过），直接进游戏
+  useEffect(() => {
+    const seen = localStorage.getItem(SEEN_KEY);
+    if (seen === "1") {
+      navigate("/game");
+    }
+  }, [SEEN_KEY, navigate]);
+
+  // 播放背景音乐（你原来的逻辑，保留）
   useEffect(() => {
     if (playerData?.music) {
       playBGM();
@@ -20,14 +33,14 @@ function CutScenePlayer() {
     return () => stopBGM(); // 页面卸载时关闭背景音乐
   }, [playerData?.music]);
 
-  // 如果没有 playerId，重定向回首页
+  // 如果没有 playerId，重定向回首页（保留你原逻辑）
   useEffect(() => {
     if (!playerId) {
       navigate("/");
     }
   }, [playerId, navigate]);
 
-  // 故事文本
+  // 故事文本（保留你原来的中英两套内容）
   const storyLines =
     playerData?.language === "zh"
       ? [
@@ -55,26 +68,42 @@ function CutScenePlayer() {
           "If you want to find the truth, follow in his footsteps. Every detail matters.",
         ];
 
-  React.useEffect(() => {
+  // 逐行淡入（保留你的节奏，稍微拉长到 1200ms 可读性更好）
+  useEffect(() => {
     if (currentLine < storyLines.length) {
       const timer = setTimeout(() => {
-        setCurrentLine(currentLine + 1);
-      }, 1000); // 调慢一点
+        setCurrentLine((n) => n + 1);
+      }, 1200);
       return () => clearTimeout(timer);
     } else {
       const buttonTimer = setTimeout(() => {
         setShowStartButton(true);
-      }, 1000);
+      }, 600);
       return () => clearTimeout(buttonTimer);
     }
   }, [currentLine, storyLines.length]);
 
+  const goToGame = () => navigate("/game");
+
+  // 点击“开始/了解了”：同时记为“已看过”
   const handleStartGame = (e) => {
     if (e?.preventDefault) e.preventDefault();
-    navigate("/game");
+    try {
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {}
+    goToGame();
+  };
+
+  // ② 右上角“跳过/Skip”按钮：随时可跳过，也会记为“已看过”
+  const handleSkip = () => {
+    try {
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {}
+    goToGame();
   };
 
   if (!playerData) {
+    // 你的 loading 占位（保留，但我们把字体从 monospace 换成更清晰的 UI 字体）
     return (
       <div
         style={{
@@ -86,7 +115,8 @@ function CutScenePlayer() {
           alignItems: "center",
           color: "#fff",
           fontSize: "1.2rem",
-          fontFamily: "monospace",
+          fontFamily:
+            "Noto Sans TC, Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif",
         }}
       >
         <div style={{ textAlign: "center" }}>
@@ -104,9 +134,35 @@ function CutScenePlayer() {
       </div>
     );
   }
+
   return (
     <>
       <Control />
+      {/* 跳过按钮（右上角，随时可点） */}
+      <button
+        onClick={handleSkip}
+        style={{
+          position: "fixed",
+          top: 16,
+          left: 16,
+          zIndex: 2100,
+          padding: "10px 14px",
+          fontSize: "14px",
+          fontWeight: 700,
+          borderRadius: 8,
+          border: "2px solid #334155",
+          color: "#e2e8f0",
+          background: "rgba(15,23,42,0.75)",
+          cursor: "pointer",
+          backdropFilter: "blur(4px)",
+          fontFamily:
+            "Noto Sans TC, Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        }}
+        title={playerData.language === "zh" ? "跳过" : "Skip"}
+      >
+        {playerData.language === "zh" ? "跳过" : "Skip"}
+      </button>
+
       <div
         className="cutscene-player"
         style={{
@@ -121,7 +177,9 @@ function CutScenePlayer() {
           justifyContent: "flex-start",
           padding: "20px",
           boxSizing: "border-box",
-          fontFamily: "monospace",
+          // 字体从 monospace 改为高清晰 UI 字体
+          fontFamily:
+            "Noto Sans TC, Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
         }}
       >
         <p
@@ -129,7 +187,7 @@ function CutScenePlayer() {
             fontSize: "clamp(1.2rem, 4vw, 1.8rem)",
             color: "#ffd700",
             marginBottom: "1rem",
-            marginTop: "2rem", // 👈 加这一行
+            marginTop: "2rem",
             textAlign: "center",
             textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
           }}
@@ -138,18 +196,6 @@ function CutScenePlayer() {
             ? `欢迎回来，${playerData.firstName || "玩家"}`
             : `Welcome back, ${playerData.firstName || "Player"}`}
         </p>
-        {/* <p style={{
-        fontSize: 'clamp(1.2rem, 4vw, 1.8rem)',
-        color: '#ffd700',
-        marginBottom: '1rem',
-        textAlign: 'center',
-        textShadow: '2px 2px 4px rgba(0,0,0,0.8)'
-      }}>
-        {playerData.language === 'zh' ? 
-          `欢迎回来，${playerData.firstName || '玩家'}` :
-          `Welcome back, ${playerData.firstName || 'Player'}`
-        }
-      </p> */}
 
         {/* 内容+按钮区域 */}
         <div
@@ -169,11 +215,11 @@ function CutScenePlayer() {
               <p
                 key={index}
                 style={{
-                  fontSize: "clamp(0.9rem, 2.5vw, 1.2rem)",
-                  lineHeight: "1.6",
+                  fontSize: "clamp(0.95rem, 2.5vw, 1.2rem)",
+                  lineHeight: 1.7,
                   margin: "1rem 0",
                   opacity: 0,
-                  animation: `fadeIn 1s ease-in-out ${index * 0.5}s forwards`,
+                  animation: `fadeIn 0.9s ease-in-out ${index * 0.5}s forwards`,
                   textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
                   textAlign: "center",
                 }}
@@ -191,10 +237,7 @@ function CutScenePlayer() {
                 marginBottom: "10rem",
               }}
             >
-              <Button
-                onClick={handleStartGame}
-                animation="fadeIn 1s ease-in-out forwards"
-              >
+              <Button onClick={handleStartGame} animation="fadeIn 1s forwards">
                 {playerData.language === "zh" ? "了解了" : "Got it"}
               </Button>
             </div>

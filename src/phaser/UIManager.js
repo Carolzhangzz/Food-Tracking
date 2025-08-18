@@ -239,7 +239,7 @@ export default class UIManager {
           lunch: lang === "zh" ? "午饭进度" : "Lunch progress",
           dinner: lang === "zh" ? "晚饭进度" : "Dinner progress",
         };
-        this.showNotification(map[meal.type], 1200);
+        this.showNotification("提示", "轻点 NPC 开始对话…", { duration: 6000 });
       };
       icon.setInteractive({ useHandCursor: true }).on("pointerdown", tip);
       dot
@@ -403,7 +403,7 @@ export default class UIManager {
         lang === "zh"
           ? "上面的三个点表示今日早/中/晚餐记录进度。"
           : "The three dots show your breakfast/lunch/dinner progress today.";
-      this.showNotification(text, 2200);
+      this.showNotification(text, 6000);
     };
 
     badge.on("pointerdown", showHelp);
