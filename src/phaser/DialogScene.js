@@ -3012,23 +3012,37 @@ Because if anyone can follow the path he left, it’s you.`,
       // 1) 先清理本场景 UI/事件
       this.shutdown();
 
-      // 2) 恢复 MainScene 的交互与移动
+      // 2) 强制复位 MainScene 的交互与布局状态
       if (this.mainScene) {
-        this.mainScene.input.enabled = true;
-        // 若有自定义的恢复逻辑，调用之
-        this.mainScene.improvedEndDialog?.();
+        // 彻底关掉“键盘开启”态，恢复视口高度
+        this.mainScene.keyboardState.isOpen = false;
+        const { width } = this.mainScene.scale;
+        this.mainScene.cameras.main.setViewport(
+          0,
+          0,
+          width,
+          this.mainScene.keyboardState.originalHeight
+        );
 
-        // 关闭可能残留的“键盘打开状态”位移
+        // 关键：允许触控/点按
+        this.mainScene._touchControlsDisabled = false;
+
+        // 通知 UI（有就调，没有也不报错）
         this.mainScene.uiManager?.handleKeyboardToggle?.(false);
 
-        // 3) 刷新 NPC：保证同一天可继续点击 NPC 记录午餐/晚餐
+        // 恢复输入
+        this.mainScene.input.enabled = true;
+
+        // 你主场景里若实现了额外复位逻辑，这里会调用
+        this.mainScene.improvedEndDialog?.();
+
+        // 3) 刷新“今天”的 NPC，让同一天能继续点午餐/晚餐
         this.npcManager?.refreshAvailableNPCs?.();
         this.npcManager?.rebindClickAreasForCurrentDay?.();
       }
     } finally {
-      // 4) 停掉 DialogScene 自己
+      // 4) 关闭对话场景，把主场景顶到前台
       this.scene.stop();
-      // 把主场景放到最上层，确保可见可操作
       this.mainScene?.scene?.bringToTop?.();
       this.mainScene?.scene?.resume?.();
     }

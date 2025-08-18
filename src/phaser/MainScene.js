@@ -399,6 +399,25 @@ export default class MainScene extends Phaser.Scene {
     });
   }
 
+  improvedEndDialog() {
+    try {
+      this._touchControlsDisabled = false;
+      this.keyboardState.isOpen = false;
+
+      const { width } = this.scale;
+      this.cameras.main.setViewport(
+        0,
+        0,
+        width,
+        this.keyboardState.originalHeight
+      );
+
+      this.uiManager?.handleKeyboardToggle?.(false);
+    } catch (e) {
+      // 可选：console.warn(e);
+    }
+  }
+
   emergencyCleanupFloatingTexts() {
     this.children.list.forEach((child) => {
       if (child.type === "Text") {
