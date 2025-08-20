@@ -423,99 +423,103 @@ export default class DialogScene extends Phaser.Scene {
   }
 
   // 新增：创建顶部对话框
+  // 在 DialogScene.js 的 createTopDialogBox 方法中修复定位问题
+
   createTopDialogBox() {
-    const { width, height } = this.scale;
+  const { width, height } = this.scale;
 
-    // 顶部对话框：移动端更矮一些，避免挡按钮
-    const topMargin = 50;
-    const boxHeight = this.isMobile ? height * 0.3 : height * 0.25;
-    const boxY = topMargin;
+  // 安全边距：避免顶栏/底部按钮遮挡
+  const safeTopMargin = 120;
+  const safeBottomMargin = 150;
 
-    const padding = this.isMobile ? 15 : 20;
-    const borderRadius = this.isMobile ? 8 : 12;
-    const fontSize = this.isMobile ? "14px" : "16px";
-    const textPadding = this.isMobile ? 20 : 25;
-    const lineSpacing = this.isMobile ? 4 : 6;
+  // 统一“外边距”和“内边距”
+  const outerPad = this.isMobile ? 12 : 16;   // 背景框离屏幕的外边距（左右）
+  const innerPad = this.isMobile ? 16 : 20;   // 文字在背景框内的内边距
+  const borderRadius = this.isMobile ? 8 : 12;
 
-    // 背景
-    this.dialogBg = this.add.graphics();
-    this.dialogBg.fillStyle(0x1a1a2e, 0.9);
-    this.dialogBg.fillRoundedRect(
-      padding,
-      boxY,
-      width - padding * 2,
-      boxHeight,
-      borderRadius
-    );
-    this.dialogBg.lineStyle(2, 0x4a5568);
-    this.dialogBg.strokeRoundedRect(
-      padding,
-      boxY,
-      width - padding * 2,
-      boxHeight,
-      borderRadius
-    );
-    this.dialogBg.setDepth(5);
+  // 计算对话框尺寸
+  const availableHeight = height - safeTopMargin - safeBottomMargin;
+  const maxBoxHeight = 300;
+  const boxHeight = Math.min(this.isMobile ? availableHeight * 0.6 : availableHeight * 0.5, maxBoxHeight);
+  const boxY = safeTopMargin;
+  const boxX = outerPad;
+  const boxW = width - outerPad * 2;
 
-    // 🔑 关键修复：改进文本换行设置
-    this.dialogText = this.add
-      .text(textPadding, boxY + 20, "", {
-        fontSize,
-        fontFamily: UI_FONT,
-        fill: "#f8fafc",
-        wordWrap: {
-          width: width - textPadding * 2,
-          useAdvancedWrap: true, // 🔑 启用高级换行
-        },
-        lineSpacing: lineSpacing + 2,
-        align: "left",
-        // 🔑 新增：处理文本断行的设置
-        metrics: {
-          ascent: 16,
-          descent: 4,
-          fontSize: parseInt(fontSize),
-        },
-      })
-      .setShadow(0, 1, "#000000", 2);
-    this.dialogText.setDepth(10);
+  // 统一文字区域（与遮罩使用同一套数值）
+  const textX = boxX + innerPad;
+  const textY = boxY + innerPad;
+  const textW = boxW - innerPad * 2;
+  const hintBottomPad = this.isMobile ? 16 : 20; // 为“继续提示”留空
+  const textVisibleH = boxHeight - innerPad * 2 - hintBottomPad; // 文字可视高度
 
-    // 继续提示
-    this.continueHint = this.add.text(width - 40, boxY + boxHeight - 25, "▼", {
-      fontSize: this.isMobile ? "14px" : "16px",
-      fontFamily: "monospace",
-      fill: "#ffd700",
-    });
-    this.continueHint.setOrigin(0.5).setVisible(false).setDepth(15);
-    this.tweens.add({
-      targets: this.continueHint,
-      alpha: { from: 1, to: 0.3 },
-      duration: 1000,
-      yoyo: true,
-      repeat: -1,
-    });
+  // 字体与行距（移除自定义 metrics）
+  const fontSizeNum = this.isMobile ? 14 : 16;
+  const lineSpacing = this.isMobile ? 4 : 6;
 
-    // 对话框尺寸信息（给滚动/点击区域使用）
-    this.dialogBoxInfo = {
-      x: textPadding,
-      y: boxY + 20,
-      width: width - textPadding * 2,
-      height: boxHeight - 40,
-      maxHeight: boxHeight - 40,
-    };
+  // 背景
+  this.dialogBg = this.add.graphics();
+  this.dialogBg.fillStyle(0x1a1a2e, 0.9);
+  this.dialogBg.fillRoundedRect(boxX, boxY, boxW, boxHeight, borderRadius);
+  this.dialogBg.lineStyle(2, 0x4a5568);
+  this.dialogBg.strokeRoundedRect(boxX, boxY, boxW, boxHeight, borderRadius);
+  this.dialogBg.setDepth(5);
 
-    // 滚动遮罩
-    this.scrollMask = this.add.graphics();
-    this.scrollMask.fillStyle(0xffffff);
-    this.scrollMask.fillRect(
-      textPadding,
-      boxY + 20,
-      width - textPadding * 2,
-      boxHeight - 60
-    );
-    this.scrollMask.setVisible(false);
-    const mask = this.scrollMask.createGeometryMask();
-    this.dialogText.setMask(mask);
-  }
+  // 文字（不要手动 metrics；明确设置 wordWrapWidth）
+  this.dialogText = this.add.text(textX, textY, "", {
+    fontSize: `${fontSizeNum}px`,
+    fontFamily: UI_FONT,
+    fill: "#f8fafc",
+    align: "left",
+    wordWrap: { width: textW, useAdvancedWrap: true },
+    lineSpacing: lineSpacing + 2,
+  }).setShadow(0, 1, "#000000", 2);
+  this.dialogText.setDepth(10);
+  // 保险：某些 Phaser 版本更喜欢这个 API 来设置 wrap 宽度
+  if (this.dialogText.setWordWrapWidth) this.dialogText.setWordWrapWidth(textW, true);
+
+  // “继续”提示（确保在框内右下角）
+  const hintX = boxX + boxW - innerPad - 12;
+  const hintY = boxY + boxHeight - innerPad - 18;
+  this.continueHint = this.add.text(hintX, hintY, "▼", {
+    fontSize: `${fontSizeNum}px`,
+    fontFamily: "monospace",
+    fill: "#ffd700",
+  });
+  this.continueHint.setOrigin(0.5).setVisible(false).setDepth(15);
+
+  this.tweens.add({
+    targets: this.continueHint,
+    alpha: { from: 1, to: 0.3 },
+    duration: 1000,
+    yoyo: true,
+    repeat: -1,
+  });
+
+  // 记录尺寸信息（供滚动/点击使用）
+  this.dialogBoxInfo = {
+    x: textX,
+    y: textY,
+    width: textW,
+    height: textVisibleH,
+    maxHeight: textVisibleH,
+    boxY,
+    boxHeight,
+  };
+
+  // 几何遮罩：严格与文字可视区域一致（不要用 textPadding 混用）
+  this.scrollMask = this.add.graphics();
+  this.scrollMask.fillStyle(0xffffff);
+  this.scrollMask.fillRect(textX, textY, textW, textVisibleH);
+  this.scrollMask.setVisible(false);
+  const mask = this.scrollMask.createGeometryMask();
+  this.dialogText.setMask(mask);
+
+  // 统一层级（可选）
+  this.dialogBg.setDepth(5);
+  this.dialogText.setDepth(10);
+  this.continueHint.setDepth(15);
+}
+
 
   // 🔑 新增：智能文本预处理方法
   preprocessDialogText(text) {
@@ -1305,8 +1309,6 @@ Because if anyone can follow the path he left, it’s you.`,
     }
 
     this.isSubmittingMeal = true;
-
-    // 🔑 关键修改：立即显示提交状态
     this.showSubmissionProgress();
 
     try {
@@ -1319,21 +1321,27 @@ Because if anyone can follow the path he left, it’s you.`,
         mealContent
       );
 
-      // 标记"当天_该餐别"已提交
       this._submittedSet.add(mealKey);
       this.mealSubmitted = true;
       this.lastRecordResult = result;
 
-      // 晚饭后才允许触发检查切天（若后端没直接回 newDay）
-      if (
-        result?.success &&
-        !result?.newDay &&
-        this.selectedMealType === "dinner"
-      ) {
-        this.npcManager.checkAndUpdateCurrentDay?.();
+      console.log("📊 餐食提交结果:", {
+        success: result?.success,
+        newDay: result?.newDay,
+        nextDayUnlocked: result?.nextDayUnlocked,
+        isFirstMealToday: result?.isFirstMealToday,
+      });
+
+      // 🔧 重要修复：统一处理状态刷新
+      if (result?.success) {
+        // 延迟通知主场景，确保数据同步完成
+        setTimeout(() => {
+          if (this.mainScene?.onMealRecorded) {
+            this.mainScene.onMealRecorded();
+          }
+        }, 200);
       }
 
-      // 🔑 关键修改：立即处理完成状态
       await this.handleMealCompletion(result);
     } catch (err) {
       console.error("提交餐食记录失败:", err);
@@ -1343,8 +1351,93 @@ Because if anyone can follow the path he left, it’s you.`,
       });
     } finally {
       this.isSubmittingMeal = false;
-      // 🔑 关键修改：确保隐藏进度指示器
       this.hideSubmissionProgress();
+    }
+  }
+
+  // 🔧 新增：处理餐食完成的统一方法
+  async handleMealCompletion(
+    recordResult = { success: true, shouldGiveClue: false }
+  ) {
+    try {
+      if (this.debugMode) {
+        console.log("处理餐食完成结果:", recordResult);
+      }
+
+      if (!recordResult.success) {
+        throw new Error(recordResult.error || "Failed to record meal");
+      }
+
+      // 🔑 关键修改：如果有线索，立即显示而不是等待消息显示完成
+      if (recordResult.shouldGiveClue) {
+        // 立即添加线索到本地和UI
+        const stage =
+          recordResult?.mealStage ??
+          (this.selectedMealType === "breakfast"
+            ? 1
+            : this.selectedMealType === "lunch"
+            ? 2
+            : 3);
+
+        let clueText = recordResult?.clueText;
+        if (!clueText || !clueText.trim()) {
+          if (stage === 1 || stage === 2) {
+            clueText = this.getVagueResponse(this.currentNPC, stage);
+          } else {
+            clueText = this.getClueForNPC(this.currentNPC);
+          }
+        }
+
+        // 🔑 立即添加线索，不等待消息显示
+        this.npcManager.addClue(
+          this.currentNPC,
+          clueText,
+          this.npcManager.getCurrentDay(),
+          stage
+        );
+
+        // 🔑 立即显示线索获得通知
+        this.showClueObtainedNotification();
+
+        // 显示NPC消息
+        this.showSingleMessage("npc", clueText, async () => {
+          this.dialogPhase = "completed";
+
+          // 仅晚餐（stage=3）才标记 NPC 交互完成
+          if (stage === 3) {
+            await this.npcManager.completeNPCInteraction(this.currentNPC);
+            this.npcManager.checkAndUpdateCurrentDay?.();
+          }
+
+          // 通知主场景刷新
+          this.notifyMealRecorded();
+          this.showDoneButtons();
+        });
+
+        return;
+      }
+
+      // 不给线索的普通结束
+      const endMessage =
+        this.playerData.language === "zh"
+          ? "谢谢你的分享！记得按时吃饭哦。"
+          : "Thanks for sharing! Remember to eat on time.";
+
+      this.showSingleMessage("npc", endMessage, () => {
+        this.dialogPhase = "completed";
+        this.showDoneButtons();
+      });
+    } catch (error) {
+      console.error("处理食物记录完成时出错:", error);
+      this.showSingleMessage(
+        "npc",
+        this.playerData.language === "zh"
+          ? "抱歉，记录餐食时出现了问题。请稍后再试。"
+          : "Sorry, there was an error recording your meal. Please try again later.",
+        () => {
+          this.dialogPhase = "completed";
+        }
+      );
     }
   }
 

@@ -1032,10 +1032,30 @@ export default class MainScene extends Phaser.Scene {
   }
 
   async onMealRecorded() {
-    await this.refreshNPCs("meal-recorded");
-    this.uiManager?.updateProgress();
-    const progress = this.npcManager?.getDailyProgress();
-    if (progress && progress.isComplete) this.showDayCompleteMessage();
+    console.log("🍽️ 餐食记录完成，开始刷新状态");
+
+    try {
+      // 🔧 关键修复：使用 refreshAvailableNPCs 而不是 refreshNPCs
+      await this.npcManager.refreshAvailableNPCs();
+
+      // 更新UI进度显示
+      this.uiManager?.updateProgress();
+
+      // 检查当天完成情况
+      const progress = this.npcManager?.getDailyProgress();
+      if (progress && progress.isComplete) {
+        this.showDayCompleteMessage();
+      }
+
+      console.log("✅ 餐食记录后状态刷新完成", {
+        当前天: this.npcManager?.getCurrentDay(),
+        可用NPCs: this.npcManager?.availableNPCs?.length,
+      });
+    } catch (error) {
+      console.error("❌ 刷新NPC状态失败:", error);
+      // 即使出错也要更新基本状态
+      this.uiManager?.updateProgress();
+    }
   }
 
   showDayCompleteMessage() {
@@ -1162,14 +1182,38 @@ export default class MainScene extends Phaser.Scene {
   async refreshNPCs(reason = "") {
     try {
       if (!this.npcManager) return;
-      await this.npcManager.loadPlayerStatus();
-      this.npcManager.updateNPCStates();
-      this.dlog(
-        "[MainScene] NPC/MealTypes refreshed",
-        reason ? `(${reason})` : ""
-      );
+
+      console.log(`🔄 [MainScene] 刷新NPCs (${reason})`);
+
+      // 使用新的 refreshAvailableNPCs 方法
+      await this.npcManager.refreshAvailableNPCs();
+
+      console.log(`✅ [MainScene] NPCs刷新完成 (${reason})`);
     } catch (e) {
-      this.elog("[MainScene] Failed to refresh NPCs:", e);
+      console.error("[MainScene] Failed to refresh NPCs:", e);
+    }
+  }
+
+  // 🔧 新增：强制刷新所有状态的方法
+  async forceRefreshGameState() {
+    console.log("🔄 强制刷新游戏状态");
+
+    try {
+      // 1. 重新加载NPC状态
+      await this.npcManager.refreshAvailableNPCs();
+
+      // 2. 更新UI
+      this.uiManager?.updateProgress();
+
+      // 3. 重新绑定交互区域（确保点击正常工作）
+      this.npcManager?.rebindClickAreasForCurrentDay?.();
+
+      // 4. 清理可能的浮动文本
+      this.emergencyCleanupFloatingTexts();
+
+      console.log("✅ 游戏状态强制刷新完成");
+    } catch (error) {
+      console.error("❌ 强制刷新游戏状态失败:", error);
     }
   }
 }
