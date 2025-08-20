@@ -321,6 +321,17 @@ export default class NPCManager {
       if (response.ok) {
         const data = await response.json();
         this.playerStatus = data.player;
+        const norm = (id) => (id === "npc2" ? "shop_owner" : id);
+
+        this.availableNPCs = (data.availableNPCs || []).map((n) => ({
+          ...n,
+          npcId: norm(n.npcId),
+        }));
+
+        this.mealRecords = (data.mealRecords || []).map((m) => ({
+          ...m,
+          npcId: norm(m.npcId),
+        }));
         this.availableNPCs = data.availableNPCs;
         this.mealRecords = data.mealRecords;
         this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
