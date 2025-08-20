@@ -1400,38 +1400,53 @@ export default class NPCManager {
   }
 
   // 🔑 关键修复：确保点击区域被正确设置
+  // NPCManager.js
   addNPCClickArea(npc) {
+    // 清理旧的交互区域
     if (npc.clickArea) {
       npc.clickArea.destroy();
+      npc.clickArea = null;
     }
 
-    const clickRadius = 40;
-    npc.clickArea = this.scene.add.graphics();
-    npc.clickArea.fillStyle(0x00ff00, 0);
-    npc.clickArea.fillCircle(0, 0, clickRadius);
-    npc.clickArea.setPosition(npc.sprite.x, npc.sprite.y);
-    npc.clickArea.setDepth(3);
-    npc.clickArea.setInteractive(
+    // —— 1) 透明点击圈：命中半径稍放大，容错更好
+    const clickRadius = 48; // 之前是 ~40，略放大
+    const g = this.scene.add.graphics();
+    g.fillStyle(0x00ff00, 0); // 完全透明
+    g.fillCircle(0, 0, clickRadius);
+    g.setPosition(npc.sprite.x, npc.sprite.y);
+
+    // 关键：把命中层深度拉到很高，避免被其它层遮挡
+    g.setDepth(9999);
+
+    // 让透明圈可交互（圆形命中）
+    g.setInteractive(
       new Phaser.Geom.Circle(0, 0, clickRadius),
       Phaser.Geom.Circle.Contains
     );
 
-    npc.clickArea.on("pointerdown", () => {
+    // 让 sprite 自身也可点（双保险）
+    npc.sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
+
+    // 统一的点击处理
+    const handleClick = () => {
       console.log(`🖱️ NPC ${npc.id} 被直接点击！`);
       if (this.canInteractWithNPC(npc)) {
         this.startDialogScene(npc.id);
       } else {
         this.showInteractionBlockedMessage(npc);
       }
-    });
+    };
 
-    npc.clickArea.on("pointerover", () => {
-      this.showNPCHover(npc);
-    });
+    // 绑定点击（两条通路）
+    g.on("pointerdown", handleClick);
+    npc.sprite.on("pointerdown", handleClick);
 
-    npc.clickArea.on("pointerout", () => {
-      this.hideNPCHover(npc);
-    });
+    // 悬浮提示（命中圈来承接 hover，sprite 也可以按需加）
+    g.on("pointerover", () => this.showNPCHover(npc));
+    g.on("pointerout", () => this.hideNPCHover(npc));
+
+    // 保存引用，便于后续销毁
+    npc.clickArea = g;
 
     console.log(`✅ 为NPC ${npc.id} 添加了点击区域`);
   }

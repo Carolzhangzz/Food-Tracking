@@ -341,6 +341,8 @@ export default class MainScene extends Phaser.Scene {
   }
 
   create() {
+    // 允许命中非最顶层对象，事件可到达下层 interactive 对象
+    this.input.setTopOnly(false);
     this.game.canvas.style.imageRendering = "pixelated"; // 浏览器端像素化渲染
 
     this.setupMap();
