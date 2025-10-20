@@ -26,9 +26,7 @@ const CROSS_DAY_WAIT_HOURS = Number(process.env.CROSS_DAY_WAIT_HOURS || 24);
 /* --------------------------------- 工具函数 -------------------------------- */
 
 async function hasRecordedAnyMealToday(playerId, day) {
-  const anyMeal = await MealRecord.findOne({
-    where: { playerId, day },
-  });
+  const anyMeal = await MealRecord.findOne({ where: { playerId, day } });
   return !!anyMeal;
 }
 
@@ -65,13 +63,14 @@ function nextMidnight(ts = new Date()) {
   return d;
 }
 
-// （保持你原有逻辑）只要有一餐就视为“今天已完成”
+// 只要有一餐就视为“今天已完成”
 async function hasCompletedTodaysMeals(playerId, day) {
-  const meal = await MealRecord.findOne({
+  const meals = await MealRecord.findAll({
     where: { playerId, day },
-    order: [["recordedAt", "ASC"]],
+    attributes: ["mealType"],
   });
-  return !!meal;
+  const set = new Set(meals.map((m) => m.mealType));
+  return set.size >= 1; // ← 关键：一天一餐就满足“当天可推进”的条件
 }
 
 // 找“最后一餐”（部分统计可能用到，保留）
@@ -82,15 +81,12 @@ async function getLastMealRecord(playerId, day) {
   });
 }
 
-// 计算“何时允许推进到下一天”——严格日历或小时制
-// calendar：以“当天第一餐”的日历日为基准，解锁点是“次日 00:00”
-// hours：以“第一餐时间 + waitHours”为基准
+// 时间闸门（严格次日 00:00 或若用小时制则基于第一餐时间 + waitHours）
 async function computeAdvanceGateStrictCalendar(
   playerId,
   day,
   waitHours = CROSS_DAY_WAIT_HOURS
 ) {
-  // 找当天“第一餐”
   const first = await MealRecord.findOne({
     where: { playerId, day },
     order: [["recordedAt", "ASC"]],
@@ -99,18 +95,23 @@ async function computeAdvanceGateStrictCalendar(
 
   const base = first.recordedAt || first.createdAt || new Date();
   let canAdvanceAt;
-
   if (NEXT_DAY_UNLOCK_MODE === "calendar") {
+    // 次日 00:00
+    const nextMidnight = (d) => {
+      const x = new Date(d);
+      x.setHours(24, 0, 0, 0);
+      return x;
+    };
     canAdvanceAt = nextMidnight(base);
   } else {
+    // 按小时
     canAdvanceAt = new Date(base.getTime() + waitHours * 3600 * 1000);
   }
-
   const now = new Date();
   if (now >= canAdvanceAt) return { allowed: true, canAdvanceAt };
   return {
     allowed: false,
-    reason: "wait",
+    reason: "waiting_for_time",
     canAdvanceAt,
     waitMs: canAdvanceAt - now,
   };
@@ -383,6 +384,7 @@ router.post("/login", async (req, res) => {
 });
 
 // 玩家状态（含 nextAdvanceAt：次日 00:00）
+// 玩家状态（含 nextAdvanceAt：次日 00:00 或等待小时）
 router.post("/player-status", async (req, res) => {
   const { playerId } = req.body || {};
   if (!playerId)
@@ -395,20 +397,16 @@ router.post("/player-status", async (req, res) => {
 
     const currentDay = Number(player.currentDay) || 1;
 
-    // 获取玩家的所有进度记录
+    // 进度、餐食、线索
     let progresses = await PlayerProgress.findAll({ where: { playerId } }).then(
       (rs) => rs.map((r) => r.get({ plain: true }))
     );
-
-    // 获取所有餐食记录
     const mealRecords = await MealRecord.findAll({ where: { playerId } }).then(
       (rs) => rs.map((r) => r.get({ plain: true }))
     );
-
-    // 获取所有线索记录
     const clueRecords = await getPlayerClues(playerId);
 
-    // 当前天若未解锁，则兜底创建
+    // 兜底：当前天未解锁则创建
     const npcMap = {
       1: "village_head",
       2: "shop_owner",
@@ -418,7 +416,6 @@ router.post("/player-status", async (req, res) => {
       6: "old_friend",
       7: "secret_apprentice",
     };
-
     if (!progresses.some((p) => Number(p.day) === currentDay)) {
       const npcId = npcMap[currentDay];
       if (npcId) {
@@ -428,14 +425,14 @@ router.post("/player-status", async (req, res) => {
           npcId,
           unlockedAt: new Date(),
         });
-        // 重新获取进度记录
+        // 重新读取一次
         progresses = await PlayerProgress.findAll({ where: { playerId } }).then(
           (rs) => rs.map((r) => r.get({ plain: true }))
         );
       }
     }
 
-    // 聚合每天每个NPC的餐记录
+    // 聚合每天每 NPC 的餐
     const allMealsByDayNpc = new Map();
     mealRecords.forEach((m) => {
       const key = `${m.day}__${m.npcId}`;
@@ -443,7 +440,7 @@ router.post("/player-status", async (req, res) => {
       allMealsByDayNpc.get(key).push(m);
     });
 
-    // ✅ 修改：简化NPC状态逻辑，支持无限对话
+    // 仅渲染 currentDay 的交互；去掉“完成=锁死”的概念
     const availableNPCs = progresses.map((p) => {
       const dayNum = Number(p.day);
       const key = `${dayNum}__${p.npcId}`;
@@ -456,52 +453,34 @@ router.post("/player-status", async (req, res) => {
       return {
         day: dayNum,
         npcId: p.npcId,
-        unlocked: !!p.unlockedAt, // 已解锁即可交互
-        hasCompletedDay: false, // ✅ 移除完成概念，允许无限对话
+        unlocked: !!p.unlockedAt,
+        hasCompletedDay: false, // 不用“完成”限制对话
         hasRecordedMeal: meals.length > 0,
         mealsRecorded: meals.length,
-        availableMealTypes: remaining, // 仅用于显示可记录的餐食类型
-        // ✅ 新增：标识是否为当前天（用于前端判断）
+        availableMealTypes: remaining, // 仅用于显示还剩哪些餐
         isCurrentDay: dayNum === currentDay,
-        // ✅ 新增：是否可以交互（当前天且已解锁）
         canInteract: dayNum === currentDay && !!p.unlockedAt,
       };
     });
 
-    // 当天剩余餐别（调试用，已不影响对话权限）
-    const currentDayProgress = availableNPCs.find((a) => a.day === currentDay);
-    const currentDayMealsRemaining = currentDayProgress
-      ? currentDayProgress.availableMealTypes
-      : ["breakfast", "lunch", "dinner"];
+    // 计算“能否切到下一天”：需要 ≥1 餐 + 时间闸门允许
+    const mealsToday = mealRecords.filter((m) => Number(m.day) === currentDay);
+    const hasAny = mealsToday.length > 0;
 
-    // ✅ 修改：切天逻辑 - 检查是否至少记录了1餐
-    let nextAdvanceAt = null;
     let canAdvanceToNextDay = false;
+    let nextAdvanceAt = null;
 
-    try {
-      // 检查当前天是否至少记录了1餐
-      const hasAnyMealToday = mealRecords.some((m) => m.day === currentDay);
-
-      if (hasAnyMealToday) {
-        // 如果记录了餐食，检查时间条件
-        const gate = await computeAdvanceGateStrictCalendar(
-          playerId,
-          currentDay,
-          CROSS_DAY_WAIT_HOURS
-        );
-
-        if (gate.allowed) {
-          canAdvanceToNextDay = true;
-        } else if (gate.canAdvanceAt) {
-          nextAdvanceAt = gate.canAdvanceAt; // 返回可以切天的时间
-        }
-      }
-      // 如果没有记录任何餐食，不设置nextAdvanceAt（需要先记录餐食）
-    } catch (err) {
-      console.warn("计算切天时间失败:", err);
+    if (hasAny) {
+      const gate = await computeAdvanceGateStrictCalendar(
+        playerId,
+        currentDay,
+        CROSS_DAY_WAIT_HOURS
+      );
+      if (gate.allowed) canAdvanceToNextDay = true;
+      else nextAdvanceAt = gate.canAdvanceAt || null;
     }
 
-    // ✅ 新增：统计信息（用于调试和显示）
+    // 统计
     const statsInfo = {
       totalMealsRecorded: mealRecords.length,
       mealsByDay: {},
@@ -509,12 +488,8 @@ router.post("/player-status", async (req, res) => {
       canAdvanceToNextDay,
       nextDayWillBe: Math.min(currentDay + 1, 7),
     };
-
-    // 按天统计餐食
     mealRecords.forEach((meal) => {
-      if (!statsInfo.mealsByDay[meal.day]) {
-        statsInfo.mealsByDay[meal.day] = [];
-      }
+      if (!statsInfo.mealsByDay[meal.day]) statsInfo.mealsByDay[meal.day] = [];
       statsInfo.mealsByDay[meal.day].push({
         mealType: meal.mealType,
         npcName: meal.npcName,
@@ -533,26 +508,22 @@ router.post("/player-status", async (req, res) => {
         progress: player.progress,
       },
       availableNPCs,
-      mealRecords: mealRecords.map((record) => ({
-        day: record.day,
-        npcId: record.npcId,
-        npcName: record.npcName,
-        mealType: record.mealType,
-        mealContent: record.mealContent,
-        recordedAt: record.recordedAt,
+      mealRecords: mealRecords.map((r) => ({
+        day: r.day,
+        npcId: r.npcId,
+        npcName: r.npcName,
+        mealType: r.mealType,
+        mealContent: r.mealContent,
+        recordedAt: r.recordedAt,
       })),
       clueRecords,
-      // ✅ 保留但不再影响对话权限
-      currentDayMealsRemaining,
-      // ✅ 修改：切天相关信息
-      nextAdvanceAt, // 何时可以切到下一天
-      canAdvanceToNextDay, // 当前是否可以立即切天
-      // ✅ 新增：额外统计信息
+      canAdvanceToNextDay,
+      nextAdvanceAt,
       statsInfo,
       totalDaysUnlocked: progresses.length,
     });
   } catch (err) {
-    console.error("[/player-status] 服务器错误：", err.stack || err);
+    console.error("[/player-status] error:", err);
     return res.json({
       success: false,
       error: "服务器错误",
@@ -723,15 +694,7 @@ router.post("/record-meal", async (req, res) => {
       return res.status(404).json({ success: false, error: "玩家未找到" });
     }
 
-    // 🔧 修复：检查是否是当天的第一餐（用于判断是否应该解锁下一天）
-    const existingMealsToday = await MealRecord.findAll({
-      where: { playerId, day },
-      transaction: t,
-    });
-
-    const isFirstMealToday = existingMealsToday.length === 0;
-
-    // 防重复：同一天同餐别仅一次
+    // 同天同餐别仅一次
     const existingMeal = await MealRecord.findOne({
       where: { playerId, day, mealType },
       transaction: t,
@@ -743,7 +706,7 @@ router.post("/record-meal", async (req, res) => {
         .json({ success: false, error: "今天的这一餐已经记录过了" });
     }
 
-    // 1) 写入餐食记录
+    // 写入餐食
     const mealRecord = await MealRecord.create(
       {
         playerId,
@@ -758,26 +721,7 @@ router.post("/record-meal", async (req, res) => {
       { transaction: t }
     );
 
-    // 2) 保存对话历史（不阻断）
-    if (Array.isArray(conversationHistory)) {
-      for (const dialog of conversationHistory) {
-        await ConversationHistory.create(
-          {
-            playerId,
-            npcId,
-            day,
-            sessionId: null,
-            speaker: dialog.type === "user" ? "player" : "npc",
-            content: dialog.content,
-            mealType,
-            timestamp: new Date(),
-          },
-          { transaction: t }
-        );
-      }
-    }
-
-    // 3) 更新当日进度（统计字段）
+    // 更新当日统计（如需要）
     const progressRecord = await PlayerProgress.findOne({
       where: { playerId, day },
       transaction: t,
@@ -791,19 +735,22 @@ router.post("/record-meal", async (req, res) => {
       const mealTypes = new Set(dayMeals.map((m) => m.mealType));
       await progressRecord.update(
         {
-          mealsRecorded: mealTypes.size,
-          hasRecordedMeal: mealTypes.size > 0,
+          mealsRecorded: dayMeals.length,
+          hasRecordedMeal: dayMeals.length > 0,
+          availableMealTypes: JSON.stringify(
+            ["breakfast", "lunch", "dinner"].filter((x) => !mealTypes.has(x))
+          ),
         },
         { transaction: t }
       );
     }
 
-    // 4) 发放线索（按阶段）
+    // 发放线索（按 breakfast/lunch/dinner 阶段）
     let shouldGiveClue = false;
     let clueText = null;
     let mealStage = null;
-
     const playerLanguage = player.language || "en";
+
     if (["breakfast", "lunch", "dinner"].includes(mealType)) {
       shouldGiveClue = true;
       mealStage = mealType === "breakfast" ? 1 : mealType === "lunch" ? 2 : 3;
@@ -818,23 +765,16 @@ router.post("/record-meal", async (req, res) => {
       );
     }
 
-    // 5) 🔧 修复：天数推进逻辑
-    let shouldUnlockNextDay = false;
+    // ✅ 不立刻切天，但可以“预创建”下一天的 progress（防止第二天时缺表）
     let nextDayUnlocked = false;
-    let newDay = null;
-
-    // 🔧 关键修复：如果这是今天的第一餐，就解锁下一天
-    if (isFirstMealToday && day < 7) {
+    let shouldUnlockNextDay = false;
+    if (day < 7) {
       const nextDay = day + 1;
-
-      // 检查下一天的 NPC 是否已经存在
-      const nextDayProgress = await PlayerProgress.findOne({
+      const exists = await PlayerProgress.findOne({
         where: { playerId, day: nextDay },
         transaction: t,
       });
-
-      if (!nextDayProgress) {
-        // 下一天还没有解锁，现在解锁它
+      if (!exists) {
         const nextNpcId = dayToNpcId(nextDay);
         if (nextNpcId) {
           await PlayerProgress.create(
@@ -846,42 +786,32 @@ router.post("/record-meal", async (req, res) => {
             },
             { transaction: t }
           );
-
-          nextDayUnlocked = true;
-          shouldUnlockNextDay = true;
-          console.log(`🔓 解锁第 ${nextDay} 天的 NPC: ${nextNpcId}`);
-
-          // 🔧 新增：立即推进天数（不等待时间条件）
-          await player.update({ currentDay: nextDay }, { transaction: t });
-          newDay = nextDay;
-          console.log(`🎉 玩家 ${playerId} 立即推进到第 ${nextDay} 天`);
         }
       }
+      // 仅作为标记返回给前端：下一天已就绪，但不应显示（因为 currentDay 还没变）
+      nextDayUnlocked = true;
+      shouldUnlockNextDay = true;
     }
 
     await t.commit();
 
-    // 🔧 修复：返回更完整的响应，帮助前端正确处理状态
     return res.json({
       success: true,
       mealRecord: {
         id: mealRecord.id,
         day: mealRecord.day,
+        npcId: mealRecord.npcId,
+        npcName: mealRecord.npcName,
         mealType: mealRecord.mealType,
+        mealContent: mealRecord.mealContent,
         recordedAt: mealRecord.recordedAt,
       },
-      shouldGiveClue,
-      clueText,
-      mealStage,
       availableMealTypes: ["breakfast", "lunch", "dinner"].filter(
         (t) => t !== mealType
       ),
-      // 🔧 新增：天数推进相关信息
-      nextDayUnlocked,
-      shouldUnlockNextDay,
-      newDay, // 如果立即推进了天数，这里会有值
-      isFirstMealToday,
-      currentDay: newDay || day, // 当前应该显示的天数
+      nextDayUnlocked, // 仅表示后端已准备好 nextDay 的 progress
+      shouldUnlockNextDay, // 供前端弹个 toast 用，不要据此切天或展示 nextDay
+      currentDay: day, // 关键：保持当天，不要提前！
     });
   } catch (error) {
     await t.rollback();
@@ -1211,28 +1141,17 @@ router.post("/update-current-day", async (req, res) => {
 
     const player = await Player.findOne({
       where: { playerId },
-      lock: transaction.LOCK.UPDATE,
       transaction,
+      lock: transaction.LOCK.UPDATE,
     });
-
     if (!player) {
       await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        error: "Player not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, error: "Player not found" });
     }
 
-    if (player.currentDay !== currentDay) {
-      await transaction.rollback();
-      return res.status(409).json({
-        success: false,
-        error: `Day mismatch: server has ${player.currentDay}, request sent ${currentDay}`,
-        currentDay: player.currentDay,
-      });
-    }
-
-    // ✅ 修复：检查前一天是否至少记录了1餐
+    // 条件1：当天至少记录 1 餐
     const hasRecordedAnyMeal = await hasRecordedAnyMealToday(
       playerId,
       currentDay
@@ -1241,54 +1160,54 @@ router.post("/update-current-day", async (req, res) => {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        error: "Must record at least 1 meal before advancing to next day",
+        error: "Need to record at least one meal before advancing.",
         currentDay: player.currentDay,
       });
     }
 
-    // ✅ 检查时间条件（严格到"次日 00:00"或小时制）
-    const gate = await computeAdvanceGateStrictCalendar(playerId, currentDay);
+    // 条件2：时间闸门（次日00:00 或 等待小时）
+    const gate = await computeAdvanceGateStrictCalendar(
+      playerId,
+      currentDay,
+      CROSS_DAY_WAIT_HOURS
+    );
     if (!gate.allowed) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        error: "Advance not allowed yet (need next day)",
+        error: "Not time yet to advance.",
+        canAdvanceAt: gate.canAdvanceAt || null,
         currentDay: player.currentDay,
-        canAdvanceAt: gate.canAdvanceAt,
         waitMs: gate.waitMs,
       });
     }
 
-    // 推进 day（不超过 7）
+    // 真正推进 day（不超过 7）
     const newDay = Math.min(currentDay + 1, 7);
-
     await player.update({ currentDay: newDay }, { transaction });
-    await player.reload({ transaction });
 
-    // 解锁下一天 NPC
-    const npcId = dayToNpcId(newDay);
-    if (npcId) {
-      const exist = await PlayerProgress.findOne({
-        where: { playerId, day: newDay },
-        transaction,
-      });
-      if (!exist) {
-        await PlayerProgress.create(
-          { playerId, day: newDay, npcId, unlockedAt: new Date() },
-          { transaction }
-        );
-      }
+    // 兜底：确保 newDay 的 progress 存在
+    const nextNpcId = dayToNpcId(newDay);
+    const exists = await PlayerProgress.findOne({
+      where: { playerId, day: newDay },
+      transaction,
+    });
+    if (!exists && nextNpcId) {
+      await PlayerProgress.create(
+        {
+          playerId,
+          day: newDay,
+          npcId: nextNpcId,
+          unlockedAt: new Date(),
+        },
+        { transaction }
+      );
     }
 
     await transaction.commit();
-
-    console.log(
-      `[DayUpdate] Player ${playerId} updated day from ${currentDay} to ${newDay}`
-    );
-
-    res.json({
+    return res.json({
       success: true,
-      newDay,
+      currentDay: newDay,
       serverConfirmed: true,
     });
   } catch (error) {

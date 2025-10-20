@@ -40,7 +40,7 @@ async function initializeGeminiAI() {
 // 完全匹配前端期望的 gemini-chat 接口
 router.post("/gemini-chat", async (req, res) => {
   console.log("=== Gemini Chat API 调用 ===");
-  console.log("请求体:", req.body);
+  console.log("请求体:", JSON.stringify(req.body, null, 2));
 
   const {
     userInput,
@@ -61,24 +61,27 @@ router.post("/gemini-chat", async (req, res) => {
   }
 
   if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({
-      success: false,
-      error: "GEMINI_API_KEY 未设置",
+    console.log("⚠️ GEMINI_API_KEY 未设置，使用默认响应");
+    return res.json({
+      success: true,
+      message: getDefaultResponse(questionControl, mealType),
+      isComplete: shouldEndBasedOnControl(questionControl, turnCount),
     });
   }
 
   try {
-    // 确保 Gemini AI 已初始化
-    const geminiAI = await initializeGeminiAI();
-
-    // 检查是否应该结束对话
+    // 🔧 关键修复：先检查是否应该结束
     if (shouldEndDialog(turnCount, questionControl, userInput)) {
       return res.json({
         success: true,
-        message: "Thanks for sharing your meal with me!",
+        message:
+          "Thanks for sharing your meal with me! I have recorded your meal information.",
         isComplete: true,
       });
     }
+
+    // 确保 Gemini AI 已初始化
+    const geminiAI = await initializeGeminiAI();
 
     const systemPrompt = generateImprovedSystemPrompt(npcId, questionControl);
     console.log("系统提示词长度:", systemPrompt.length);
@@ -94,38 +97,42 @@ router.post("/gemini-chat", async (req, res) => {
     );
 
     console.log("发送内容数量:", contents.length);
-    console.log("用户输入:", userInput);
+    console.log("问题控制状态:", questionControl);
 
     // Gemini API 调用 - 尝试多个模型
     let response;
-    const modelsToTry = [
-      "gemini-2.5-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-    ];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash"];
 
     let lastError = null;
     for (const model of modelsToTry) {
       try {
-        console.log(`尝试模型: ${model}`);
+        console.log(`🔄 尝试模型: ${model}`);
 
-        response = await geminiAI.models.generateContent({
+        const result = await geminiAI.models.generateContent({
           model: model,
           contents: contents,
-          config: {
+          generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 150,
-            topP: 1,
-            // 对于 Gemini 2.5，可以禁用思考功能来减少延迟
-            ...(model.includes("2.5") && {
-              thinkingConfig: {
-                thinkingBudget: 0, // 禁用思考功能
-              },
-            }),
+            topP: 0.9,
           },
         });
 
-        console.log(`✅ 模型 ${model} 成功`);
+        // 🔧 修复：正确提取文本内容
+        let text = "";
+        if (result.response && typeof result.response.text === "function") {
+          text = await result.response.text();
+        } else if (result.response && result.response.candidates) {
+          const candidate = result.response.candidates[0];
+          if (candidate && candidate.content && candidate.content.parts) {
+            text = candidate.content.parts
+              .map((part) => part.text || "")
+              .join("");
+          }
+        }
+
+        response = text.trim();
+        console.log(`✅ 模型 ${model} 成功，响应长度:`, response.length);
         break;
       } catch (error) {
         console.log(`❌ 模型 ${model} 失败:`, error.message);
@@ -135,30 +142,31 @@ router.post("/gemini-chat", async (req, res) => {
     }
 
     if (!response) {
-      throw lastError || new Error("所有模型都不可用");
+      console.log("🔄 所有 Gemini 模型失败，使用默认响应");
+      response = getDefaultResponse(questionControl, mealType);
     }
 
-    const reply = response.text || "";
-    console.log("Gemini 响应:", reply.substring(0, 100) + "...");
+    console.log("📤 最终响应:", response.substring(0, 100) + "...");
 
     // 检查是否包含结束语
-    const containsEnding = detectEndingInResponse(reply);
-    console.log("是否包含结束语:", containsEnding);
+    const containsEnding = detectEndingInResponse(response);
+    console.log("🏁 是否包含结束语:", containsEnding);
 
     // 返回完全匹配前端期望的格式
     res.json({
       success: true,
-      message: reply,
+      message: response,
       isComplete: containsEnding,
     });
   } catch (err) {
-    console.error("Gemini API 错误:", err);
+    console.error("💥 Gemini API 错误:", err);
 
-    // 返回匹配前端期望的错误格式
-    res.status(500).json({
-      success: false,
-      error: "Gemini API 调用失败",
-      details: err.message,
+    // 出错时使用默认响应
+    const fallbackResponse = getDefaultResponse(questionControl, mealType);
+    res.json({
+      success: true, // 注意：即使 Gemini 出错，我们也返回成功，使用默认响应
+      message: fallbackResponse,
+      isComplete: shouldEndBasedOnControl(questionControl, turnCount),
     });
   }
 });

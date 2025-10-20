@@ -16,6 +16,10 @@ function shouldEnableDelayUI() {
 
 export default class NPCManager {
   constructor(scene, mapScale) {
+    this._loadingCache = null;
+    this._lastLoadTime = 0;
+    this.CACHE_DURATION = 5000; // 5 seconds cache
+    
     this.lastCheckDayTime = 0;
     this.checkDayInterval = 3000;
     this.scene = scene;
@@ -208,7 +212,7 @@ export default class NPCManager {
     }
   }
 
-  async y(currentDay) {
+  async checkShouldAdvanceDay(currentDay) {
     try {
       // 检查当前天是否至少记录了1餐
       const dayMeals =
@@ -225,8 +229,9 @@ export default class NPCManager {
         有下一天NPC: hasNextDayNPC,
         应该推进: hasRecordedMeal && !hasNextDayNPC && currentDay < 7,
       });
-
-      return hasRecordedMeal && !hasNextDayNPC && currentDay < 7;
+      // return hasRecordedMeal && !hasNextDayNPC && currentDay < 7;
+      // 只允许「第1天」满足“记过至少一餐 & 没有第2天NPC”的情况下推进到第2天
+      return currentDay === 1 && hasRecordedMeal && !hasNextDayNPC;
     } catch (error) {
       console.error("检查推进条件失败:", error);
       return false;
@@ -318,83 +323,94 @@ export default class NPCManager {
         body: JSON.stringify({ playerId: this.scene.playerId }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        this.playerStatus = data.player;
-        const norm = (id) => (id === "npc2" ? "shop_owner" : id);
+      if (!response.ok) throw new Error("Failed to load player status");
 
-        this.availableNPCs = (data.availableNPCs || []).map((n) => ({
-          ...n,
-          npcId: norm(n.npcId),
-        }));
+      const data = await response.json();
 
-        this.mealRecords = (data.mealRecords || []).map((m) => ({
-          ...m,
-          npcId: norm(m.npcId),
-        }));
-        this.availableNPCs = data.availableNPCs;
-        this.mealRecords = data.mealRecords;
-        this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
+      // 统一把 npc2 规范为 shop_owner（只声明一次，不要重复）
+      const norm = (id) => (id === "npc2" ? "shop_owner" : id);
 
-        const mappedClues = (data.clueRecords || []).map((clue) => ({
+      // 玩家状态
+      this.playerStatus = data.player;
+
+      // 可用 NPC（规范化 npcId）
+      this.availableNPCs = (data.availableNPCs || []).map((n) => ({
+        ...n,
+        npcId: norm(n.npcId),
+      }));
+
+      // 已记录餐食（规范化 npcId）
+      this.mealRecords = (data.mealRecords || []).map((m) => ({
+        ...m,
+        npcId: norm(m.npcId),
+      }));
+
+      // 今天剩余可记的餐别
+      this.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
+
+      // 线索：补上展示名，并去重合并
+      const mappedClues = (data.clueRecords || []).map((clue) => {
+        const cid = norm(clue.npcId);
+        return {
           ...clue,
-          npcName: this.getNPCNameByLanguage(clue.npcId),
-        }));
+          npcId: cid,
+          npcName: this.getNPCNameByLanguage(cid),
+        };
+      });
+      const byId = new Map();
+      [...(this.clueRecords || []), ...mappedClues].forEach((c) =>
+        byId.set(c.id, c)
+      );
+      this.clueRecords = Array.from(byId.values());
 
-        const byId = new Map();
-        [...(this.clueRecords || []), ...mappedClues].forEach((c) =>
-          byId.set(c.id, c)
-        );
-        this.clueRecords = Array.from(byId.values());
-
-        if (this.scene.uiManager && Array.isArray(mappedClues)) {
-          this.scene.uiManager.setClues(mappedClues);
-          mappedClues.forEach((c) => this.pushedClueIds.add(c.id));
-        }
-
-        if (data.nextAdvanceAt && shouldEnableDelayUI()) {
-          const readyTs = new Date(data.nextAdvanceAt).getTime();
-          const waitMs = Math.max(0, readyTs - Date.now());
-          if (waitMs > 0) {
-            const lang = this.scene.playerData.language;
-            const mins = Math.max(1, Math.ceil(waitMs / 60000));
-            this.scene.showNotification(
-              lang === "zh"
-                ? `距离解锁下一天约 ${mins} 分钟。`
-                : `~${mins} min left before next day unlock.`,
-              3000
-            );
-            this.scheduleAdvanceCheck(waitMs);
-          }
-        }
-
-        this.updateNPCStates();
-        await this.checkAndUpdateCurrentDay();
-
-        const firstDayNPC = this.availableNPCs.find((npc) => npc.day === 1);
-        console.log("自动跳转调试信息：", {
-          currentDay: this.playerStatus.currentDay,
-          firstDayMealsRecorded: firstDayNPC?.mealsRecorded || 0,
-          firstDayIsCompleted: firstDayNPC?.hasCompletedDay || false,
-          currentDayMealsRemaining: this.currentDayMealsRemaining.length,
-          hasNextDayNPC: this.availableNPCs.some(
-            (npc) => npc.day === this.playerStatus.currentDay + 1
-          ),
-        });
-
-        console.log(`Player status loaded:`, {
-          playerId: this.playerStatus.playerId,
-          currentDay: this.playerStatus.currentDay,
-          gameCompleted: this.playerStatus.gameCompleted,
-          availableNPCs: this.availableNPCs.length,
-          mealRecords: this.mealRecords.length,
-          clueRecords: this.clueRecords.length,
-          currentDayMealsRemaining: this.currentDayMealsRemaining,
-        });
-      } else {
-        throw new Error("Failed to load player status");
+      if (this.scene.uiManager && Array.isArray(mappedClues)) {
+        this.scene.uiManager.setClues(mappedClues);
+        mappedClues.forEach((c) => this.pushedClueIds.add(c.id));
       }
+
+      // 如果有“等待到某个时间才能推进”的返回，则提示并定时再检查
+      if (data.nextAdvanceAt && shouldEnableDelayUI()) {
+        const readyTs = new Date(data.nextAdvanceAt).getTime();
+        const waitMs = Math.max(0, readyTs - Date.now());
+        if (waitMs > 0) {
+          const lang = this.scene.playerData.language;
+          const mins = Math.max(1, Math.ceil(waitMs / 60000));
+          this.scene.showNotification(
+            lang === "zh"
+              ? `距离解锁下一天约 ${mins} 分钟。`
+              : `~${mins} min left before next day unlock.`,
+            3000
+          );
+          this.scheduleAdvanceCheck(waitMs);
+        }
+      }
+
+      // 刷新 NPC 显示与推进检查
+      this.updateNPCStates();
+      await this.checkAndUpdateCurrentDay();
+
+      const firstDayNPC = this.availableNPCs.find((npc) => npc.day === 1);
+      console.log("自动跳转调试信息：", {
+        currentDay: this.playerStatus.currentDay,
+        firstDayMealsRecorded: firstDayNPC?.mealsRecorded || 0,
+        firstDayIsCompleted: firstDayNPC?.hasCompletedDay || false,
+        currentDayMealsRemaining: this.currentDayMealsRemaining.length,
+        hasNextDayNPC: this.availableNPCs.some(
+          (npc) => npc.day === this.playerStatus.currentDay + 1
+        ),
+      });
+
+      console.log(`Player status loaded:`, {
+        playerId: this.playerStatus.playerId,
+        currentDay: this.playerStatus.currentDay,
+        gameCompleted: this.playerStatus.gameCompleted,
+        availableNPCs: this.availableNPCs.length,
+        mealRecords: this.mealRecords.length,
+        clueRecords: this.clueRecords.length,
+        currentDayMealsRemaining: this.currentDayMealsRemaining,
+      });
     } catch (error) {
+      // 兜底：后端挂了也能玩 Day1
       if (this.scene?.showNotification) {
         this.scene.showNotification(
           this.scene.playerData.language === "zh"
@@ -428,6 +444,7 @@ export default class NPCManager {
       }
     }
   }
+
   // NPCManager.js - 修复 updateNPCStates 方法
 
   updateNPCStates() {
@@ -453,8 +470,18 @@ export default class NPCManager {
       }
     });
 
-    // 2) 🔧 修复：显示所有已解锁的 NPC，不只是当前天的
-    const unlockedNPCs = (this.availableNPCs || []).filter((n) => n.unlocked);
+    // // 2) 🔧 修复：显示所有已解锁的 NPC，不只是当前天的
+    // const unlockedNPCs = (this.availableNPCs || []).filter((n) => n.unlocked);
+    const currentDay = this.playerStatus?.currentDay || 1;
+    const unlockedNPCs = (this.availableNPCs || []).filter((n) => {
+      if (!n.unlocked) return false;
+      // 未来天：不显示
+      if (n.day > currentDay) return false;
+      // 历史天：只有真的完成才显示（用于挂“已完成”标识或淡显）
+      if (n.day < currentDay) return !!n.completed;
+      // 当前天：显示
+      return true;
+    });
 
     console.log(
       `📍 显示 ${unlockedNPCs.length} 个已解锁的NPC:`,
@@ -504,7 +531,7 @@ export default class NPCManager {
         npc.sprite.disableInteractive?.();
 
         // 添加"已完成"标识
-        if (!npc.completedHint) {
+        if (availableNPC.completed && !npc.completedHint) {
           const lang = this.scene.playerData.language;
           const text = lang === "zh" ? "已完成" : "Completed";
 
