@@ -84,30 +84,26 @@ export default class MainScene extends Phaser.Scene {
     });
   }
 
-  // === 横屏旋转坐标转换 ===
-  rotateTilePosition(x, y, mapHeight) {
-    return { x: y, y: mapHeight - x - 1 };
+  // === 坐标转换（横屏模式不需要旋转）===
+  getTilePosition(x, y) {
+    return { x, y };
   }
 
   create() {
-    console.log("🌄 Creating rotated horizontal map...");
+    console.log("🌄 Creating landscape map...");
 
-    // === 1️⃣ 创建并旋转 Tilemap ===
+    // === 1️⃣ 创建 Tilemap（横屏模式，无旋转）===
     this.map = this.make.tilemap({ key: "tiledMap" });
     const tileset = this.map.addTilesetImage("tiles", "tiles");
     this.layer = this.map.createLayer("layer", tileset, 0, 0);
 
-    // 逆时针旋转 90°
-    this.layer.setRotation(Phaser.Math.DegToRad(-90));
-    this.layer.setPosition(0, this.map.widthInPixels);
-
-    // 更新物理边界
-    const rotatedWidth = this.map.heightInPixels;
-    const rotatedHeight = this.map.widthInPixels;
-    this.physics.world.setBounds(0, 0, rotatedWidth, rotatedHeight);
+    // 更新物理边界（使用原始宽高）
+    const mapWidth = this.map.widthInPixels;
+    const mapHeight = this.map.heightInPixels;
+    this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
 
     // === 2️⃣ 玩家初始化 ===
-    const startPos = this.rotateTilePosition(3, 6, this.map.height);
+    const startPos = this.getTilePosition(3, 6);
     this.player = this.physics.add
       .sprite(
         startPos.x * this.map.tileWidth,
@@ -122,10 +118,10 @@ export default class MainScene extends Phaser.Scene {
     registerPlayerAnims(this, "characters", "player");
     this.player.anims.play("player-walk-down");
 
-    // 摄像机设置
+    // 摄像机设置（无旋转）
     this.cameras.main.startFollow(this.player);
     this.cameras.main.setZoom(1.2);
-    this.cameras.main.setBounds(0, 0, rotatedWidth, rotatedHeight);
+    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
 
     // === 3️⃣ 初始化系统 ===
     this.npcManager = new NPCManager(this);
@@ -139,12 +135,12 @@ export default class MainScene extends Phaser.Scene {
     // === 5️⃣ 初始化控制 ===
     this.cursors = this.input.keyboard.createCursorKeys();
 
+    // 设置摄像机视口（横屏模式，无旋转）
     this.cameras.main.setViewport(0, 0, window.innerWidth, window.innerHeight);
     this.cameras.main.setOrigin(0.5, 0.5);
-    this.cameras.main.setRotation(Phaser.Math.DegToRad(-90)); // 逆时针旋转
     this.cameras.main.centerOn(
-      this.map.heightInPixels / 2,
-      this.map.widthInPixels / 2
+      this.map.widthInPixels / 2,
+      this.map.heightInPixels / 2
     );
   }
 
@@ -157,8 +153,9 @@ export default class MainScene extends Phaser.Scene {
   }
 
   handleResize() {
-    const width = Math.max(window.innerWidth, window.innerHeight);
-    const height = Math.min(window.innerWidth, window.innerHeight);
+    // 横屏模式：直接使用窗口的宽高
+    const width = window.innerWidth;
+    const height = window.innerHeight;
     this.scale.resize(width, height);
     this.cameras.main.setViewport(0, 0, width, height);
   }
