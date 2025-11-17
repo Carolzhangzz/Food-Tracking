@@ -824,7 +824,8 @@ export default class MainScene extends Phaser.Scene {
 
     this.mapScaleX = scaleX;
     this.mapScaleY = scaleY;
-    this.mapScale = Math.min(scaleX, scaleY);
+    // Changed to Math.max for landscape/horizontal PC layout
+    this.mapScale = Math.max(scaleX, scaleY);
   }
 
   setupPlayer() {
@@ -838,8 +839,9 @@ export default class MainScene extends Phaser.Scene {
     this._charFrames = getBottomLeftFrames(this, "player");
 
     this.playerSprite.setFrame(this._charFrames.idle.down);
+    // Changed to Math.max for landscape/horizontal PC layout
     this.playerSprite.setScale(
-      Math.min(this.mapScaleX, this.mapScaleY) * 1.125
+      Math.max(this.mapScaleX, this.mapScaleY) * 1.125
     ); // Was 1.5, now 1.125 (3/4)
 
     this.playerSprite.setDepth(10);
@@ -954,10 +956,10 @@ export default class MainScene extends Phaser.Scene {
       return;
     }
 
-    // 重新计算地图缩放
+    // 重新计算地图缩放 - Changed to Math.max for landscape/horizontal PC layout
     const mapWidth = this.fieldMapTileMap.widthInPixels;
     const mapHeight = this.fieldMapTileMap.heightInPixels;
-    const scale = Math.min(width / mapWidth, height / mapHeight);
+    const scale = Math.max(width / mapWidth, height / mapHeight);
 
     // 更新地图层
     const mainLayer = this.fieldMapTileMap.getLayer("layer");

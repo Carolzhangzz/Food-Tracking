@@ -191,8 +191,8 @@ export default class UIManager {
   createDayProgressBar() {
     const { width } = this.scene.scale;
 
-    // 天数
-    this.dayIndicator = this.scene.add.text(width / 2, 25, "", {
+    // 天数 - Adjusted for landscape/horizontal PC layout (left-aligned)
+    this.dayIndicator = this.scene.add.text(80, 25, "", {
       fontSize: "16px",
       fontFamily: "monospace",
       fill: "#f9fafb",
@@ -216,7 +216,8 @@ export default class UIManager {
       { type: "dinner", icon: "🌙" },
     ];
 
-    const startX = width / 2 - 40;
+    // Adjusted for landscape/horizontal PC layout (left-aligned)
+    const startX = 20;
     const y = 55;
     const spacing = 40;
 
@@ -387,7 +388,8 @@ export default class UIManager {
 
   createMealHelpBadge() {
     const { width } = this.scene.scale;
-    const badge = this.scene.add.text(width / 2 + 70, 55, "?", {
+    // Adjusted for landscape/horizontal PC layout (positioned after meal progress)
+    const badge = this.scene.add.text(140, 55, "?", {
       fontSize: "10px",
       fontFamily: "monospace",
       fill: "#111827",
@@ -417,8 +419,9 @@ export default class UIManager {
 
       const { width } = this.scene.scale;
       const lang = this.scene.playerData.language;
+      // Adjusted for landscape/horizontal PC layout (positioned near meal progress)
       const hint = this.scene.add.text(
-        width / 2,
+        80,
         75,
         lang === "zh"
           ? "3 个点 = 早/中/晚餐进度"
@@ -458,10 +461,12 @@ export default class UIManager {
   repositionProgressUI() {
     const { width } = this.scene.scale;
 
-    this.dayIndicator?.setPosition(width / 2, 25);
+    // Adjusted for landscape/horizontal PC layout (left-aligned)
+    this.dayIndicator?.setPosition(80, 25);
 
     if (this.mealProgressIndicators.length > 0) {
-      const startX = width / 2 - 40;
+      // Left-aligned for landscape layout
+      const startX = 20;
       const spacing = 40;
       this.mealProgressIndicators.forEach((ind, i) => {
         const x = startX + i * spacing;
@@ -470,7 +475,8 @@ export default class UIManager {
       });
     }
 
-    this._mealHelpBadge?.setPosition(width / 2 + 70, 55);
+    // Positioned after meal progress indicators
+    this._mealHelpBadge?.setPosition(140, 55);
   }
 
   repositionActionButtons() {

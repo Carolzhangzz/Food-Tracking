@@ -654,3 +654,48 @@ body::-webkit-scrollbar,
     }
   }
 }
+
+/* ===== Landscape/Horizontal PC Layout Optimization ===== */
+/* Ultra-wide screens (1600px+) */
+@media screen and (min-width: 1600px) {
+  html,
+  body,
+  #root {
+    font-size: 20px;
+  }
+
+  .control-button {
+    padding: 12px 20px !important;
+    font-size: 18px !important;
+  }
+}
+
+/* Landscape orientation specific optimizations */
+@media screen and (orientation: landscape) and (min-width: 1024px) {
+  /* Optimize for horizontal gameplay */
+  canvas {
+    object-fit: contain;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+
+  /* Ensure game container fills the screen horizontally */
+  #game,
+  #test-game {
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+}
+
+/* Wide aspect ratio screens (21:9, 32:9, etc.) */
+@media screen and (min-aspect-ratio: 16/9) {
+  canvas {
+    object-fit: contain;
+  }
+
+  .game-fullscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
