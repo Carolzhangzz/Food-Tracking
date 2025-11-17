@@ -950,8 +950,8 @@ router.post("/generate-final-egg", async (req, res) => {
 
     let egg;
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
       const prompt = generateFinalEggPrompt(mealsSummary, statsData, lang);
 
@@ -1039,11 +1039,11 @@ router.post("/generate-final-egg", async (req, res) => {
 // Gemeni 健康检查（保留）
 router.get("/gemini-health", async (req, res) => {
   try {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: "ping" }] }],
     });
 
@@ -1511,20 +1511,23 @@ router.post("/generate-final-egg", async (req, res) => {
     // 4) 调 LLM（失败则本地兜底）
     let egg;
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
       const prompt = generateFinalEggPrompt(mealsSummary, statsData, lang);
 
       // ★ 用 generationConfig，强制 JSON 输出 & 提高上限，避免 MAX_TOKENS
-      const result = await ai.models.generateContent({
+      const model = ai.getGenerativeModel({ 
         model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.5,
           maxOutputTokens: 2048,
           responseMimeType: "application/json",
         },
+      });
+      
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 
       // —— 诊断：SDK 返回结构 —— //
@@ -1718,11 +1721,11 @@ module.exports = router;
 
 router.get("/gemini-health", async (req, res) => {
   try {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: "ping" }] }],
     });
 

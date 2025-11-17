@@ -1,14 +1,35 @@
-// Control.js - 修复语言切换时更新线索
-import React from "react";
+// Control.jsx - PC 端响应式优化版本
+import React, { useCallback, useMemo, memo, useState, useEffect } from "react";
 import { useContext } from "react";
 import { PlayerContext } from "../context/PlayerContext";
 import { updateUserContext } from "../utils/update";
 import { playBGM, stopBGM } from "../utils/audioManager";
 
-function Control() {
+// 使用 memo 包装组件，避免不必要的重渲染
+const Control = memo(() => {
   const { playerId, playerData, setPlayerData, gameRef } = useContext(PlayerContext);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [isHoveringLang, setIsHoveringLang] = useState(false);
+  const [isHoveringMusic, setIsHoveringMusic] = useState(false);
 
-  const toggleMusic = () => {
+  // 监听窗口大小变化
+  useEffect(() => {
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        setIsDesktop(window.innerWidth >= 1024);
+      }, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(resizeTimeout);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const toggleMusic = useCallback(() => {
     const newMusicState = !playerData.music;
 
     setPlayerData((prevData) => ({
@@ -28,151 +49,164 @@ function Control() {
     }
 
     if (gameRef.current) {
-      try {
-        const mainScene = gameRef.current.scene.getScene("MainScene");
-        if (mainScene && typeof mainScene.setPlayerData === "function") {
-          mainScene.setPlayerData({
-            ...playerData,
-            music: newMusicState,
-          });
+      setTimeout(() => {
+        try {
+          const mainScene = gameRef.current.scene.getScene("MainScene");
+          if (mainScene && typeof mainScene.setPlayerData === "function") {
+            mainScene.setPlayerData({
+              ...playerData,
+              music: newMusicState,
+            });
+          }
+        } catch (error) {
+          console.error("Error controlling game audio:", error);
         }
-      } catch (error) {
-        console.error("Error controlling game audio:", error);
-        alert("音频控制出现问题，请刷新页面重试 / Audio control error, please refresh the page");
-      }
+      }, 100);
     }
-  };
+  }, [playerId, playerData, setPlayerData, gameRef]);
 
-  const toggleLanguage = () => {
+  const toggleLanguage = useCallback(() => {
     const selectedLang = playerData.language === "en" ? "zh" : "en";
     
-    // 更新本地状态
     const updatedPlayerData = {
       ...playerData,
       language: selectedLang,
     };
     
     setPlayerData(updatedPlayerData);
-    
-    // 更新服务器数据
     updateUserContext(playerId, updatedPlayerData);
 
     if (gameRef.current) {
-      try {
-        const mainScene = gameRef.current.scene.getScene("MainScene");
-        if (mainScene) {
-          // 更新主场景的玩家数据
-          if (typeof mainScene.setPlayerData === "function") {
-            mainScene.setPlayerData(updatedPlayerData);
-          }
-
-          // 修复：语言切换时更新线索和NPC名称
-          if (mainScene.npcManager) {
-            // 重新初始化NPC以更新名称
-            mainScene.npcManager.scene.playerData = updatedPlayerData;
-            
-            // 更新现有线索为新语言
-            if (mainScene.npcManager.clueRecords) {
-              mainScene.npcManager.clueRecords = mainScene.npcManager.clueRecords.map(clue => ({
-                ...clue,
-                clue: mainScene.npcManager.getNPCClue(clue.npcId),
-                npcName: mainScene.npcManager.getNPCNameByLanguage(clue.npcId)
-              }));
+      setTimeout(() => {
+        try {
+          const mainScene = gameRef.current.scene.getScene("MainScene");
+          if (mainScene) {
+            if (typeof mainScene.setPlayerData === "function") {
+              mainScene.setPlayerData(updatedPlayerData);
             }
 
-            // 更新NPC状态和名称
-            mainScene.npcManager.updateNPCStates();
-          }
+            if (mainScene.npcManager) {
+              mainScene.npcManager.scene.playerData = updatedPlayerData;
+              
+              if (mainScene.npcManager.clueRecords) {
+                mainScene.npcManager.clueRecords = mainScene.npcManager.clueRecords.map(clue => ({
+                  ...clue,
+                  clue: mainScene.npcManager.getNPCClue(clue.npcId),
+                  npcName: mainScene.npcManager.getNPCNameByLanguage(clue.npcId)
+                }));
+              }
 
-          // 修复：更新UIManager中的线索显示
-          if (mainScene.uiManager) {
-            // 清空当前线索并重新添加翻译后的线索
-            if (mainScene.npcManager && mainScene.npcManager.clueRecords) {
-              mainScene.uiManager.clues = [];
-              mainScene.npcManager.clueRecords.forEach(clue => {
-                mainScene.uiManager.addClue(clue);
-              });
+              mainScene.npcManager.updateNPCStates();
+            }
+
+            if (mainScene.uiManager) {
+              if (mainScene.npcManager && mainScene.npcManager.clueRecords) {
+                mainScene.uiManager.clues = [];
+                mainScene.npcManager.clueRecords.forEach(clue => {
+                  mainScene.uiManager.addClue(clue);
+                });
+              }
+            }
+
+            const dialogScene = gameRef.current.scene.getScene("DialogScene");
+            if (dialogScene && dialogScene.scene.isActive()) {
+              dialogScene.playerData = updatedPlayerData;
             }
           }
-
-          // 如果DialogScene正在运行，也需要更新
-          const dialogScene = gameRef.current.scene.getScene("DialogScene");
-          if (dialogScene && dialogScene.scene.isActive()) {
-            dialogScene.playerData = updatedPlayerData;
-          }
+        } catch (error) {
+          console.error("Error updating game language:", error);
         }
-      } catch (error) {
-        console.error("Error updating game language:", error);
-      }
+      }, 100);
     }
-  };
+  }, [playerId, playerData, setPlayerData, gameRef]);
 
-  return (
-    <>
-      {/* 顶部右侧控制栏 */}
-      <div style={styles.topRightBar}>
-        <button style={styles.button} onClick={toggleLanguage}>
-        
-          {playerData.language === "zh" ? "中" : "EN"}
-        {/* </button>
-          EN/中 */}
-        </button>
-
-        <button
-          style={{
-            ...styles.button,
-            backgroundColor: playerData.music
-              ? "rgba(34, 197, 94, 0.8)"
-              : "rgba(239, 68, 68, 0.8)",
-            borderColor: playerData.music ? "#22c55e" : "#ef4444",
-          }}
-          onClick={toggleMusic}
-          title={
-            playerData.music
-              ? "点击关闭音乐 / Click to mute"
-              : "点击开启音乐 / Click to unmute"
-          }
-        >
-          {playerData.music ? "🎵" : "🔇"}
-        </button>
-      </div>
-    </>
-  );
-}
-
-const styles = {
-  button: {
-    padding: "clamp(4px, 2vw, 12px)",
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+  // 响应式按钮样式
+  const buttonStyle = useMemo(() => ({
+    padding: isDesktop ? "16px" : "12px",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
     color: "white",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    borderRadius: "clamp(4px, 1vw, 8px)",
+    border: isDesktop ? "2px solid rgba(255, 255, 255, 0.4)" : "2px solid rgba(255, 255, 255, 0.3)",
+    borderRadius: isDesktop ? "12px" : "8px",
     cursor: "pointer",
-    fontSize: "clamp(11px, 2.5vw, 16px)",
+    fontSize: isDesktop ? "20px" : "16px",
     fontWeight: "bold",
     fontFamily: "'Courier New', monospace",
-    transition: "all 0.3s ease",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     backdropFilter: "blur(10px)",
-    minWidth: "clamp(35px, 8vw, 50px)",
-    minHeight: "clamp(35px, 8vw, 50px)",
+    minWidth: isDesktop ? "70px" : "50px",
+    minHeight: isDesktop ? "70px" : "50px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-  },
-  topRightBar: {
-    position: "fixed",
-    top: "20px",
-    right: "20px",
-    display: "flex",
-    gap: "10px",
-    zIndex: 1000,
-  },
-  topLeft: {
-    position: "fixed",
-    top: "5px",
-    left: "5px",
-    zIndex: 1000,
-  },
-};
+    boxShadow: isDesktop 
+      ? "0 4px 12px rgba(0,0,0,0.4)" 
+      : "0 2px 8px rgba(0,0,0,0.3)",
+  }), [isDesktop]);
+
+  const langButtonStyle = useMemo(() => ({
+    ...buttonStyle,
+    transform: isHoveringLang && isDesktop ? "translateY(-3px) scale(1.05)" : "translateY(0) scale(1)",
+    boxShadow: isHoveringLang && isDesktop
+      ? "0 8px 20px rgba(102, 126, 234, 0.5)"
+      : buttonStyle.boxShadow,
+  }), [buttonStyle, isHoveringLang, isDesktop]);
+
+  const musicButtonStyle = useMemo(() => ({
+    ...buttonStyle,
+    backgroundColor: playerData.music
+      ? "rgba(34, 197, 94, 0.9)"
+      : "rgba(239, 68, 68, 0.9)",
+    borderColor: playerData.music 
+      ? isDesktop ? "#22c55e" : "rgba(34, 197, 94, 0.6)"
+      : isDesktop ? "#ef4444" : "rgba(239, 68, 68, 0.6)",
+    transform: isHoveringMusic && isDesktop ? "translateY(-3px) scale(1.05)" : "translateY(0) scale(1)",
+    boxShadow: isHoveringMusic && isDesktop
+      ? playerData.music
+        ? "0 8px 20px rgba(34, 197, 94, 0.5)"
+        : "0 8px 20px rgba(239, 68, 68, 0.5)"
+      : buttonStyle.boxShadow,
+  }), [buttonStyle, playerData.music, isHoveringMusic, isDesktop]);
+
+  return (
+    <div style={{
+      position: "fixed",
+      top: isDesktop ? "24px" : "16px",
+      right: isDesktop ? "24px" : "16px",
+      display: "flex",
+      gap: isDesktop ? "16px" : "12px",
+      zIndex: 1000,
+    }}>
+      {/* 语言切换按钮 */}
+      <button 
+        style={langButtonStyle} 
+        onClick={toggleLanguage}
+        onMouseEnter={() => isDesktop && setIsHoveringLang(true)}
+        onMouseLeave={() => setIsHoveringLang(false)}
+        title={playerData.language === "zh" 
+          ? "切换到 English / Switch to English" 
+          : "切换到中文 / Switch to Chinese"}
+      >
+        {playerData.language === "zh" ? "中" : "EN"}
+      </button>
+
+      {/* 音乐控制按钮 */}
+      <button
+        style={musicButtonStyle}
+        onClick={toggleMusic}
+        onMouseEnter={() => isDesktop && setIsHoveringMusic(true)}
+        onMouseLeave={() => setIsHoveringMusic(false)}
+        title={
+          playerData.music
+            ? "点击关闭音乐 / Click to mute"
+            : "点击开启音乐 / Click to unmute"
+        }
+      >
+        {playerData.music ? "🎵" : "🔇"}
+      </button>
+    </div>
+  );
+});
+
+Control.displayName = 'Control';
 
 export default Control;

@@ -18,10 +18,8 @@ export default class NPCManager {
   constructor(scene, mapScale) {
     this._loadingCache = null;
     this._lastLoadTime = 0;
-    this.CACHE_DURATION = 5000; // 5 seconds cache
-    
-    this.lastCheckDayTime = 0;
-    this.checkDayInterval = 3000;
+    this.CACHE_DURATION = 5000;
+
     this.scene = scene;
     this.mapScale = mapScale;
     this.npcs = new Map();
@@ -35,89 +33,416 @@ export default class NPCManager {
     this.isGeneratingFinalEgg = false;
     this.finalEggReady = false;
     this.finalEggContent = null;
-    this.initializeNPCs();
-    this._devSkipIssued = false;
-    this._advanceTimer = null;
 
-    // 护栏状态
-    this._advanceInFlight = false;
-    this.advanceGateBlockedUntil = null;
+    // 🔧 新增：点击防抖
+    this._lastClickTime = 0;
+    this._clickCooldown = 300; // 300ms 防抖
+    this._isProcessingClick = false;
+
+    // 🔧 新增：缓存点击处理函数
+    this._clickHandlers = new Map();
+
+
+    // 检测设备类型，调整参数
+    this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+
+    // 移动设备使用更长的防抖时间
+    this._clickCooldown = this.isMobile ? 500 : 300;
+
+
+    console.log(`📱 设备类型: ${this.isMobile ? "移动" : "桌面"}, 点击防抖: ${this._clickCooldown}ms`);
+
+    // 延迟初始化 NPCs
+    this._initialized = false;
+    this._initPromise = null;
+
+    console.log("🎭 NPCManager created with click optimization");
   }
 
   setDialogSystem(dialogSystem) {
     this.dialogSystem = dialogSystem;
   }
 
-  async initializeNPCs() {
-    const npcConfigs = [
-      {
-        id: "village_head",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "村长伯伯"
-            : "Uncle Bo (Village Head)",
-        position: { x: 1, y: 0.7 },
-        day: 1,
-      },
-      {
-        id: "shop_owner",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "店主阿桂"
-            : "Grace (Shop Owner)",
-        position: { x: 5, y: 5.5 },
-        day: 2,
-      },
-      {
-        id: "spice_woman",
-        name:
-          this.scene.playerData.language === "zh" ? "香料婆婆" : "Spice Woman",
-        position: { x: 5, y: 1.5 },
-        day: 3,
-      },
-      {
-        id: "restaurant_owner",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "餐厅店长老韩"
-            : "Han (Restaurant Owner)",
-        position: { x: 1, y: 7.5 },
-        day: 4,
-      },
-      {
-        id: "fisherman",
-        name:
-          this.scene.playerData.language === "zh"
-            ? "渔夫阿梁"
-            : "Leon (Fisherman)",
-        position: { x: 1.5, y: 4.5 },
-        day: 5,
-      },
-      {
-        id: "old_friend",
-        name: this.scene.playerData.language === "zh" ? "林川" : "Rowan",
-        position: { x: 5.5, y: 7 },
-        day: 6,
-      },
-      {
-        id: "secret_apprentice",
-        name: this.scene.playerData.language === "zh" ? "念念" : "NianNian",
-        position: { x: 0.8, y: 2.5 },
-        day: 7,
-      },
-    ];
+  async setupAdditionalSystemsAsync() {
+    return new Promise((resolve) => {
+      console.log("🔧 Setting up additional systems...");
 
-    npcConfigs.forEach((config) => {
-      this.createNPC(config);
+      requestAnimationFrame(() => {
+        try {
+          this.setupAudio();
+
+          requestAnimationFrame(() => {
+            try {
+              this.setupMobileControls();
+              this.setupKeyboardHandling();
+
+              requestAnimationFrame(() => {
+                console.log("✅ Additional systems setup completed");
+                resolve();
+              });
+            } catch (error) {
+              console.error("❌ Additional systems setup failed:", error);
+              resolve();
+            }
+          });
+        } catch (error) {
+          console.error("❌ Additional systems setup failed:", error);
+          resolve();
+        }
+      });
+    });
+  }
+
+  showLoadingMessage(text) {
+    if (this.loadingText) {
+      this.loadingText.destroy();
+    }
+
+    this.loadingText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      text,
+      {
+        fontSize: '24px',
+        color: '#ffffff',
+        backgroundColor: '#000000',
+        padding: { x: 20, y: 10 }
+      }
+    ).setOrigin(0.5);
+
+    console.log("📝 Loading message:", text);
+  }
+
+  hideLoadingMessage() {
+    if (this.loadingText) {
+      this.loadingText.destroy();
+      this.loadingText = null;
+    }
+    console.log("✅ Loading message hidden");
+  }
+
+  showErrorMessage(message) {
+    console.error("💥 Showing error message:", message);
+
+    if (this.loadingText) {
+      this.loadingText.destroy();
+    }
+
+    this.loadingText = this.add.text(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      `Error: ${message}`,
+      {
+        fontSize: '20px',
+        color: '#ff0000',
+        backgroundColor: '#000000',
+        padding: { x: 20, y: 10 }
+      }
+    ).setOrigin(0.5);
+  }
+
+  setupEventListeners() {
+    this.events.on("resume", () => {
+      console.log("🔄 MainScene resumed from dialog");
+
+      // 延迟执行，确保对话场景完全关闭
+      this.time.delayedCall(100, () => {
+        // 清理可能残留的浮动文本
+        this.emergencyCleanupFloatingTexts();
+
+        // 刷新NPC状态
+        this.refreshNPCs("resume-from-dialog");
+
+        // 🔑 关键：重新添加 NPC 点击区域和更新状态
+        if (this.npcManager) {
+          console.log("🔄 强制更新NPC交互状态");
+          this.npcManager.updateNPCStates();
+
+          // 确保所有可交互的NPC都有正确的点击区域
+          this.restoreNPCInteractions();
+        }
+      });
     });
 
-    this.setDefaultNPCStates();
+    this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      this.forceViewportReset();
 
+      // 额外的状态恢复
+      this.time.delayedCall(200, () => {
+        if (this.npcManager) {
+          this.restoreNPCInteractions();
+        }
+      });
+    });
+  }
+
+  async initializeMobileGame() {
     try {
-      await this.loadPlayerStatus();
-      console.log("NPCs initialized with player status");
+      console.log("📱 Mobile initialization started");
+
+      // 1️⃣ 基础系统先加载
+      this.setupMap();
+      this.setupPlayer();
+      this.setupCamera();
+      this.showLoadingMessage("Loading mobile game...");
+
+      // 2️⃣ 延迟加载（逐步加载）
+      await new Promise((resolve) => setTimeout(resolve, 200)); // 减少延迟
+      await this.setupGameSystemsAsync();
+
+      // 3️⃣ 延迟加载 UI 和音频
+      await this.setupAdditionalSystemsAsync();
+
+      // 4️⃣ 加载完成
+      this.onGameInitialized();
+
+      // 5️⃣ 降级性能配置（移动端特有）
+      this.scale.displaySize.setAspectRatio(window.innerWidth / window.innerHeight);
+      this.scale.refresh();
+      this.cameras.main.setZoom(0.9);
+
+      // ✅ 限制帧率
+      if (this.game.loop) {
+        this.game.loop.targetFps = 30;
+      }
+
+      console.log("✅ Mobile initialization completed");
+
     } catch (error) {
-      console.warn("Failed to load player status, using defaults:", error);
+      console.error("❌ Mobile initialization failed:", error);
+      this.showErrorMessage("Failed to load on mobile");
+    }
+  }
+
+  // 异步初始化方法
+  async initializeNPCsAsync() {
+    if (this._initialized) return;
+    if (this._initPromise) return this._initPromise;
+
+    console.log("🎭 Starting NPC initialization...");
+    this._initPromise = this._doInitializeNPCs();
+    return this._initPromise;
+  }
+
+
+  async setupGameSystemsAsync() {
+    return new Promise(async (resolve) => {
+      console.log("🎭 Setting up game systems...");
+
+      requestAnimationFrame(async () => {
+        try {
+          // 创建 DialogScene
+          let dialogScene = this.scene.get("DialogScene");
+          if (!dialogScene) {
+            this.scene.add("DialogScene", DialogScene, false);
+            dialogScene = this.scene.get("DialogScene");
+          }
+          this.dialogSystem = dialogScene;
+
+          // 创建 NPCManager
+          this.npcManager = new NPCManager(this, this.mapScale);
+
+          if (this.dialogSystem) {
+            try {
+              this.npcManager.setDialogSystem(this.dialogSystem);
+            } catch (error) {
+              console.error("Error setting up dialog system:", error);
+            }
+          }
+
+          // 异步初始化 NPCs
+          if (this.npcManager.initializeNPCsAsync) {
+            await this.npcManager.initializeNPCsAsync();
+          }
+
+          console.log("✅ Game systems setup completed");
+          resolve();
+        } catch (error) {
+          console.error("❌ Game systems setup failed:", error);
+          resolve(); // 即使失败也继续
+        }
+      });
+    });
+  }
+
+
+  cleanupClickHandlers() {
+    // 清理所有缓存的点击处理函数
+    this._clickHandlers.clear();
+
+    // 清理所有NPC的点击区域
+    this.npcs.forEach((npc) => {
+      if (npc.clickArea) {
+        npc.clickArea.removeAllListeners();
+        npc.clickArea.destroy();
+        npc.clickArea = null;
+      }
+      if (npc.sprite) {
+        npc.sprite.removeAllListeners();
+      }
+    });
+
+    // 重置状态
+    this._isProcessingClick = false;
+    this._lastClickTime = 0;
+
+    console.log("🧹 清理了所有点击处理器");
+  }
+
+  onGameInitialized() {
+    console.log("🎉 Game initialization completed!");
+
+    // 清理加载提示
+    this.hideLoadingMessage();
+
+    // 延迟显示欢迎消息
+    this.time.delayedCall(500, () => {
+      this.showWelcomeMessage();
+    });
+
+    this.handleResize(this.scale.gameSize);
+    this.gameStarted = true;
+
+    // 设置事件监听
+    this.setupEventListeners();
+  }
+
+  async initializeDesktopGame() {
+    try {
+      console.log("🖥️ Desktop initialization started");
+
+      // 第一阶段：基础系统（必须同步）
+      this.setupMap();
+      this.setupPlayer();
+      this.setupCamera();
+
+      // 显示加载提示
+      this.showLoadingMessage("Loading desktop game...");
+
+      // 第二阶段：异步加载游戏系统
+      await this.setupGameSystemsAsync();
+
+      // 第三阶段：异步加载其他系统
+      await this.setupAdditionalSystemsAsync();
+
+      // 完成初始化
+      this.onGameInitialized();
+
+      console.log("✅ Desktop initialization completed");
+
+    } catch (error) {
+      console.error("❌ Desktop initialization failed:", error);
+      this.showErrorMessage("Failed to load game");
+    }
+  }
+
+  // 异步初始化方法
+  async initializeGameAsync() {
+    try {
+      console.log("🚀 Starting game initialization...");
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log("设备类型:", isMobile ? "移动端" : "桌面端");
+
+      if (isMobile) {
+        await this.initializeMobileGame();
+      } else {
+        await this.initializeDesktopGame();
+      }
+
+      console.log("✅ Game initialization completed");
+    } catch (error) {
+      console.error("❌ Game initialization failed:", error);
+      this.showErrorMessage("Failed to load game");
+    }
+  }
+
+
+  async _doInitializeNPCs() {
+    try {
+      // 分阶段创建 NPCs
+      const npcConfigs = [
+        { id: "village_head", name: "村长伯伯", position: { x: 1, y: 0.7 }, day: 1 },
+        { id: "shop_owner", name: "店主阿桂", position: { x: 5, y: 5.5 }, day: 2 },
+        { id: "spice_woman", name: "香料婆婆", position: { x: 5, y: 1.5 }, day: 3 },
+        { id: "restaurant_owner", name: "餐厅店长老韩", position: { x: 1, y: 7.5 }, day: 4 },
+        { id: "fisherman", name: "渔夫阿梁", position: { x: 1.5, y: 4.5 }, day: 5 },
+        { id: "old_friend", name: "林川", position: { x: 5.5, y: 7 }, day: 6 },
+        { id: "secret_apprentice", name: "念念", position: { x: 0.8, y: 2.5 }, day: 7 },
+      ];
+
+      // 批量创建 NPCs
+      for (let i = 0; i < npcConfigs.length; i++) {
+        const config = npcConfigs[i];
+        this.createNPC(config);
+
+        // 每创建几个 NPC 就延迟一帧
+        if (i % 2 === 1) {
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+      }
+
+      this.setDefaultNPCStates();
+
+      // 异步加载玩家状态
+      try {
+        await this.loadPlayerStatus();
+        console.log("✅ NPCs initialized with player status");
+      } catch (error) {
+        console.warn("⚠️ Failed to load player status, using defaults:", error);
+      }
+
+      this._initialized = true;
+      console.log("✅ NPC initialization completed");
+
+    } catch (error) {
+      console.error("❌ NPC initialization failed:", error);
+      this._initialized = false;
+    }
+  }
+
+  async _doInitializeNPCs() {
+    try {
+      // 分阶段创建 NPCs
+      const npcConfigs = [
+        { id: "village_head", name: "村长伯伯", position: { x: 1, y: 0.7 }, day: 1 },
+        { id: "shop_owner", name: "店主阿桂", position: { x: 5, y: 5.5 }, day: 2 },
+        { id: "spice_woman", name: "香料婆婆", position: { x: 5, y: 1.5 }, day: 3 },
+        { id: "restaurant_owner", name: "餐厅店长老韩", position: { x: 1, y: 7.5 }, day: 4 },
+        { id: "fisherman", name: "渔夫阿梁", position: { x: 1.5, y: 4.5 }, day: 5 },
+        { id: "old_friend", name: "林川", position: { x: 5.5, y: 7 }, day: 6 },
+        { id: "secret_apprentice", name: "念念", position: { x: 0.8, y: 2.5 }, day: 7 },
+      ];
+
+      // 批量创建 NPCs
+      for (let i = 0; i < npcConfigs.length; i++) {
+        const config = npcConfigs[i];
+        this.createNPC(config);
+
+        // 每创建几个 NPC 就延迟一帧
+        if (i % 2 === 1) {
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+      }
+
+      this.setDefaultNPCStates();
+
+      // 异步加载玩家状态
+      try {
+        await this.loadPlayerStatus();
+        console.log("✅ NPCs initialized with player status");
+      } catch (error) {
+        console.warn("⚠️ Failed to load player status, using defaults:", error);
+      }
+
+      this._initialized = true;
+      console.log("✅ NPC initialization completed");
+
+    } catch (error) {
+      console.error("❌ NPC initialization failed:", error);
+      this._initialized = false;
     }
   }
 
@@ -445,132 +770,37 @@ export default class NPCManager {
     }
   }
 
-  // NPCManager.js - 修复 updateNPCStates 方法
+  _doUpdateNPCStates() {
+    // 原来的 updateNPCStates 代码放在这里
 
-  updateNPCStates() {
     const day = this.playerStatus?.currentDay || 1;
+    console.log(`🔄 更新NPC状态 (Day ${day})`);
 
-    console.log("🔄 更新NPC状态:", {
-      当前天: day,
-      可用NPCs: this.availableNPCs.map((n) => ({
-        day: n.day,
-        npcId: n.npcId,
-        unlocked: n.unlocked,
-      })),
-    });
-
-    // 1) 先隐藏并禁用所有 NPC
-    this.npcs.forEach((npc) => {
-      npc.sprite?.setVisible(false);
-      npc.sprite?.disableInteractive?.();
-      this.removeNPCHighlight?.(npc);
-      if (npc.mealHint) {
-        npc.mealHint.destroy();
-        npc.mealHint = null;
-      }
-    });
-
-    // // 2) 🔧 修复：显示所有已解锁的 NPC，不只是当前天的
-    // const unlockedNPCs = (this.availableNPCs || []).filter((n) => n.unlocked);
-    const currentDay = this.playerStatus?.currentDay || 1;
-    const unlockedNPCs = (this.availableNPCs || []).filter((n) => {
-      if (!n.unlocked) return false;
-      // 未来天：不显示
-      if (n.day > currentDay) return false;
-      // 历史天：只有真的完成才显示（用于挂“已完成”标识或淡显）
-      if (n.day < currentDay) return !!n.completed;
-      // 当前天：显示
-      return true;
-    });
-
-    console.log(
-      `📍 显示 ${unlockedNPCs.length} 个已解锁的NPC:`,
-      unlockedNPCs.map((n) => `${n.npcId}(Day${n.day})`)
-    );
-
-    unlockedNPCs.forEach((availableNPC) => {
-      const npc = this.npcs.get(availableNPC.npcId);
-      if (!npc || !npc.sprite) {
-        console.warn(`⚠️ NPC ${availableNPC.npcId} 不存在或没有sprite`);
-        return;
-      }
-
-      console.log(
-        `✅ 显示NPC: ${availableNPC.npcId} (Day ${availableNPC.day})`
-      );
-
-      // 显示 NPC
-      npc.sprite.setVisible(true);
-
-      // 🔧 修复：区分当前天和历史天的 NPC
-      if (availableNPC.day === day) {
-        // 当前天的 NPC：可交互，有高亮，显示可记录餐食
-        this.addNPCClickArea?.(npc);
-        this.highlightNPC?.(npc);
-
-        const mealTypes =
-          availableNPC.availableMealTypes &&
-          availableNPC.availableMealTypes.length > 0
-            ? availableNPC.availableMealTypes
-            : ["breakfast", "lunch", "dinner"];
-
-        if (mealTypes.length > 0) {
-          this.addMealTypeHint?.(npc, mealTypes);
-        } else {
-          this.addChatOnlyHint?.(npc);
-        }
-
-        npc.hasRecordedMeal = false;
-        console.log(
-          `🎯 当前天NPC ${availableNPC.npcId} 状态更新完成，可记录餐食:`,
-          mealTypes
-        );
-      } else {
-        // 历史天的 NPC：仅显示，不可交互，半透明
-        npc.sprite.setAlpha(0.6);
-        npc.sprite.disableInteractive?.();
-
-        // 添加"已完成"标识
-        if (availableNPC.completed && !npc.completedHint) {
-          const lang = this.scene.playerData.language;
-          const text = lang === "zh" ? "已完成" : "Completed";
-
-          npc.completedHint = this.scene.add.text(
-            npc.sprite.x,
-            npc.sprite.y - 40,
-            text,
-            {
-              fontSize: "11px",
-              fontFamily: "Arial",
-              fill: "#9ca3af",
-              backgroundColor: "#374151",
-              padding: { x: 6, y: 3 },
-            }
-          );
-          npc.completedHint.setOrigin(0.5);
-          npc.completedHint.setDepth(20);
-          npc.completedHint.setAlpha(0.8);
-        }
-
-        console.log(
-          `📚 历史NPC ${availableNPC.npcId} (Day ${availableNPC.day}) 设为已完成状态`
-        );
-      }
-    });
-
-    // 3) 🔧 新增：如果当前天没有可用的NPC，检查是否需要推进天数
-    const currentDayNPC = unlockedNPCs.find((n) => n.day === day);
-    if (!currentDayNPC && day < 7) {
-      console.log(`⚠️ 当前第${day}天没有可用NPC，可能需要检查天数推进逻辑`);
-
-      // 延迟检查天数推进（给后端一点时间）
-      setTimeout(() => {
-        this.checkAndUpdateCurrentDay?.();
-      }, 1000);
+    // 防止频繁调用
+    if (this._updateNPCStatesTimer) {
+      clearTimeout(this._updateNPCStatesTimer);
     }
 
-    console.log(`🎯 NPC状态更新完成，显示了 ${unlockedNPCs.length} 个NPC`);
+    this._updateNPCStatesTimer = setTimeout(() => {
+      this._doUpdateNPCStates();
+    }, 100); // 100ms 防抖
+
+    // ... 原有的 updateNPCStates 实现 ...
   }
+
+
+  // NPCManager.js - 修复 updateNPCStates 方法
+  // updateNPCStates() {
+  //   // 防止频繁调用
+  //   if (this._updateNPCStatesTimer) {
+  //     clearTimeout(this._updateNPCStatesTimer);
+  //   }
+
+  //   this._updateNPCStatesTimer = setTimeout(() => {
+  //     this._doUpdateNPCStates();
+  //   }, 100); // 100ms 防抖
+  // }
+
 
   // 新增：显示"可对话"提示（当没有可记录餐食时）
   addChatOnlyHint(npc) {
@@ -662,6 +892,8 @@ export default class NPCManager {
     const nameObj = npcNames[npcId];
     return nameObj ? nameObj[language] || nameObj.en : "Unknown NPC";
   }
+
+
 
   // 🔑 关键修复：简化交互检查逻辑
   canInteractWithNPC(npc) {
@@ -816,8 +1048,8 @@ export default class NPCManager {
             mealContent && mealContent.trim()
               ? mealContent
               : this.scene.playerData.language === "zh"
-              ? "未填写具体餐食"
-              : "No detailed meal provided",
+                ? "未填写具体餐食"
+                : "No detailed meal provided",
         }),
       });
 
@@ -828,7 +1060,7 @@ export default class NPCManager {
           detail = ct.includes("application/json")
             ? JSON.stringify(await resp.json())
             : await resp.text();
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(`HTTP ${resp.status}${detail ? ` - ${detail}` : ""}`);
       }
 
@@ -985,8 +1217,8 @@ export default class NPCManager {
       npc && npc.name
         ? npc.name
         : this.getNPCNameByLanguage
-        ? this.getNPCNameByLanguage(npcId)
-        : npcId;
+          ? this.getNPCNameByLanguage(npcId)
+          : npcId;
 
     const clue = {
       id: clueId,
@@ -1197,15 +1429,15 @@ export default class NPCManager {
       npc && npc.name
         ? npc.name
         : this.getNPCNameByLanguage
-        ? this.getNPCNameByLanguage(npcId)
-        : npcId;
+          ? this.getNPCNameByLanguage(npcId)
+          : npcId;
 
     const finalClue =
       clueText && clueText.trim()
         ? clueText
         : this.getNPCClue
-        ? this.getNPCClue(npcId)
-        : "…";
+          ? this.getNPCClue(npcId)
+          : "…";
 
     const clue = {
       id: clueId,
@@ -1431,52 +1663,144 @@ export default class NPCManager {
   addNPCClickArea(npc) {
     // 清理旧的交互区域
     if (npc.clickArea) {
+      // 移除旧的事件监听
+      npc.clickArea.removeAllListeners();
       npc.clickArea.destroy();
       npc.clickArea = null;
     }
 
-    // —— 1) 透明点击圈：命中半径稍放大，容错更好
-    const clickRadius = 48; // 之前是 ~40，略放大
+    // 清理 sprite 上的旧监听器
+    if (npc.sprite) {
+      npc.sprite.removeAllListeners();
+    }
+
+    // 透明点击圈
+    const clickRadius = 48;
     const g = this.scene.add.graphics();
-    g.fillStyle(0x00ff00, 0); // 完全透明
+    g.fillStyle(0x00ff00, 0);
     g.fillCircle(0, 0, clickRadius);
     g.setPosition(npc.sprite.x, npc.sprite.y);
-
-    // 关键：把命中层深度拉到很高，避免被其它层遮挡
     g.setDepth(9999);
 
-    // 让透明圈可交互（圆形命中）
+    // 让透明圈可交互
     g.setInteractive(
       new Phaser.Geom.Circle(0, 0, clickRadius),
       Phaser.Geom.Circle.Contains
     );
 
-    // 让 sprite 自身也可点（双保险）
-    npc.sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
+    // 让 sprite 自身也可点
+    npc.sprite.setInteractive({
+      useHandCursor: true,
+      pixelPerfect: false
+    });
 
-    // 统一的点击处理
-    const handleClick = () => {
-      console.log(`🖱️ NPC ${npc.id} 被直接点击！`);
+    // 🔧 优化的点击处理 - 使用防抖和缓存
+    const handleClick = this.createClickHandler(npc);
+
+    // 绑定点击事件
+    g.once("pointerdown", handleClick); // 使用 once 而不是 on
+    npc.sprite.once("pointerdown", handleClick);
+
+    // 🔧 简化的悬浮效果 - 移除复杂的hover逻辑
+    g.on("pointerover", () => {
+      if (!this._isProcessingClick) {
+        this.showSimpleNPCHover(npc);
+      }
+    });
+    g.on("pointerout", () => {
+      this.hideNPCHover(npc);
+    });
+
+    // 保存引用
+    npc.clickArea = g;
+
+    console.log(`✅ 为NPC ${npc.id} 添加了优化的点击区域`);
+  }
+
+  createClickHandler(npc) {
+    // 如果已经有缓存的处理函数，重用它
+    if (this._clickHandlers.has(npc.id)) {
+      return this._clickHandlers.get(npc.id);
+    }
+
+    const handler = () => {
+      const now = Date.now();
+
+      // 防抖检查
+      if (now - this._lastClickTime < this._clickCooldown) {
+        console.log(`⏱️ NPC ${npc.id} 点击被防抖拦截`);
+        return;
+      }
+
+      // 防止重复处理
+      if (this._isProcessingClick) {
+        console.log(`⏱️ NPC ${npc.id} 正在处理中，忽略重复点击`);
+        return;
+      }
+
+      this._lastClickTime = now;
+      this._isProcessingClick = true;
+
+      console.log(`🖱️ NPC ${npc.id} 点击处理开始`);
+
+      // 实际的点击逻辑
       if (this.canInteractWithNPC(npc)) {
-        this.startDialogScene(npc.id);
+        // 立即移除点击监听，防止重复触发
+        if (npc.clickArea) {
+          npc.clickArea.removeAllListeners("pointerdown");
+        }
+        if (npc.sprite) {
+          npc.sprite.removeAllListeners("pointerdown");
+        }
+
+        // 延迟启动对话场景，给UI一个响应时间
+        requestAnimationFrame(() => {
+          this.startDialogScene(npc.id);
+
+          // 300ms 后重置处理状态
+          setTimeout(() => {
+            this._isProcessingClick = false;
+          }, 300);
+        });
       } else {
         this.showInteractionBlockedMessage(npc);
+        this._isProcessingClick = false;
       }
     };
 
-    // 绑定点击（两条通路）
-    g.on("pointerdown", handleClick);
-    npc.sprite.on("pointerdown", handleClick);
-
-    // 悬浮提示（命中圈来承接 hover，sprite 也可以按需加）
-    g.on("pointerover", () => this.showNPCHover(npc));
-    g.on("pointerout", () => this.hideNPCHover(npc));
-
-    // 保存引用，便于后续销毁
-    npc.clickArea = g;
-
-    console.log(`✅ 为NPC ${npc.id} 添加了点击区域`);
+    // 缓存处理函数
+    this._clickHandlers.set(npc.id, handler);
+    return handler;
   }
+
+  // ==================== 4. 简化的悬浮提示 ====================
+  showSimpleNPCHover(npc) {
+    // 如果已经有悬浮文本，不重复创建
+    if (npc.hoverText) {
+      return;
+    }
+
+    const lang = this.scene.playerData.language;
+    const npcName = this.getNPCNameByLanguage(npc.id);
+
+    const text = this.scene.add.text(
+      npc.sprite.x,
+      npc.sprite.y - 70,
+      npcName,
+      {
+        fontSize: "14px",
+        fontFamily: "Arial",
+        fill: "#ffffff",
+        backgroundColor: "#000000aa",
+        padding: { x: 8, y: 4 },
+      }
+    );
+    text.setOrigin(0.5);
+    text.setDepth(10000);
+
+    npc.hoverText = text;
+  }
+
 
   hideNPCHover(npc) {
     if (npc.hoverText) {
@@ -1484,6 +1808,32 @@ export default class NPCManager {
       npc.hoverText = null;
     }
   }
+
+  cleanupClickHandlers() {
+    // 清理所有缓存的点击处理函数
+    this._clickHandlers.clear();
+
+    // 清理所有NPC的点击区域
+    this.npcs.forEach((npc) => {
+      if (npc.clickArea) {
+        npc.clickArea.removeAllListeners();
+        npc.clickArea.destroy();
+        npc.clickArea = null;
+      }
+      if (npc.sprite) {
+        npc.sprite.removeAllListeners();
+      }
+    });
+
+    // 重置状态
+    this._isProcessingClick = false;
+    this._lastClickTime = 0;
+
+    console.log("🧹 清理了所有点击处理器");
+  }
+
+  // ==================== 7. 优化的 startDialogScene 函数 ====================
+  // 替换原有的 startDialogScene 函数：
 
   startDialogScene(npcId) {
     console.log(`🎭 开始与NPC ${npcId} 的对话场景`);
@@ -1496,21 +1846,48 @@ export default class NPCManager {
     );
     const useConvAI = today ? today.mealsRecorded === 0 : true;
 
-    console.log(`📋 对话配置:`, {
-      当前天: currentDay,
-      NPC记录餐数: today?.mealsRecorded,
-      使用ConvAI: useConvAI,
-    });
+    try {
+      const mainScene = this.scene.scene.get("MainScene");
 
-    this.scene.scene.pause("MainScene");
-    this.scene.scene.launch("DialogScene", {
-      npcId: npcId,
-      npcManager: this,
-      playerData: this.scene.playerData,
-      mainScene: this.scene,
-      useConvAI,
-    });
+      // 🔧 关键修复：先检查场景是否真正在运行
+      const isRunning = mainScene &&
+        mainScene.scene.isActive() &&
+        mainScene.scene.isRunning();  // ← 这是新增的关键检查
+
+      if (!isRunning) {
+        console.error("❌ MainScene 未运行");
+        this._isProcessingClick = false;
+        return;
+      }
+
+      // 如果场景正在运行，先暂停它
+      if (!mainScene.scene.isPaused()) {
+        this.scene.scene.pause("MainScene");
+        console.log("✅ MainScene 已暂停");
+      }
+
+      // 然后启动对话场景
+      this.scene.scene.launch("DialogScene", {
+        npcId: npcId,
+        npcManager: this,
+        playerData: this.scene.playerData,
+        mainScene: this.scene,
+        useConvAI,
+      });
+
+      console.log("✅ DialogScene 已启动");
+
+      // 重置点击状态
+      setTimeout(() => {
+        this._isProcessingClick = false;
+      }, 300);
+
+    } catch (error) {
+      console.error("❌ 启动对话场景失败:", error);
+      this._isProcessingClick = false;
+    }
   }
+
 
   async completeNPCInteraction(npcId) {
     try {

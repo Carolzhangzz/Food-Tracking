@@ -3,7 +3,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { PlayerProvider } from "./context/PlayerContext";
 import LoginPage from "./components/LoginPage";
-import CutScenePlayer from "./components/CutScenePlayer";
+import LoadingPage from "./pages/LoadingPage";
+import CutScenePlayer from "./components/CutScenePlayer";  // ✅ 导入 CutScenePlayer
 import GameScreen from "./components/GameScreen";
 
 function App() {
@@ -29,8 +30,8 @@ function App() {
         >
           <Routes>
             <Route path="/" element={<LoginPage />} />
-            <Route path="/Food-Tracking" element={<LoginPage />} />
-            <Route path="/intro" element={<CutScenePlayer />} />
+            <Route path="/intro" element={<CutScenePlayer />} />  {/* ✅ 使用 CutScenePlayer */}
+            <Route path="/loading" element={<LoadingPage />} />
             <Route path="/game" element={<GameScreen />} />
           </Routes>
         </div>

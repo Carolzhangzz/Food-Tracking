@@ -27,8 +27,27 @@ export default class UIManager {
   }
 
   handleResize() {
-    this.repositionProgressUI();
-    this.repositionActionButtons();
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    if (width < height) {
+      // 竖屏时提示玩家旋转设备
+      this.add
+        .text(width / 2, height / 2, "请横屏体验游戏", {
+          fontSize: "20px",
+          color: "#ffffff",
+          backgroundColor: "#00000088",
+          padding: { x: 15, y: 8 },
+        })
+        .setOrigin(0.5)
+        .setDepth(999);
+    } else {
+      // 横屏下重新布局地图和摄像机
+      this.cameras.main.setViewport(0, 0, width, height);
+      if (this.map && this.cameras.main) {
+        this.cameras.main.centerOn(this.playerLoc.x, this.playerLoc.y);
+      }
+    }
   }
 
   // 键盘状态处理
