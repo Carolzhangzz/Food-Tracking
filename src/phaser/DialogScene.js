@@ -351,7 +351,7 @@ export default class DialogScene extends Phaser.Scene {
         .setDepth(100);
       return;
     }
-    
+
     // visit count
     this.npcVisitCount[this.currentNPC] =
       (this.npcVisitCount[this.currentNPC] || 0) + 1;
@@ -367,7 +367,12 @@ export default class DialogScene extends Phaser.Scene {
         if (this.textures.exists(bgKey)) {
           // 使用 NPC 背景图
           this.npcBackground = this.add.image(width / 2, height / 2, bgKey);
-          this.npcBackground.setDisplaySize(width, height);
+          // this.npcBackground.setDisplaySize(width, height);
+          const bg = this.add.image(width / 2, height / 2, bgKey);
+          bg.setDepth(1);
+
+          const scale = Math.max(width / bg.width, height / bg.height);
+          bg.setScale(scale);
           this.npcBackground.setDepth(1);
           this.backgroundContainer.add(this.npcBackground);
         } else {
@@ -489,6 +494,30 @@ export default class DialogScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const safeTopMargin = 120;
     const safeBottomMargin = 150;
+    // 判断桌面端
+    const isDesktop = this.scale.width >= 1024;
+
+    if (isDesktop) {
+      const boxW = width * 0.55; // 左 55% 显示对话
+      const boxH = height * 0.35;
+      const boxX = width * 0.025; // 左侧 margin
+      const boxY = height * 0.05;
+
+      this.dialogBg = this.add.graphics();
+      this.dialogBg.fillStyle(0x1a1a2e, 0.9);
+      this.dialogBg.fillRoundedRect(boxX, boxY, boxW, boxH, 18);
+      this.dialogBg.setDepth(10);
+
+      this.dialogText = this.add
+        .text(boxX + 25, boxY + 25, "", {
+          fontSize: "20px",
+          wordWrap: { width: boxW - 50 },
+        })
+        .setDepth(11);
+
+      return; // 结束，PC 走这里
+    }
+
     const outerPad = this.isMobile ? 12 : 16;
     const innerPad = this.isMobile ? 16 : 20;
     const borderRadius = this.isMobile ? 8 : 12;
@@ -3075,3 +3104,4 @@ export default class DialogScene extends Phaser.Scene {
     );
   }
 }
+

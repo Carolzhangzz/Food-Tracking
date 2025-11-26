@@ -25,6 +25,7 @@ const CROSS_DAY_WAIT_HOURS = Number(process.env.CROSS_DAY_WAIT_HOURS || 24);
 
 /* --------------------------------- 工具函数 -------------------------------- */
 
+
 async function hasRecordedAnyMealToday(playerId, day) {
   const anyMeal = await MealRecord.findOne({ where: { playerId, day } });
   return !!anyMeal;

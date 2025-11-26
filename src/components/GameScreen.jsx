@@ -1,7 +1,8 @@
-// GameScreen.jsx - PC 端响应式优化版本
+// GameScreen.jsx - 完整修复版
 import React, { useEffect, useCallback, useContext, useState, useRef } from "react";
 import Phaser from "phaser";
 import MainScene from "../phaser/MainScene";
+import DialogScene from "../phaser/DialogScene";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
@@ -74,6 +75,7 @@ function GameScreen() {
     );
 
     const gameConfig = {
+      scene: [MainScene, DialogScene],
       title: "Village Secrets",
       type: Phaser.AUTO,
       width: gameWidth,
@@ -119,6 +121,13 @@ function GameScreen() {
       gameRef.current = new Phaser.Game(gameConfig);
       setLoadingProgress(40);
 
+      console.log("📤 Passing data to MainScene:", { 
+        playerId, 
+        hasPlayerData: !!playerData,
+        language: playerData?.language 
+      });
+
+      // 启动主场景 - 确保传递完整数据
       gameRef.current.scene.start("MainScene", {
         playerId,
         playerData,
@@ -130,6 +139,7 @@ function GameScreen() {
       let checkCount = 0;
       const maxChecks = 100;
 
+      // 轮询检查 MainScene 是否完全初始化 (fullyInitialized)
       sceneCheckIntervalRef.current = setInterval(() => {
         checkCount++;
         
@@ -157,7 +167,7 @@ function GameScreen() {
           clearInterval(sceneCheckIntervalRef.current);
           setLoadingProgress(95);
           setLoadingMessage(
-            playerData.language === "zh" ? "准备就绪！" : "Ready!"
+            playerData.language === "zh" ? "准备就绪!" : "Ready!"
           );
           setTimeout(() => {
             setLoadingProgress(100);
@@ -205,13 +215,17 @@ function GameScreen() {
         const newWidth = window.innerWidth;
         const newHeight = window.innerHeight;
 
-        try {
-          gameRef.current.scale.resize(newWidth, newHeight);
+        console.log(`🔄 窗口大小变化: ${newWidth} x ${newHeight}`);
 
+        try {
+          // 🔧 关键修复：让 Phaser Scale Manager 自动处理
+          // 不要手动调用 resize，这会导致无限递归
+          
+          // 只需要通知场景更新视口
           requestAnimationFrame(() => {
-            const mainScene = gameRef.current.scene.getScene("MainScene");
-            if (mainScene && mainScene.handleResize) {
-              mainScene.handleResize({ width: newWidth, height: newHeight });
+            const mainScene = gameRef.current?.scene?.getScene("MainScene");
+            if (mainScene && mainScene.cameras?.main) {
+              mainScene.cameras.main.setViewport(0, 0, newWidth, newHeight);
             }
           });
         } catch (error) {
@@ -244,7 +258,7 @@ function GameScreen() {
     return (
       <div style={styles(isDesktop).loadingContainer}>
         <div style={styles(isDesktop).loadingContent}>
-          <div style={styles(isDesktop).loadingIcon}>🍳</div>
+          <div style={styles(isDesktop).loadingIcon}>🐳</div>
           <p>Loading...</p>
         </div>
       </div>
@@ -258,7 +272,7 @@ function GameScreen() {
       {isLoading && (
         <div style={styles(isDesktop).loadingOverlay}>
           <div style={styles(isDesktop).loadingContent}>
-            <div style={styles(isDesktop).loadingIcon}>🍳</div>
+            <div style={styles(isDesktop).loadingIcon}>🐳</div>
 
             <div style={styles(isDesktop).loadingText}>{loadingMessage}</div>
 
@@ -275,7 +289,7 @@ function GameScreen() {
 
             <div style={styles(isDesktop).loadingHint}>
               {playerData.language === "zh"
-                ? "正在为您准备游戏世界，请稍候..."
+                ? "正在为您准备游戏世界,请稍候..."
                 : "Preparing your game world, please wait..."}
             </div>
           </div>
@@ -321,6 +335,8 @@ const styles = (isDesktop) => ({
     position: "absolute",
     top: 0,
     left: 0,
+    display: "block",
+    touchAction: "none",
   },
   loadingContainer: {
     width: "100vw",
