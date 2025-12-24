@@ -17,6 +17,8 @@ export function createReturnButton(scene) {
     padding,
   });
   scene.returnButton
+    .setDepth(100)  // 🔧 确保返回按钮在最上层
+    .setScrollFactor(0)  // 🔧 固定在屏幕上，不随相机滚动
     .setInteractive({ useHandCursor: true })
     .on("pointerdown", () => scene.returnToMainScene())
     .on("pointerover", () => scene.returnButton.setTint(0x818cf8))

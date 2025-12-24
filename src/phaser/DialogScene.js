@@ -106,9 +106,11 @@ export default class DialogScene extends Phaser.Scene {
 
     // Debug
     this.debugMode = true;
+
+
   }
 
-  init(data) {
+  async init(data) {
     this.quickLogMode = false;
     this.currentNPC = data.npcId;
     this.npcManager = data.npcManager;
@@ -140,6 +142,48 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     this.initKeyboardHandling();
+
+    // 从数据库获取玩家进度
+    try {
+      const response = await fetch(`/api/game/player-status/${this.playerData.playerId}`);
+      const statusData = await response.json();
+
+      if (statusData.success) {
+        // 更新可用的 NPC
+        this.availableNPCId = statusData.availableNPCId;
+
+        // 更新今日用餐进度
+        this.playerData.todayMeals = statusData.todayMeals;
+
+        // 检查当前 NPC 是否可用
+        if (this.currentNPC !== this.availableNPCId) {
+          console.warn("⚠️ 当前 NPC 不可用，应该对话的 NPC 是:", this.availableNPCId);
+        }
+      }
+    } catch (error) {
+      console.error("获取玩家状态失败:", error);
+    }
+
+    // 从数据库获取玩家进度
+    try {
+      const response = await fetch(`/api/game/player-status/${this.playerData.playerId}`);
+      const statusData = await response.json();
+
+      if (statusData.success) {
+        // 更新可用的 NPC
+        this.availableNPCId = statusData.availableNPCId;
+
+        // 更新今日用餐进度
+        this.playerData.todayMeals = statusData.todayMeals;
+
+        // 检查当前 NPC 是否可用
+        if (this.currentNPC !== this.availableNPCId) {
+          console.warn("⚠️ 当前 NPC 不可用，应该对话的 NPC 是:", this.availableNPCId);
+        }
+      }
+    } catch (error) {
+      console.error("获取玩家状态失败:", error);
+    }
   }
 
   // ---- Soft keyboard / viewport ----
@@ -360,22 +404,36 @@ export default class DialogScene extends Phaser.Scene {
     this.backgroundContainer = this.add.container(0, 0);
     this.backgroundContainer.setDepth(0);
 
+    // 🔧 NPC ID 到背景图编号的映射
+    const npcBgMapping = {
+      "uncle_bo": "npc1bg",           // Day 1
+      "village_head": "npc2bg",       // Day 2
+      "spice_granny": "npc3bg",       // Day 3
+      "restaurant_owner": "npc4bg",   // Day 4
+      "little_girl": "npc5bg",        // Day 5
+      "mysterious_person": "npc6bg",  // Day 6
+      "final_npc": "npc7bg"           // Day 7
+    };
+
     // 根据NPC创建背景
     if (this.currentNPC) {
       try {
-        const bgKey = `${this.currentNPC}bg`;
+        const bgKey = npcBgMapping[this.currentNPC] || "npc1bg"; // 默认使用npc1bg
+        console.log(`🎨 使用NPC背景: ${this.currentNPC} -> ${bgKey}`);
+
         if (this.textures.exists(bgKey)) {
           // 使用 NPC 背景图
-          this.npcBackground = this.add.image(width / 2, height / 2, bgKey);
-          // this.npcBackground.setDisplaySize(width, height);
           const bg = this.add.image(width / 2, height / 2, bgKey);
           bg.setDepth(1);
 
+          // 缩放背景以填充整个屏幕
           const scale = Math.max(width / bg.width, height / bg.height);
           bg.setScale(scale);
-          this.npcBackground.setDepth(1);
+
+          this.npcBackground = bg;
           this.backgroundContainer.add(this.npcBackground);
         } else {
+          console.warn(`⚠️ 背景图不存在: ${bgKey}`);
           // 纯色背景
           this.solidBackground = this.add.rectangle(
             width / 2,
@@ -388,7 +446,7 @@ export default class DialogScene extends Phaser.Scene {
           this.backgroundContainer.add(this.solidBackground);
         }
       } catch (err) {
-        console.error("Background error:", err);
+        console.error("❌ Background error:", err);
         // 回退到纯色背景
         this.solidBackground = this.add.rectangle(
           width / 2,
@@ -416,7 +474,7 @@ export default class DialogScene extends Phaser.Scene {
     // 在 create() 方法中添加 resize 监听
     this.scale.on("resize", this.handleDialogResize, this);
 
-    this.setupBackground();
+    // 🔧 创建UI和控制（包括对话框）
     this.setupUI();
     this.setupControls();
 
@@ -425,13 +483,11 @@ export default class DialogScene extends Phaser.Scene {
     this.dialogSystem.setNPCManager(this.npcManager);
     this.dialogSystem.on("dialogEnded", this.handleDialogEnded, this);
 
-    // 对话框背景
-    this.dialogBg = this.add.graphics();
-    this.dialogBg.setDepth(5);
-
     // Scene lifecycle
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
+
+    console.log("✅ DialogScene UI创建完成，准备开始对话");
 
     // Start
     if (this.useConvAI) {
@@ -450,31 +506,11 @@ export default class DialogScene extends Phaser.Scene {
     this.handleResize();
   }
 
-  setupBackground() {
-    const { width, height } = this.scale;
-    const npc = this.npcManager?.getNPCById(this.currentNPC);
-
-    this.add.rectangle(width / 2, height / 2, width, height, 0x2a2a2a);
-
-    if (npc?.backgroundKey) {
-      if (this.textures.exists(npc.backgroundKey)) {
-        this.add
-          .image(width / 2, height / 2, npc.backgroundKey)
-          .setDisplaySize(width, height);
-        console.log(
-          `Background set for NPC ${this.currentNPC}: ${npc.backgroundKey}`
-        );
-      } else {
-        console.warn(`Background texture not found: ${npc.backgroundKey}`);
-        this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
-      }
-    } else {
-      console.warn("No backgroundKey for NPC:", npc);
-      this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e);
-    }
-  }
+  // 🔧 已删除setupBackground()，背景在create()方法中已创建
 
   setupUI() {
+    console.log("🎨 DialogScene.setupUI() 开始...");
+
     this.createTopDialogBox();
     createReturnButton(this);
     this.updateStatus("");
@@ -488,113 +524,96 @@ export default class DialogScene extends Phaser.Scene {
       align: "center",
     });
     this.statusText.setOrigin(0.5);
+    this.statusText.setDepth(50);  // 🔧 确保状态文字在上层
+    this.statusText.setScrollFactor(0);  // 🔧 固定在屏幕上
+
+    console.log("✅ DialogScene.setupUI() 完成");
   }
 
   createTopDialogBox() {
     const { width, height } = this.scale;
-    const safeTopMargin = 120;
-    const safeBottomMargin = 150;
-    // 判断桌面端
-    const isDesktop = this.scale.width >= 1024;
 
-    if (isDesktop) {
-      const boxW = width * 0.55; // 左 55% 显示对话
-      const boxH = height * 0.35;
-      const boxX = width * 0.025; // 左侧 margin
-      const boxY = height * 0.05;
+    // 🔧 简化：使用全屏中央对话框（适应手机和PC）
+    const boxPadding = Math.min(width * 0.05, 40);  // 左右边距
+    const boxW = width - boxPadding * 2;  // 对话框宽度
+    const boxH = Math.min(height * 0.5, 400);  // 对话框高度
+    const boxX = boxPadding;
+    const boxY = (height - boxH) / 2;  // 垂直居中
 
-      this.dialogBg = this.add.graphics();
-      this.dialogBg.fillStyle(0x1a1a2e, 0.9);
-      this.dialogBg.fillRoundedRect(boxX, boxY, boxW, boxH, 18);
-      this.dialogBg.setDepth(10);
+    console.log(`📐 创建对话框: ${boxW}x${boxH} at (${boxX}, ${boxY}), screen=${width}x${height}`);
 
-      this.dialogText = this.add
-        .text(boxX + 25, boxY + 25, "", {
-          fontSize: "20px",
-          wordWrap: { width: boxW - 50 },
-        })
-        .setDepth(11);
-
-      return; // 结束，PC 走这里
-    }
-
-    const outerPad = this.isMobile ? 12 : 16;
-    const innerPad = this.isMobile ? 16 : 20;
-    const borderRadius = this.isMobile ? 8 : 12;
-
-    const availableHeight = height - safeTopMargin - safeBottomMargin;
-    const maxBoxHeight = 300;
-    const boxHeight = Math.min(
-      this.isMobile ? availableHeight * 0.6 : availableHeight * 0.5,
-      maxBoxHeight
-    );
-    const boxY = safeTopMargin;
-    const boxX = outerPad;
-    const boxW = width - outerPad * 2;
-
-    const textX = boxX + innerPad;
-    const textY = boxY + innerPad;
-    const textW = boxW - innerPad * 2;
-    const hintBottomPad = this.isMobile ? 16 : 20;
-    const textVisibleH = boxHeight - innerPad * 2 - hintBottomPad;
-
-    const fontSizeNum = this.isMobile ? 14 : 16;
-    const lineSpacing = this.isMobile ? 4 : 6;
-
-    // BG
+    // 🎨 美化对话框
     this.dialogBg = this.add.graphics();
-    this.dialogBg.fillStyle(0x1a1a2e, 0.9);
-    this.dialogBg.fillRoundedRect(boxX, boxY, boxW, boxHeight, borderRadius);
-    this.dialogBg.lineStyle(2, 0x4a5568);
-    this.dialogBg.strokeRoundedRect(boxX, boxY, boxW, boxHeight, borderRadius);
-    this.dialogBg.setDepth(5);
 
-    // Text
+    // 阴影
+    this.dialogBg.fillStyle(0x000000, 0.4);
+    this.dialogBg.fillRoundedRect(boxX + 6, boxY + 6, boxW, boxH, 16);
+
+    // 主背景
+    this.dialogBg.fillStyle(0x0f172a, 0.98);
+    this.dialogBg.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    // 渐变边框
+    this.dialogBg.lineStyle(4, 0x6366f1, 0.9);
+    this.dialogBg.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    // 内发光
+    this.dialogBg.lineStyle(2, 0x818cf8, 0.6);
+    this.dialogBg.strokeRoundedRect(boxX + 3, boxY + 3, boxW - 6, boxH - 6, 14);
+
+    this.dialogBg.setDepth(10);
+    this.dialogBg.setScrollFactor(0);
+
+    // 文本区域
+    const textPadding = 30;
+    const textY = boxY + textPadding;
+    const textW = boxW - textPadding * 2;
+    const fontSize = Math.min(20, Math.max(16, width / 50));
+
     this.dialogText = this.add
-      .text(textX, textY, "", {
-        fontSize: `${fontSizeNum}px`,
-        fontFamily: UI_FONT,
-        fill: "#f8fafc",
-        align: "left",
+      .text(boxX + textPadding, textY, "", {
+        fontSize: `${fontSize}px`,
+        fontFamily: "'Segoe UI', 'Arial', sans-serif",
+        fill: "#f1f5f9",
         wordWrap: { width: textW, useAdvancedWrap: true },
-        lineSpacing: lineSpacing + 2,
+        lineSpacing: 8,
+        stroke: "#000000",
+        strokeThickness: 1,
       })
-      .setShadow(0, 1, "#000000", 2);
-    this.dialogText.setDepth(10);
-    this.dialogText.setWordWrapWidth(textW, true);
+      .setShadow(1, 1, "#000000", 3, false, true)
+      .setDepth(11)
+      .setScrollFactor(0);
 
-    // Continue hint
-    const hintX = boxX + boxW - innerPad - 12;
-    const hintY = boxY + boxHeight - innerPad - 18;
+    // 继续提示符
+    const hintX = boxX + boxW - 30;
+    const hintY = boxY + boxH - 30;
     this.continueHint = this.add.text(hintX, hintY, "▼", {
-      fontSize: `${fontSizeNum}px`,
+      fontSize: `${fontSize + 4}px`,
       fontFamily: "monospace",
-      fill: "#ffd700",
+      fill: "#fbbf24",
+      stroke: "#92400e",
+      strokeThickness: 2,
     });
-    this.continueHint.setOrigin(0.5).setVisible(false).setDepth(15);
+    this.continueHint.setOrigin(0.5).setVisible(false).setDepth(15).setScrollFactor(0);
+    this.continueHint.setShadow(0, 2, "#000000", 4, false, true);
 
     this.tweens.add({
       targets: this.continueHint,
-      alpha: { from: 1, to: 0.3 },
-      duration: 1000,
+      alpha: { from: 1, to: 0.4 },
+      y: { from: hintY, to: hintY + 5 },
+      duration: 800,
+      ease: "Sine.easeInOut",
       yoyo: true,
       repeat: -1,
     });
 
     // Geometry mask
     this.dialogBoxInfo = {
-      x: textX,
+      x: boxX + textPadding,
       y: textY,
       width: textW,
-      height: textVisibleH,
-      maxHeight: textVisibleH,
+      height: boxH - textPadding * 2 - 40,
     };
-    this.scrollMask = this.add.graphics();
-    this.scrollMask.fillStyle(0xffffff);
-    this.scrollMask.fillRect(textX, textY, textW, textVisibleH);
-    this.scrollMask.setVisible(false);
-    const mask = this.scrollMask.createGeometryMask();
-    this.dialogText.setMask(mask);
   }
 
   setupControls() {
@@ -614,13 +633,19 @@ export default class DialogScene extends Phaser.Scene {
 
   // -------- Input Box Methods --------
   enableInputBox() {
-    if (typeof document === "undefined") return;
+    console.log("🔧 enableInputBox 开始执行");
 
+    if (typeof document === "undefined") {
+      console.error("❌ document 未定义！");
+      return;
+    }
+
+    console.log("   清除旧的输入框...");
     this.clearTextInput();
 
     const { width, height } = this.scale;
 
-    // Create input container
+    // 🎨 美化输入容器
     const inputContainer = document.createElement("div");
     inputContainer.style.position = "fixed";
     inputContainer.style.bottom = "20px";
@@ -630,9 +655,10 @@ export default class DialogScene extends Phaser.Scene {
     inputContainer.style.maxWidth = "500px";
     inputContainer.style.zIndex = "1000";
     inputContainer.style.display = "flex";
-    inputContainer.style.gap = "8px";
+    inputContainer.style.gap = "10px";
+    inputContainer.style.filter = "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3))";
 
-    // Create text input
+    // 🎨 美化文本输入框
     this.textInput = document.createElement(
       this.isMobile ? "textarea" : "input"
     );
@@ -644,13 +670,26 @@ export default class DialogScene extends Phaser.Scene {
         ? "输入你的回答..."
         : "Type your answer...";
     this.textInput.style.flex = "1";
-    this.textInput.style.padding = "12px";
-    this.textInput.style.border = "2px solid #4a5568";
-    this.textInput.style.borderRadius = "8px";
-    this.textInput.style.backgroundColor = "#2d3748";
-    this.textInput.style.color = "#ffffff";
-    this.textInput.style.fontSize = this.isMobile ? "16px" : "14px";
-    this.textInput.style.fontFamily = "Arial, sans-serif";
+    this.textInput.style.padding = "14px 16px";
+    this.textInput.style.border = "2px solid #6366f1";
+    this.textInput.style.borderRadius = "12px";
+    this.textInput.style.backgroundColor = "#1e293b";
+    this.textInput.style.color = "#f1f5f9";
+    this.textInput.style.fontSize = this.isMobile ? "16px" : "15px";
+    this.textInput.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+    this.textInput.style.outline = "none";
+    this.textInput.style.transition = "all 0.3s ease";
+    this.textInput.style.boxShadow = "inset 0 2px 4px rgba(0, 0, 0, 0.2)";
+
+    // 添加焦点样式
+    this.textInput.addEventListener('focus', () => {
+      this.textInput.style.borderColor = "#818cf8";
+      this.textInput.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.2)";
+    });
+    this.textInput.addEventListener('blur', () => {
+      this.textInput.style.borderColor = "#6366f1";
+      this.textInput.style.boxShadow = "inset 0 2px 4px rgba(0, 0, 0, 0.2)";
+    });
 
     // Improve mobile typing behavior
     try {
@@ -658,25 +697,44 @@ export default class DialogScene extends Phaser.Scene {
       this.textInput.setAttribute("autocapitalize", "off");
       this.textInput.setAttribute("autocorrect", "off");
       this.textInput.setAttribute("spellcheck", "false");
-    } catch (e) {}
+    } catch (e) { }
     if (this.isMobile) {
       this.textInput.rows = "3";
       this.textInput.style.resize = "none";
     }
 
-    // Create submit button
+    // 🎨 美化提交按钮
     const submitButton = document.createElement("button");
     submitButton.textContent =
       this.playerData?.language === "zh" ? "发送" : "Send";
-    submitButton.style.padding = "12px 16px";
+    submitButton.style.padding = "14px 24px";
     submitButton.style.border = "none";
-    submitButton.style.borderRadius = "8px";
-    submitButton.style.backgroundColor = "#10b981";
+    submitButton.style.borderRadius = "12px";
+    submitButton.style.background = "linear-gradient(135deg, #10b981 0%, #059669 100%)";
     submitButton.style.color = "#ffffff";
-    submitButton.style.fontSize = this.isMobile ? "16px" : "14px";
-    submitButton.style.fontFamily = "Arial, sans-serif";
+    submitButton.style.fontSize = this.isMobile ? "16px" : "15px";
+    submitButton.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+    submitButton.style.fontWeight = "600";
     submitButton.style.cursor = "pointer";
     submitButton.style.whiteSpace = "nowrap";
+    submitButton.style.transition = "all 0.3s ease";
+    submitButton.style.boxShadow = "0 2px 8px rgba(16, 185, 129, 0.4)";
+
+    // 添加悬停效果
+    submitButton.addEventListener('mouseenter', () => {
+      submitButton.style.transform = "translateY(-2px)";
+      submitButton.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.5)";
+    });
+    submitButton.addEventListener('mouseleave', () => {
+      submitButton.style.transform = "translateY(0)";
+      submitButton.style.boxShadow = "0 2px 8px rgba(16, 185, 129, 0.4)";
+    });
+    submitButton.addEventListener('mousedown', () => {
+      submitButton.style.transform = "translateY(0) scale(0.98)";
+    });
+    submitButton.addEventListener('mouseup', () => {
+      submitButton.style.transform = "translateY(-2px)";
+    });
 
     // Event listeners
     const handleSubmit = () => {
@@ -719,6 +777,7 @@ export default class DialogScene extends Phaser.Scene {
     }
 
     // Add to DOM
+    console.log("   添加输入框到 DOM...");
     inputContainer.appendChild(this.textInput);
     inputContainer.appendChild(submitButton);
     document.body.appendChild(inputContainer);
@@ -726,10 +785,15 @@ export default class DialogScene extends Phaser.Scene {
     this.inputContainer = inputContainer;
     this.isWaitingForInput = true;
 
+    console.log("   ✅ 输入框已添加到 DOM");
+    console.log("   输入框可见性:", inputContainer.style.display);
+    console.log("   输入框位置:", inputContainer.style.bottom, inputContainer.style.left);
+
     // Focus input
     setTimeout(() => {
       if (this.textInput) {
         this.textInput.focus();
+        console.log("   ✅ 输入框已聚焦");
       }
     }, 100);
   }
@@ -846,7 +910,7 @@ export default class DialogScene extends Phaser.Scene {
           .replace(/​/g, "");
         try {
           if (this.dialogText) this.dialogText.setText(currentDisplayText);
-        } catch {}
+        } catch { }
         if (currentChar >= totalChars) {
           this.isTyping = false;
           if (this.continueHint) this.continueHint.setVisible(true);
@@ -945,23 +1009,29 @@ export default class DialogScene extends Phaser.Scene {
         if (this.introMode) {
           this.introMode.active = false;
         }
+        console.log("✅ ConvAI开场白成功:", response.message);
+
+        // 🔧 根据用户要求：开场白结束后直接进入餐食选择
         this.showSingleMessage("npc", response.message, () => {
-          this.dialogPhase = "initial";
+          this.dialogPhase = "meal_selection";
           this.updateStatus("");
-          this.showInitialChoices();
+          console.log("💬 开场白完成，准备显示餐食选择");
+          this.proceedToMealSelection(); // 直接显示 "Which meal do you want to record?"
         });
       } else {
         throw new Error("ConvAI API failed");
       }
     } catch (error) {
-      console.error("Error calling ConvAI API:", error);
+      console.error("❌ ConvAI API调用失败:", error);
+      // 🔧 Fallback: 使用默认开场白
       this.primeIntroFallback();
       const first = this.getNextIntroChunk();
       if (first) {
+        console.log("⚠️ 使用Fallback开场白:", first);
         await new Promise((res) => this.showSingleMessage("npc", first, res));
-        this.dialogPhase = "continuing";
+        this.dialogPhase = "meal_selection";
         this.updateStatus("");
-        this.waitForUserInput();
+        this.proceedToMealSelection(); // Fallback后也直接进入餐食选择
       } else {
         this.proceedToMealSelection();
       }
@@ -999,15 +1069,15 @@ export default class DialogScene extends Phaser.Scene {
   getDefaultNPCIntro() {
     const language = this.playerData.language || "en";
     const npcIntros = {
+      uncle_bo: {
+        en: `Hey, you're back. Recently, your master kept going on about greenwood seeds.`,
+        zh: "嘿，你回来了。最近你师父一直在念叨青木籽。",
+      },
       village_head: {
         en: `Three days ago, he left the village without a word. The fire in his kitchen was still warm—but he was gone.`,
         zh: "三天前，他离开村子时一句话也没说。厨房里的火还温着——可他已经不见了。",
       },
-      shop_owner: {
-        en: `Hey, you're back. Recently, your master kept going on about greenwood seeds.`,
-        zh: "嘿，你回来了。最近你师父一直在念叨青木籽。",
-      },
-      spice_woman: {
+      spice_granny: {
         en: `That bit of broth on your lip — you tasted your master's greenwood seed soup, didn't you?`,
         zh: "你嘴角还沾着汤呢——是不是尝过你师父的青木籽汤？",
       },
@@ -1015,15 +1085,15 @@ export default class DialogScene extends Phaser.Scene {
         en: `I'm Han. I run this place now. Those spices—you got them from her, didn't you?`,
         zh: "我是韩，现在由我来经营这家店。那些香料——你是从她那里得到的吧？",
       },
-      fisherman: {
+      little_girl: {
         en: `I'm Wei. The river has always been my place of calm.`,
         zh: "我是魏。河水一直是我心里的安宁之地。",
       },
-      old_friend: {
+      mysterious_person: {
         en: `It's strange seeing you here. Your master and I—we grew up like brothers.`,
         zh: "真奇怪，会在这里见到你。你师父和我——我们是一起长大的。",
       },
-      secret_apprentice: {
+      final_npc: {
         en: `You… you're the one he always mentioned. I'm Mei.`,
         zh: "你……你就是他常提到的那个人吧。我是梅。",
       },
@@ -1041,8 +1111,10 @@ export default class DialogScene extends Phaser.Scene {
     });
   }
 
+
+
   startContinuousDialog() {
-    if (this.debugMode) console.log("=== 连续对话模式 ===");
+    console.log("💬 === 开始连续对话模式 ===");
 
     // 重置 introMode，防止在连续对话中重复显示开场白
     if (this.introMode) {
@@ -1054,24 +1126,112 @@ export default class DialogScene extends Phaser.Scene {
     this.canSkipToMeal = false;
     this.chatCycleTurns = 0;
     this.choicePending = false;
+
+    console.log("📝 准备显示输入框...");
     this.waitForUserInput();
+    console.log("✅ waitForUserInput 已调用");
+  }
+
+  createTextInputElements() {
+    const { width, height } = this.scale;
+
+    // 移除旧的输入框
+    if (this.textInput) {
+      this.textInput.remove();
+    }
+    if (this.textarea) {
+      this.textarea.remove();
+    }
+
+    if (this.isMobile) {
+      // 移动端：使用 textarea
+      const textarea = document.createElement("textarea");
+      textarea.style.position = "absolute";
+      textarea.style.left = "20px";
+      textarea.style.bottom = "80px";
+      textarea.style.width = `${width - 40}px`;
+      textarea.style.height = "80px";
+      textarea.style.fontSize = "16px";
+      textarea.style.padding = "12px";
+      textarea.style.backgroundColor = "#1a1a2e";
+      textarea.style.color = "#e2e8f0";
+      textarea.style.border = "2px solid #667eea";
+      textarea.style.borderRadius = "8px";
+      textarea.style.fontFamily = UI_FONT;
+      textarea.style.resize = "none";
+      textarea.style.display = "none"; // 初始隐藏
+      textarea.placeholder = this.playerData.language === "zh"
+        ? "在此输入你的回答..."
+        : "Type your answer here...";
+
+      document.body.appendChild(textarea);
+      this.textarea = textarea;
+
+      // 添加事件监听
+      textarea.addEventListener("input", () => {
+        // 可以添加实时验证
+      });
+
+    } else {
+      // 桌面端：使用 input
+      const input = document.createElement("input");
+      input.type = "text";
+      input.style.position = "absolute";
+      input.style.left = "20px";
+      input.style.bottom = "80px";
+      input.style.width = `${width - 200}px`;
+      input.style.height = "50px";
+      input.style.fontSize = "18px";
+      input.style.padding = "12px";
+      input.style.backgroundColor = "#1a1a2e";
+      input.style.color = "#e2e8f0";
+      input.style.border = "2px solid #667eea";
+      input.style.borderRadius = "8px";
+      input.style.fontFamily = UI_FONT;
+      input.style.display = "none"; // 初始隐藏
+      input.placeholder = this.playerData.language === "zh"
+        ? "在此输入你的回答..."
+        : "Type your answer here...";
+
+      document.body.appendChild(input);
+      this.textInput = input;
+
+      // 回车提交
+      input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && this.isWaitingForInput) {
+          this.submitUserInput();
+        }
+      });
+    }
+
+    console.log("✅ Input elements created:", {
+      isMobile: this.isMobile,
+      hasTextarea: !!this.textarea,
+      hasTextInput: !!this.textInput
+    });
   }
 
   waitForUserInput() {
-    if (this.debugMode) {
-      console.log("=== 等待用户输入 ===");
-      console.log("阶段:", this.dialogPhase);
+    this.isWaitingForInput = true;
+    this.currentDialogState = "waiting_for_input";
+
+    // 确保输入框存在
+    if (!this.textInput && !this.textarea) {
+      this.createTextInputElements();
     }
-    this.enableInputBox();
-    this.onUserSubmit = async (userMessage) => {
-      try {
-        await this.handleUserInput(userMessage);
-      } catch (error) {
-        console.error("Error in user submit handler:", error);
-        await this.handleError(error);
-      }
-    };
+
+    // 显示输入框
+    if (this.isMobile && this.textarea) {
+      this.textarea.style.display = "block";
+      this.textarea.focus();
+    } else if (this.textInput) {
+      this.textInput.style.display = "block";
+      this.textInput.focus();
+    }
+
+    console.log("✅ Input field is now visible and focused");
   }
+
 
   async handleUserInput(input) {
     if (this.debugMode) {
@@ -1256,16 +1416,63 @@ export default class DialogScene extends Phaser.Scene {
     });
   }
 
+  selectMealType(mealType) {
+    console.log("✅ 选择餐食类型:", mealType);
+
+    this.selectedMealType = mealType;
+    this.dialogPhase = "meal_recording";
+
+    // 清除选择按钮
+    if (this.dynamicButtons) {
+      this.dynamicButtons.forEach(btn => btn.destroy());
+      this.dynamicButtons = [];
+    }
+
+    // 进入固定问题或 AI 对话
+    if (this.currentNPC === 'village_head') {
+      // 村长使用 Gemini AI
+      this.startGeminiChat();
+    } else {
+      // 其他 NPC 使用固定问题
+      this.showAllFixedQuestions();
+    }
+  }
+
   // -------- Meal selection & fixed Qs --------
   proceedToMealSelection() {
-    this.clearTextInput();
-    this.clearAllButtons();
-    this.dialogPhase = "meal_selection";
-    this.choicePending = false;
-    this.chatCycleTurns = 0;
-    this.questionGroups = {};
-    this.questionAnswers = {};
-    setTimeout(() => this.showMealSelectionButtons(), 200);
+    console.log("🍽️ 显示餐食选择");
+
+    const question = this.playerData.language === "zh"
+      ? "你想记录哪一餐？"
+      : "Which meal do you want to record?";
+
+    this.showSingleMessage("npc", question, () => {
+      // 显示餐食选择按钮
+      const mealOptions = {};
+
+      if (this.availableMealTypes.includes('breakfast')) {
+        mealOptions.breakfast = {
+          text: this.playerData.language === "zh" ? "早餐 🍳" : "Breakfast 🍳",
+          onClick: () => this.selectMealType('breakfast'),
+        };
+      }
+
+      if (this.availableMealTypes.includes('lunch')) {
+        mealOptions.lunch = {
+          text: this.playerData.language === "zh" ? "午餐 🍜" : "Lunch 🍜",
+          onClick: () => this.selectMealType('lunch'),
+        };
+      }
+
+      if (this.availableMealTypes.includes('dinner')) {
+        mealOptions.dinner = {
+          text: this.playerData.language === "zh" ? "晚餐 🍖" : "Dinner 🍖",
+          onClick: () => this.selectMealType('dinner'),
+        };
+      }
+
+      showChoiceButtons(this, mealOptions);
+    });
   }
 
   showMealSelectionButtons() {
@@ -1486,11 +1693,11 @@ export default class DialogScene extends Phaser.Scene {
           this.playerData.language === "zh"
             ? ["A. 家里做的", "B. 餐厅用餐", "C. 外卖/打包", "D. 即食食品"]
             : [
-                "A. Home-cooked meals",
-                "B. Eat out at restaurants",
-                "C. Takeout or delivery",
-                "D. Ready-to-eat meals",
-              ],
+              "A. Home-cooked meals",
+              "B. Eat out at restaurants",
+              "C. Takeout or delivery",
+              "D. Ready-to-eat meals",
+            ],
         key: "obtainMethod",
       },
       {
@@ -1501,21 +1708,21 @@ export default class DialogScene extends Phaser.Scene {
         options:
           this.playerData.language === "zh"
             ? [
-                "A. 清晨 (7点前)",
-                "B. 上午 (7-11点)",
-                "C. 中午 (11点-下午2点)",
-                "D. 下午 (下午2-5点)",
-                "E. 傍晚 (下午5-9点)",
-                "F. 夜晚 (9点后)",
-              ]
+              "A. 清晨 (7点前)",
+              "B. 上午 (7-11点)",
+              "C. 中午 (11点-下午2点)",
+              "D. 下午 (下午2-5点)",
+              "E. 傍晚 (下午5-9点)",
+              "F. 夜晚 (9点后)",
+            ]
             : [
-                "A. Early morning (before 7:00 AM)",
-                "B. Morning (7:00—11:00 AM)",
-                "C. Midday (11:00 AM—2:00 PM)",
-                "D. Afternoon (2:00—5:00 PM)",
-                "E. Evening (5:00—9:00 PM)",
-                "F. Night (after 9:00 PM)",
-              ],
+              "A. Early morning (before 7:00 AM)",
+              "B. Morning (7:00—11:00 AM)",
+              "C. Midday (11:00 AM—2:00 PM)",
+              "D. Afternoon (2:00—5:00 PM)",
+              "E. Evening (5:00—9:00 PM)",
+              "F. Night (after 9:00 PM)",
+            ],
         key: "mealTime",
       },
       {
@@ -1527,11 +1734,11 @@ export default class DialogScene extends Phaser.Scene {
           this.playerData.language === "zh"
             ? ["A. 不到10分钟", "B. 10-30分钟", "C. 30-60分钟", "D. 超过60分钟"]
             : [
-                "A. Less than 10 minutes",
-                "B. 10—30 minutes",
-                "C. 30—60 minutes",
-                "D. More than 60 minutes",
-              ],
+              "A. Less than 10 minutes",
+              "B. 10—30 minutes",
+              "C. 30—60 minutes",
+              "D. More than 60 minutes",
+            ],
         key: "duration",
       },
     ];
@@ -1677,9 +1884,8 @@ export default class DialogScene extends Phaser.Scene {
 
     const templates = [
       this.playerData.language === "zh"
-        ? `你这顿（${
-            meal === "breakfast" ? "早餐" : meal === "lunch" ? "午餐" : "晚餐"
-          }）吃了什么？`
+        ? `你这顿（${meal === "breakfast" ? "早餐" : meal === "lunch" ? "午餐" : "晚餐"
+        }）吃了什么？`
         : `What did you have for ${meal}?`,
       this.playerData.language === "zh"
         ? "你大概吃了多少分量？你是如何决定这个量的？用餐期间/之后身体感觉如何？"
@@ -1724,76 +1930,41 @@ export default class DialogScene extends Phaser.Scene {
   }
 
   // 调用ConvAI API
-  async callConvaiAPI(userMessage) {
-    if (this.debugMode) {
-      console.log("=== 调用 ConvAI API ===");
-      console.log("用户消息:", userMessage);
-      console.log("当前NPC:", this.currentNPC);
-      console.log("会话ID:", this.convaiSessionId);
-    }
-
-    this.npcMap = new Map([
-      ["village_head", "37c1ea8e-4aec-11f0-a14e-42010a7be01f"],
-      ["shop_owner", "425d25d4-73a6-11f0-8dad-42010a7be01f"],
-      ["spice_woman", "a425409e-73a6-11f0-a309-42010a7be01f"],
-      ["restaurant_owner", "6c4ed624-4b26-11f0-854d-42010a7be01f"],
-      ["fisherman", "2e287d62-4b28-11f0-b155-42010a7be01f"],
-      ["old_friend", "0443174e-73a7-11f0-b26c-42010a7be01f"],
-      ["secret_apprentice", "a9394c0e-4d88-11f0-b18a-42010a7be01f"],
-    ]);
-
-    const charID = this.npcMap.get(this.currentNPC);
-
+  async callConvaiAPI(userText = "hello") {
     try {
-      const requestBody = {
-        userText: userMessage,
-        charID: charID,
-        sessionID: this.convaiSessionId,
-        voiceResponse: "False",
-      };
+      console.log("📞 调用 ConvAI API:", userText);
 
-      if (this.debugMode) {
-        console.log("请求体:", requestBody);
-        console.log("API URL:", `${API_URL}/convai-chat`);
-      }
-
-      const response = await fetch(`${API_URL}/convai-chat`, {
-        method: "POST",
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_URL}/api/convai-chat`, {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          userText,
+          charID: this.npcManager.getNPCById(this.currentNPC)?.convaiCharID || '',
+          sessionID: this.convaiSessionId || '-1',
+          voiceResponse: 'False',
+        }),
       });
 
-      if (this.debugMode) {
-        console.log("HTTP响应状态:", response.status);
-        console.log("HTTP响应OK:", response.ok);
-      }
-
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`ConvAI API 请求失败: ${response.status}`);
       }
 
       const data = await response.json();
-
-      if (this.debugMode) {
-        console.log("ConvAI 响应数据:", data);
-      }
+      console.log("✅ ConvAI API 响应:", data);
 
       return {
         success: true,
-        message: data.text || "ConvAI 无返回文本",
-        sessionId: data.sessionID || this.convaiSessionId,
+        message: data.text || data.message || '',
+        sessionId: data.sessionId || this.convaiSessionId,
       };
     } catch (error) {
-      console.error("Error calling ConvAI API:", error);
+      console.error("❌ ConvAI API 调用失败:", error);
       return {
         success: false,
-        error: error.message || "ConvAI API call failed",
-        message:
-          this.playerData.language === "zh"
-            ? "对不起，发生了错误。请稍后再试。"
-            : "Sorry, an error occurred. Please try again later.",
+        error: error.message,
       };
     }
   }
@@ -2219,46 +2390,50 @@ export default class DialogScene extends Phaser.Scene {
       }
 
       if (recordResult.shouldGiveClue) {
-        const stage =
-          recordResult?.mealStage ??
-          (this.selectedMealType === "breakfast"
-            ? 1
-            : this.selectedMealType === "lunch"
-            ? 2
-            : 3);
+        try {
+          // 从数据库获取线索
+          const clueResponse = await fetch(
+            `/api/game/clue/${this.currentNPC}?language=${this.playerData.language}`
+          );
+          const clueData = await clueResponse.json();
 
-        let clueText = recordResult?.clueText;
-        if (!clueText || !clueText.trim()) {
-          if (stage === 1 || stage === 2) {
-            clueText = this.getVagueResponse(this.currentNPC, stage);
-          } else {
-            clueText = this.getClueForNPC(this.currentNPC);
-          }
+          // 显示线索
+          const clueText = clueData.clue;
+          this.showSingleMessage("npc", clueText, () => {
+            // 保存线索到 UIManager
+            if (this.mainScene?.uiManager) {
+              this.mainScene.uiManager.addClue({
+                npcId: this.currentNPC,
+                npcName: this.npcManager.getNPCNameByLanguage(this.currentNPC),
+                clue: clueText,
+              });
+              console.log("✅ 线索已添加到线索本");
+            }
+
+            // 结束对话
+            this.completeDialog();
+          });
+        } catch (error) {
+          console.error("获取线索失败:", error);
+          this.completeDialog();
         }
+      } else {
+        // 显示 vague 回复
+        try {
+          const vagueResponse = await fetch(
+            `/api/game/vague-response/${this.currentNPC}?language=${this.playerData.language}&count=${this.vagueCount - 1}`
+          );
+          const vagueData = await vagueResponse.json();
 
-        this.npcManager.addClue(
-          this.currentNPC,
-          clueText,
-          this.npcManager.getCurrentDay(),
-          stage
-        );
-
-        this.showClueObtainedNotification();
-
-        this.showSingleMessage("npc", clueText, async () => {
-          this.dialogPhase = "completed";
-
-          if (stage === 3) {
-            await this.npcManager.completeNPCInteraction(this.currentNPC);
-            this.npcManager.checkAndUpdateCurrentDay?.();
-          }
-
-          this.notifyMealRecorded();
-          this.showDoneButtons();
-        });
-
-        return;
+          this.showSingleMessage("npc", vagueData.response, () => {
+            this.completeDialog();
+          });
+        } catch (error) {
+          console.error("获取 vague 回复失败:", error);
+          this.completeDialog();
+        }
       }
+
 
       const endMessage =
         this.playerData.language === "zh"
@@ -2522,138 +2697,71 @@ export default class DialogScene extends Phaser.Scene {
   }
 
   returnToMainScene() {
-    console.log("🔙 返回主场景");
+    console.log("🔙 DialogScene: Returning to MainScene");
 
     try {
-      // 1. 清理背景容器
-      if (this.backgroundContainer) {
-        this.backgroundContainer.destroy(true);
-        this.backgroundContainer = null;
+      // 清理所有视觉元素
+      this.cleanupAllVisuals();
+
+      // 移除 HTML 输入框
+      if (this.textInput) {
+        this.textInput.remove();
+        this.textInput = null;
+      }
+      if (this.textarea) {
+        this.textarea.remove();
+        this.textarea = null;
       }
 
-      // 2. 清理单独的背景元素
-      if (this.npcBackground) {
-        this.npcBackground.destroy();
-        this.npcBackground = null;
-      }
-
-      if (this.solidBackground) {
-        this.solidBackground.destroy();
-        this.solidBackground = null;
-      }
-
-      // 3. 清理对话框
-      if (this.dialogBg) {
-        this.dialogBg.clear();
-        this.dialogBg.destroy();
-        this.dialogBg = null;
-      }
-
-      // 4. 清理文本
-      if (this.dialogText) {
-        this.dialogText.destroy();
-        this.dialogText = null;
-      }
-
-      if (this.npcNameText) {
-        this.npcNameText.destroy();
-        this.npcNameText = null;
-      }
-
-      if (this.statusText) {
-        this.statusText.destroy();
-        this.statusText = null;
-      }
-
-      // 5. 清理按钮
-      if (this.returnButton) {
-        this.returnButton.destroy();
-        this.returnButton = null;
-      }
-
-      // 6. 清理动态按钮数组
-      [
-        this.dynamicButtons,
-        this.fixedQuestionButtons,
-        this.mealButtons,
-      ].forEach((arr) => {
-        if (arr && Array.isArray(arr)) {
-          arr.forEach((btn) => {
-            if (btn && btn.destroy) {
-              btn.destroy();
-            }
-          });
-        }
-      });
-      this.dynamicButtons = [];
-      this.fixedQuestionButtons = [];
-      this.mealButtons = [];
-
-      // 7. 清理所有图形和矩形对象
-      this.children.list.forEach((child) => {
-        if (
-          child &&
-          (child.type === "Graphics" ||
-            child.type === "Rectangle" ||
-            child.type === "Image")
-        ) {
-          try {
-            child.destroy();
-          } catch (e) {
-            console.warn("清理子对象失败:", e);
+      // 清理所有定时器
+      if (this.timers && this.timers.length > 0) {
+        this.timers.forEach((timer) => {
+          if (timer) {
+            this.time.removeEvent(timer);
           }
-        }
-      });
+        });
+        this.timers = [];
+      }
+
+      // ⚠️ 关键修复：确保主场景已经启动
+      const mainScene = this.scene.get("MainScene");
+
+      if (!mainScene || !mainScene.scene.isActive()) {
+        console.error("⚠️ MainScene 不存在或未激活，重新启动");
+        this.scene.stop("DialogScene");
+        this.scene.start("MainScene", {
+          playerData: this.playerData,
+          returnFromDialog: true
+        });
+        return;
+      }
+
+      // 正常情况：唤醒主场景
+      this.scene.stop("DialogScene");
+      this.scene.wake("MainScene");
+
+      // 重新启用主场景的输入和相机
+      mainScene.cameras.main.setVisible(true);
+      mainScene.input.enabled = true;
+
+      // 重新聚焦到玩家位置
+      if (mainScene.player) {
+        mainScene.cameras.main.startFollow(mainScene.player, true, 0.1, 0.1);
+      }
+
+      // 刷新 UI
+      if (mainScene.uiManager) {
+        mainScene.uiManager.updateMealProgress(this.playerData.todayMeals || {});
+      }
+
+      console.log("✅ Successfully returned to MainScene");
+
     } catch (error) {
-      console.error("清理视觉元素失败:", error);
+      console.error("❌ Error returning to MainScene:", error);
+      // 强制重启主场景
+      this.scene.stop("DialogScene");
+      this.scene.start("MainScene", { playerData: this.playerData });
     }
-
-    // 清理定时器
-    if (this.timers && Array.isArray(this.timers)) {
-      this.timers.forEach((t) => t && t.remove && t.remove());
-      this.timers = [];
-    }
-
-    // 清理事件监听
-    if (this.eventListeners && Array.isArray(this.eventListeners)) {
-      this.eventListeners.forEach((listener) => {
-        if (listener && listener.off) {
-          listener.off();
-        }
-      });
-      this.eventListeners = [];
-    }
-
-    // 清理键盘和输入
-    this.cleanupKeyboardListeners();
-    this.cleanupTextarea();
-
-    // 重置状态
-    this.resetSceneState();
-
-    // 延迟停止场景
-    setTimeout(() => {
-      this.scene.stop();
-
-      setTimeout(() => {
-        if (this.mainScene) {
-          if (this.mainScene.emergencyCleanupFloatingTexts) {
-            this.mainScene.emergencyCleanupFloatingTexts();
-          }
-          if (this.mainScene.refreshNPCs) {
-            this.mainScene.refreshNPCs("dialog-end");
-          }
-        }
-
-        this.scene.resume("MainScene");
-
-        setTimeout(() => {
-          if (this.mainScene && this.mainScene.forceViewportReset) {
-            this.mainScene.forceViewportReset();
-          }
-        }, 100);
-      }, 50);
-    }, 50);
   }
 
   // DialogScene.js
@@ -2682,7 +2790,7 @@ export default class DialogScene extends Phaser.Scene {
       // 5) 结束对话场景、回到主场景
       try {
         this.dialogSystem?.endDialog?.();
-      } catch {}
+      } catch { }
       this.scene.stop("DialogScene");
       this.scene.resume("MainScene");
     });
@@ -2866,7 +2974,7 @@ export default class DialogScene extends Phaser.Scene {
                 : `Meal: ${mealName}`
             );
           }
-        } catch {}
+        } catch { }
 
         const timeText =
           (qa.mealTime && qa.mealTime.text) ||

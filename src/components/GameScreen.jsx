@@ -3,6 +3,7 @@ import React, { useEffect, useCallback, useContext, useState, useRef } from "rea
 import Phaser from "phaser";
 import MainScene from "../phaser/MainScene";
 import DialogScene from "../phaser/DialogScene";
+import DialogSceneRefactored from "../phaser/dialog/DialogSceneRefactored";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
@@ -75,7 +76,7 @@ function GameScreen() {
     );
 
     const gameConfig = {
-      scene: [MainScene, DialogScene],
+      scene: [MainScene, DialogSceneRefactored, DialogScene], // 新场景优先，保留旧场景作为备份
       title: "Village Secrets",
       type: Phaser.AUTO,
       width: gameWidth,
@@ -107,6 +108,9 @@ function GameScreen() {
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: "100%",
         height: "100%",
+        // 🔧 确保PC和移动端都能正确铺满屏幕
+        expandParent: true,
+        parent: "game",
       },
     };
 

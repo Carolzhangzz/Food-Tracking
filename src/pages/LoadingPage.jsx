@@ -86,10 +86,10 @@ function LoadingPage() {
       setLoadingProgress(prev => {
         if (prev >= 100) {
           clearInterval(progressInterval);
-          // 加载完成，跳转到游戏
-          console.log("✅ LoadingPage: 加载完成，跳转到 GameScreen");
+          // 加载完成，跳转到性别选择页面
+          console.log("✅ LoadingPage: 加载完成，跳转到性别选择页面");
           setTimeout(() => {
-            navigate('/game');
+            navigate('/gender-selection');
           }, 500);
           return 100;
         }

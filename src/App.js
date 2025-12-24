@@ -4,7 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { PlayerProvider } from "./context/PlayerContext";
 import LoginPage from "./components/LoginPage";
 import LoadingPage from "./pages/LoadingPage";
-import CutScenePlayer from "./components/CutScenePlayer";  // ✅ 导入 CutScenePlayer
+import CutScenePlayer from "./components/CutScenePlayer";
+import GenderSelectionPage from "./pages/GenderSelectionPage";  // ✅ 导入性别选择页面
 import GameScreen from "./components/GameScreen";
 
 function App() {
@@ -30,8 +31,9 @@ function App() {
         >
           <Routes>
             <Route path="/" element={<LoginPage />} />
-            <Route path="/intro" element={<CutScenePlayer />} />  {/* ✅ 使用 CutScenePlayer */}
+            <Route path="/intro" element={<CutScenePlayer />} />
             <Route path="/loading" element={<LoadingPage />} />
+            <Route path="/gender-selection" element={<GenderSelectionPage />} />  {/* ✅ 性别选择页面 */}
             <Route path="/game" element={<GameScreen />} />
           </Routes>
         </div>

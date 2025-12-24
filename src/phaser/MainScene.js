@@ -30,29 +30,29 @@ function _sheetInfo(scene, sheetKey) {
 
 function getBottomLeftFrames(scene, sheetKey = "player") {
   const { totalCols, totalRows } = _sheetInfo(scene, sheetKey);
-  
+
   if (totalCols === 0 || totalRows === 0) {
     console.error("❌ 无法获取帧信息");
     return null;
   }
-  
+
   const blocksY = Math.floor(totalRows / 4);
   const blockCol = 0;
   const blockRow = blocksY - 1;
   const baseCol = blockCol * 3;
   const baseRow = blockRow * 4;
-  
+
   const rowToFrames = (row) => [
     row * totalCols + (baseCol + 0),
     row * totalCols + (baseCol + 1),
     row * totalCols + (baseCol + 2),
   ];
-  
+
   const down = rowToFrames(baseRow + 0);
   const left = rowToFrames(baseRow + 1);
   const right = rowToFrames(baseRow + 2);
   const up = rowToFrames(baseRow + 3);
-  
+
   return {
     down,
     left,
@@ -64,12 +64,12 @@ function getBottomLeftFrames(scene, sheetKey = "player") {
 
 function registerPlayerAnims(scene, sheetKey = "player", keyPrefix = "player") {
   const frames = getBottomLeftFrames(scene, sheetKey);
-  
+
   if (!frames) {
     console.error("❌ 无法注册动画:帧数据为空");
     return null;
   }
-  
+
   const mk = (key, arr) => {
     if (!scene.anims.exists(key)) {
       try {
@@ -85,12 +85,12 @@ function registerPlayerAnims(scene, sheetKey = "player", keyPrefix = "player") {
       }
     }
   };
-  
+
   mk(`${keyPrefix}-walk-down`, frames.down);
   mk(`${keyPrefix}-walk-left`, frames.left);
   mk(`${keyPrefix}-walk-right`, frames.right);
   mk(`${keyPrefix}-walk-up`, frames.up);
-  
+
   return frames;
 }
 
@@ -112,28 +112,38 @@ export default class MainScene extends Phaser.Scene {
 
   preload() {
     console.log("📦 MainScene preload started");
-    
+
     // 添加加载错误处理
     this.load.on('loaderror', (file) => {
       console.error('❌ 加载失败:', file.key, file.url);
       console.error('   检查文件是否存在:', file.src);
     });
-    
+
     this.load.on('filecomplete', (key) => {
       console.log('✅ 加载完成:', key);
     });
-    
-    // 🎯 直接使用大地图图片
-    this.load.image("bigmap", "/assets/map.JPG");
-    this.load.spritesheet("characters", "/assets/characters.png", {
-      frameWidth: 32,
-      frameHeight: 48,
-    });
-    
+
+    // 🎯 使用横向地图图片（手机游戏适配）
+    this.load.image("bigmap", "/assets/map_horizontal.JPG");
+
+    // 🔧 加载Player用的单张图片 - boynew和girlnew（不是雪碧图，就是正面图）
+    this.load.image("player_boy", "/assets/npc/boynew.png");
+    this.load.image("player_girl", "/assets/npc/girlnew.png");
+
+    // 🔧 加载7个NPC单独图片
+    for (let i = 1; i <= 7; i++) {
+      this.load.image(`npc${i}`, `/assets/npc/npc${i}.png`);
+    }
+
+    // 🔧 加载线索本图标
+    this.load.image("cluebook", "/assets/elements/cluebook.png");
+
+    console.log("📦 加载boy/girl角色 + 7个NPC图片 + 线索本图标");
+
     console.log("📦 MainScene preload completed");
   }
 
-  create() {
+  async create() {
     console.log("🌄 Creating map with bigmap image...");
 
     // 🔧 接收 GameScreen 传来的数据
@@ -141,15 +151,19 @@ export default class MainScene extends Phaser.Scene {
     this.playerId = sceneData.playerId;
     this.playerData = sceneData.playerData;
 
-    console.log("📊 Scene data:", { 
-      playerId: this.playerId, 
+    console.log("📊 Scene data:", {
+      playerId: this.playerId,
       hasPlayerData: !!this.playerData,
-      language: this.playerData?.language 
+      language: this.playerData?.language,
+      gender: this.playerData?.gender
     });
 
     // 验证资源加载
-    if (!this.textures.exists("characters")) {
-      console.error("❌ characters spritesheet 未加载,使用备用方案");
+    const gender = this.playerData?.gender || 'boy';
+    const playerImageKey = gender === 'girl' ? 'player_girl' : 'player_boy';
+
+    if (!this.textures.exists(playerImageKey)) {
+      console.error(`❌ ${playerImageKey} 图片未加载,使用备用方案`);
       this.createFallbackPlayer();
       this.fullyInitialized = true;
       return;
@@ -173,61 +187,62 @@ export default class MainScene extends Phaser.Scene {
       this.physics.world.setBounds(0, 0, mapW, mapH);
 
       // === 2️⃣ 加载玩家 ===
-      // 🔧 调整玩家起始位置到地图中心偏下位置
-      const startX = mapW / 2;  // 地图中心 X
-      const startY = mapH / 2 + 300;  // 地图中心偏下
-      
+      // 🔧 根据性别选择角色图片（单张，不是雪碧图）
+      const gender = this.playerData?.gender || 'boy'; // 默认男生
+      const playerImageKey = gender === 'girl' ? 'player_girl' : 'player_boy';
+
+      console.log(`👤 玩家性别: ${gender}, 使用图片: ${playerImageKey}`);
+
+      // 🔧 横向地图：玩家起始位置在左下角区域
+      const startX = mapW * 0.15;  // 地图左侧15%位置
+      const startY = mapH * 0.7;   // 地图下方70%位置
+
       this.player = this.physics.add
-        .sprite(startX, startY, "characters", 0)
+        .sprite(startX, startY, playerImageKey)  // 🔧 使用单张图片，不需要frame参数
         .setOrigin(0.5)
         .setDepth(10)
         .setCollideWorldBounds(true)
-        .setScale(3.5);  // 🔧 放大玩家到3.5，和NPC大小接近
+        .setScale(0.12);  // 🔧 单张图片较大，缩小到0.12倍
 
       // 初始化点击移动变量
       this.isMovingToTarget = false;
       this.targetX = null;
       this.targetY = null;
 
-      console.log(`🎮 玩家位置: (${startX}, ${startY})`);
+      console.log(`🎮 玩家位置: (${startX}, ${startY}), 静态图片（无动画）`);
 
-      // 注册动画
-      this._charFrames = getBottomLeftFrames(this, "characters");
-      registerPlayerAnims(this, "characters", "player");
-      
-      // 延迟播放动画
-      this.time.delayedCall(100, () => {
-        if (this.player && this.anims.exists("player-walk-down")) {
-          this.player.anims.play("player-walk-down");
-          console.log("✅ 玩家动画开始播放");
-        }
-      });
-
-      // === 3️⃣ 摄像机设置 ===
-      this.cameras.main.startFollow(this.player);
-      this.cameras.main.setBounds(0, 0, mapW, mapH);
-
+      // === 3️⃣ 摄像机设置（手机游戏：横向铺满屏幕）===
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      // 🔧 调整缩放，让游戏内容更大更清晰
-      const zoom = 1.2; // 增加到1.2，让一切看起来更大
+      // 🔧 计算缩放：横向铺满，让地图宽度完全填充屏幕宽度
+      const zoomX = screenW / mapW;
+      const zoomY = screenH / mapH;
+      const zoom = Math.max(zoomX, zoomY); // 使用较大的缩放值，确保铺满屏幕
 
       this.cameras.main.setZoom(zoom);
-      
-      // 让摄像机跟随玩家，玩家在屏幕中心
-      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+      this.cameras.main.setBounds(0, 0, mapW, mapH);
 
-      console.log(`📷 摄像机设置: zoom=${zoom}, 跟随玩家`);
+      // 🎯 居中地图（不跟随玩家）
+      this.cameras.main.centerOn(mapW / 2, mapH / 2);
+
+      console.log(`📷 摄像机设置: zoom=${zoom.toFixed(2)}, 横向铺满屏幕`, {
+        地图尺寸: `${mapW}x${mapH}`,
+        屏幕尺寸: `${screenW}x${screenH}`,
+        zoomX: zoomX.toFixed(2),
+        zoomY: zoomY.toFixed(2)
+      });
 
       // 🎯 添加点击移动功能
       this.input.on('pointerdown', (pointer) => {
         // 将屏幕坐标转换为世界坐标
         const worldX = pointer.worldX;
         const worldY = pointer.worldY;
-        
-        console.log(`🖱️ 点击位置: (${Math.round(worldX)}, ${Math.round(worldY)})`);
-        
+
+        // 🔧 调试模式：显示点击坐标，方便配置NPC位置
+        console.log(`🖱️ 点击位置: x: ${Math.round(worldX)}, y: ${Math.round(worldY)}`);
+        console.log(`   复制这个坐标: { x: ${Math.round(worldX)}, y: ${Math.round(worldY)} }`);
+
         // 移动玩家到点击位置
         this.targetX = worldX;
         this.targetY = worldY;
@@ -236,14 +251,44 @@ export default class MainScene extends Phaser.Scene {
 
       // === 4️⃣ 初始化系统 ===
       console.log("🔧 初始化 NPCManager 和 UIManager...");
-      
+
       this.npcManager = new NPCManager(this);
       this.uiManager = new UIManager(this);
+
+      // 🔧 等待NPCManager初始化完成后再初始化UI
+      console.log("⏳ 等待 NPCManager 初始化...");
+      await this.npcManager.init();
+
+      // 🔧 初始化 UI 元素（线索按钮、日期显示、餐食进度）
+      console.log("📋 初始化 UI 元素...");
+      this.uiManager.init();
+
+      // 🔧 初始加载线索数据
+      console.log("📋 初始加载线索...");
+      this.uiManager.loadCluesFromAPI().catch(err => {
+        console.error("❌ 初始加载线索失败:", err);
+      });
+
       this.setupAudio();
 
       // === 5️⃣ Resize 事件 ===
       this.scale.on("resize", this.handleResize, this);
       this.handleResize();
+
+      // === 6️⃣ 初始化 UIManager ===
+      console.log("🎨 初始化 UIManager...");
+      this.uiManager = new UIManager(this);
+      this.uiManager.init();
+
+      // 从数据库加载线索
+      if (this.playerId) {
+        this.uiManager.loadCluesFromAPI().catch(err => {
+          console.error("加载线索失败:", err);
+        });
+      }
+
+      console.log("✅ UIManager 初始化完成");
+
 
       this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -255,7 +300,7 @@ export default class MainScene extends Phaser.Scene {
         玩家位置: `${startX}, ${startY}`,
         NPCs数量: this.npcManager?.npcSprites?.length || 0,
       });
-      
+
     } catch (error) {
       console.error("❌ MainScene create 错误:", error);
       this.fullyInitialized = true; // 即使出错也标记为完成,避免卡住
@@ -273,19 +318,66 @@ export default class MainScene extends Phaser.Scene {
   handleResize() {
     // 🔧 修复：不要调用 this.scale.resize()，这会触发无限递归
     // Phaser 的 Scale Manager 会自动处理窗口大小变化
-    
+
     const width = window.innerWidth;
     const height = window.innerHeight;
-    
+
     console.log(`📐 窗口大小变化: ${width} x ${height}`);
-    
-    // 只需要更新摄像机视口
+
+    // 更新摄像机视口
     this.cameras.main.setViewport(0, 0, width, height);
+
+    // 🎯 手机游戏：重新计算缩放，横向铺满屏幕
+    if (this.physics && this.physics.world && this.physics.world.bounds.width > 0) {
+      const mapW = this.physics.world.bounds.width;
+      const mapH = this.physics.world.bounds.height;
+
+      const zoomX = width / mapW;
+      const zoomY = height / mapH;
+      const zoom = Math.max(zoomX, zoomY); // 使用较大值，确保横向铺满
+
+      this.cameras.main.setZoom(zoom);
+      this.cameras.main.centerOn(mapW / 2, mapH / 2);
+
+      console.log(`📷 更新缩放: ${zoom.toFixed(2)}，横向铺满屏幕`);
+    }
   }
 
   update() {
-    const speed = 120;
-    if (!this.cursors || !this.player) return;
+    if (!this.player) return;
+
+    const speed = 200;
+    const stopDistance = 10; // 到达目标的距离阈值
+
+    // 🎯 处理点击移动
+    if (this.isMovingToTarget && this.targetX !== null && this.targetY !== null) {
+      const dx = this.targetX - this.player.x;
+      const dy = this.targetY - this.player.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < stopDistance) {
+        // 到达目标，停止移动
+        this.player.setVelocity(0, 0);
+        this.isMovingToTarget = false;
+        this.targetX = null;
+        this.targetY = null;
+        if (this.player.anims) {
+          this.player.anims.stop();
+        }
+      } else {
+        // 计算归一化的方向向量
+        const vx = (dx / distance) * speed;
+        const vy = (dy / distance) * speed;
+
+        this.player.setVelocity(vx, vy);
+
+        // 🔧 单张图片Player，无动画，只移动
+      }
+      return;
+    }
+
+    // 🎮 键盘控制（保留作为备用，主要用点击）
+    if (!this.cursors) return;
 
     let vx = 0, vy = 0;
     if (this.cursors.left.isDown) vx = -speed;
@@ -295,23 +387,7 @@ export default class MainScene extends Phaser.Scene {
 
     this.player.setVelocity(vx, vy);
 
-    if (vx !== 0 || vy !== 0) {
-      if (Math.abs(vx) > Math.abs(vy)) {
-        const animKey = vx > 0 ? "player-walk-right" : "player-walk-left";
-        if (this.anims.exists(animKey)) {
-          this.player.anims.play(animKey, true);
-        }
-      } else {
-        const animKey = vy > 0 ? "player-walk-down" : "player-walk-up";
-        if (this.anims.exists(animKey)) {
-          this.player.anims.play(animKey, true);
-        }
-      }
-    } else {
-      if (this.player.anims) {
-        this.player.anims.stop();
-      }
-    }
+    // 🔧 单张图片Player，无动画
   }
 
   setPlayerData(newPlayerData) {
@@ -351,8 +427,8 @@ export default class MainScene extends Phaser.Scene {
           ? "🎉 恭喜完成所有7天的旅程!正在准备最终彩蛋..."
           : "🎉 Congratulations on completing all 7 days! Preparing final surprise..."
         : lang === "zh"
-        ? `第${currentDay}天的记录完成!下次登录时可以与新的NPC对话`
-        : `Day ${currentDay} record complete! You can talk to a new NPC next time you login`;
+          ? `第${currentDay}天的记录完成!下次登录时可以与新的NPC对话`
+          : `Day ${currentDay} record complete! You can talk to a new NPC next time you login`;
     this.showNotification(msg, 4000);
   }
 
@@ -442,12 +518,12 @@ export default class MainScene extends Phaser.Scene {
 
   destroy() {
     console.log("💥 MainScene destroy");
-    
+
     if (this.keyboardState?.listeners) {
       this.keyboardState.listeners.forEach(({ target, event, handler }) => {
         try {
           target.removeEventListener(event, handler);
-        } catch (e) {}
+        } catch (e) { }
       });
       this.keyboardState.listeners = [];
     }
@@ -486,26 +562,26 @@ export default class MainScene extends Phaser.Scene {
 
   createFallbackPlayer() {
     console.log("🎨 创建备用玩家");
-    
+
     const width = window.innerWidth;
     const height = window.innerHeight;
-    
+
     const graphics = this.add.graphics();
     graphics.fillStyle(0x0066ff, 1);
     graphics.fillRect(-16, -24, 32, 48);
     graphics.generateTexture('fallback-player', 32, 48);
     graphics.destroy();
-    
+
     this.player = this.physics.add
       .sprite(width / 2, height / 2, 'fallback-player')
       .setOrigin(0.5)
       .setDepth(10);
-    
+
     this.physics.world.setBounds(0, 0, width, height);
     this.cameras.main.startFollow(this.player);
-    
+
     this.cursors = this.input.keyboard.createCursorKeys();
-    
+
     const text = this.add.text(width / 2, 50, '⚠️ 资源加载失败,使用备用模式', {
       fontSize: '20px',
       fill: '#ffffff',
@@ -514,7 +590,7 @@ export default class MainScene extends Phaser.Scene {
     });
     text.setOrigin(0.5);
     text.setScrollFactor(0);
-    
+
     console.log("✅ 备用玩家创建完成");
   }
 

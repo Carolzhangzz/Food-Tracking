@@ -16,16 +16,16 @@ export default class NPCManager {
 
     console.log(`📱 设备类型: ${this.isMobile ? '移动端' : '桌面'}, 点击防抖: ${this.clickDebounceTime}ms`);
 
-    // 🎯 6个NPC配置 - 根据地图实际尺寸 (3072x5462) 调整位置
+    // 🎯 7个NPC配置 - 使用单独NPC图片 + 精确坐标
     this.npcData = [
       {
-        id: "uncle_bo",  // Uncle Bo / 阿桂（杂货铺）
+        id: "uncle_bo",  // Uncle Bo / 阿桂（杂货铺） - Day 1
         name: {
           zh: "阿桂（杂货铺）",
           en: "Uncle Bo"
         },
-        position: { x: 600, y: 1200 },  // 📍 左上区域
-        frame: 3,
+        position: { x: 135, y: 463 },  // 📍 用户提供的精确坐标
+        imageKey: "npc1",  // 🔧 使用单独NPC图片
         unlockDay: 1,
         description: {
           zh: "杂货铺老板，记得师傅的笔记本",
@@ -33,13 +33,13 @@ export default class NPCManager {
         }
       },
       {
-        id: "village_head",  // Village Head / 村长
+        id: "village_head",  // Village Head / 村长 - Day 2
         name: {
           zh: "村长",
           en: "Village Head"
         },
-        position: { x: 1800, y: 1200 },  // 📍 右上区域
-        frame: 6,
+        position: { x: 666, y: 138 },  // 📍 用户提供的精确坐标
+        imageKey: "npc2",  // 🔧 使用单独NPC图片
         unlockDay: 2,
         description: {
           zh: "村里的领导者",
@@ -47,13 +47,13 @@ export default class NPCManager {
         }
       },
       {
-        id: "spice_granny",  // Spice Granny / 香料奶奶
+        id: "spice_granny",  // Spice Granny / 香料奶奶 - Day 3
         name: {
           zh: "香料奶奶",
           en: "Spice Granny"
         },
-        position: { x: 2200, y: 2400 },  // 📍 右边中部
-        frame: 9,
+        position: { x: 243, y: 141 },  // 📍 用户提供的精确坐标
+        imageKey: "npc3",  // 🔧 使用单独NPC图片
         unlockDay: 3,
         description: {
           zh: "知道greenwood seeds的秘密",
@@ -61,13 +61,13 @@ export default class NPCManager {
         }
       },
       {
-        id: "restaurant_owner",  // Restaurant Owner / 餐厅老板
+        id: "restaurant_owner",  // Restaurant Owner / 餐厅老板 - Day 4
         name: {
           zh: "餐厅老板",
           en: "Restaurant Owner"
         },
-        position: { x: 2400, y: 3600 },  // 📍 右下区域
-        frame: 12,
+        position: { x: 866, y: 469 },  // 📍 用户提供的精确坐标
+        imageKey: "npc4",  // 🔧 使用单独NPC图片
         unlockDay: 4,
         description: {
           zh: "经营村里的餐厅",
@@ -75,13 +75,13 @@ export default class NPCManager {
         }
       },
       {
-        id: "little_girl",  // Little Girl / 小女孩
+        id: "little_girl",  // Little Girl / 小女孩 - Day 5
         name: {
           zh: "小女孩",
           en: "Little Girl"
         },
-        position: { x: 800, y: 3200 },  // 📍 左下区域
-        frame: 15,
+        position: { x: 625, y: 431 },  // 📍 用户提供的精确坐标
+        imageKey: "npc5",  // 🔧 使用单独NPC图片
         unlockDay: 5,
         description: {
           zh: "天真可爱的村里孩子",
@@ -89,25 +89,39 @@ export default class NPCManager {
         }
       },
       {
-        id: "mysterious_person",  // 神秘人 / Mysterious Person
+        id: "mysterious_person",  // 神秘人 / Mysterious Person - Day 6
         name: {
           zh: "神秘人",
           en: "Mysterious Person"
         },
-        position: { x: 1500, y: 4000 },  // 📍 底部中央
-        frame: 18,
+        position: { x: 914, y: 95 },  // 📍 用户提供的精确坐标
+        imageKey: "npc6",  // 🔧 使用单独NPC图片
         unlockDay: 6,
         description: {
           zh: "知道最终秘密的人",
           en: "Knows the final secret"
         }
       },
+      {
+        id: "final_npc",  // 第7个NPC - Day 7
+        name: {
+          zh: "最终NPC",
+          en: "Final NPC"
+        },
+        position: { x: 363, y: 492 },  // 📍 用户提供的精确坐标
+        imageKey: "npc7",  // 🔧 使用单独NPC图片
+        unlockDay: 7,
+        description: {
+          zh: "揭示最终真相",
+          en: "Reveals the final truth"
+        }
+      },
     ];
 
-    console.log("🎭 NPCManager created with 6 NPCs");
+    console.log("🎭 NPCManager created with 7 NPCs (Day 1-7)");
 
-    // 初始化
-    this.init();
+    // 🔧 不在构造函数中自动初始化，由MainScene控制初始化时机
+    // this.init();
   }
 
   async init() {
@@ -168,25 +182,25 @@ export default class NPCManager {
     this.npcData.forEach((npcData, index) => {
       const npcName = npcData.name[lang] || npcData.name.zh;
 
-      // 创建NPC精灵 - 🔧 大幅放大
+      // 创建NPC精灵 - 🔧 使用单独NPC图片
       const npcSprite = this.scene.physics.add
-        .sprite(npcData.position.x, npcData.position.y, "characters", npcData.frame)
+        .sprite(npcData.position.x, npcData.position.y, npcData.imageKey)  // 🔧 使用imageKey而不是characters+frame
         .setOrigin(0.5)
         .setDepth(5)
-        .setScale(4)  // 🔧 从2.5改为4，让NPC更大更明显
+        .setScale(0.10)  // 🔧 缩小NPC到0.10倍，让角色更精致
         .setInteractive({ useHandCursor: true });
 
       // 添加NPC名字标签
       const nameText = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y - 90,  // 🔧 调整名字位置
+        npcData.position.y - 28,  // 🔧 缩小NPC后调整：名字位置更近
         npcName,
         {
-          fontSize: "24px",  // 🔧 增大字体到24px
+          fontSize: "11px",  // 🔧 缩小NPC后调整：字体稍小
           fontFamily: "monospace",
           fill: "#ffffff",
           backgroundColor: "#000000dd",
-          padding: { x: 10, y: 8 },
+          padding: { x: 5, y: 3 },
         }
       );
       nameText.setOrigin(0.5).setDepth(6);
@@ -194,32 +208,32 @@ export default class NPCManager {
       // 创建锁定图标 🔒
       const lockIcon = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y + 90,  // 🔧 调整位置
+        npcData.position.y,  // 🔧 缩小NPC后：放在中心
         "🔒",
-        { fontSize: "40px" }  // 🔧 增大图标到40px
+        { fontSize: "20px" }  // 🔧 缩小NPC后调整：图标稍小
       );
-      lockIcon.setOrigin(0.5).setDepth(6).setVisible(false);
+      lockIcon.setOrigin(0.5).setDepth(7).setVisible(false);  // depth=7高于NPC
 
       // 创建当前可交互指示器 ⬇️
       const activeIndicator = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y - 130,  // 🔧 调整位置
+        npcData.position.y - 40,  // 🔧 缩小NPC后调整：箭头位置更近
         "⬇️",
-        { fontSize: "48px" }  // 🔧 增大箭头到48px
+        { fontSize: "18px" }  // 🔧 缩小NPC后调整：箭头稍小
       );
       activeIndicator.setOrigin(0.5).setDepth(6).setVisible(false);
 
       // 天数标签（显示第X天）
       const dayLabel = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y + 100,  // 🔧 调整位置
+        npcData.position.y + 32,  // 🔧 缩小NPC后调整：标签位置更近
         `${lang === "zh" ? "第" : "Day "}${npcData.unlockDay}${lang === "zh" ? "天" : ""}`,
         {
-          fontSize: "20px",  // 🔧 增大字体到20px
+          fontSize: "10px",  // 🔧 缩小NPC后调整：字体稍小
           fontFamily: "monospace",
           fill: "#fbbf24",
           backgroundColor: "#00000099",
-          padding: { x: 8, y: 4 },
+          padding: { x: 4, y: 2 },
         }
       );
       dayLabel.setOrigin(0.5).setDepth(6);
@@ -281,6 +295,9 @@ export default class NPCManager {
       昨日餐数: yesterdayMealCount,
     });
 
+    // 🔧 重要：填充 availableNPCs 数组（DialogScene需要）
+    this.availableNPCs = [];
+
     this.npcSprites.forEach((npc, index) => {
       const unlockDay = npc.data.unlockDay;
       
@@ -298,6 +315,21 @@ export default class NPCManager {
 
       const isCurrentDay = unlockDay === currentDay;
       const isActive = isCurrentDay && todayMeals.length < 3 && isUnlocked;
+      
+      // 🔧 计算可用的餐食类型（剩余未记录的）
+      const allMealTypes = ['breakfast', 'lunch', 'dinner'];
+      const availableMealTypes = allMealTypes.filter(mealType => !todayMeals.includes(mealType));
+      
+      // 🔧 添加到 availableNPCs 数组（供 DialogScene 使用）
+      if (isCurrentDay && isUnlocked) {
+        this.availableNPCs.push({
+          npcId: npc.data.id,
+          day: unlockDay,
+          unlocked: true,
+          availableMealTypes: availableMealTypes, // 🔑 关键：剩余可记录的餐食
+          mealsRecorded: todayMeals.length,
+        });
+      }
       
       if (isUnlocked) {
         // ✅ 已解锁
@@ -324,17 +356,38 @@ export default class NPCManager {
       }
     });
 
-    console.log("✅ NPC状态更新完成");
+    console.log("✅ NPC状态更新完成", {
+      可用NPCs: this.availableNPCs.length,
+      当天剩余餐食: this.availableNPCs[0]?.availableMealTypes || []
+    });
   }
 
   handleNPCClick(npcData, sprite) {
     const lang = this.scene.playerData?.language || "zh";
     const npcName = npcData.name[lang];
     
-    console.log(`🎯 处理NPC点击: ${npcName}`);
+    console.log(`🎯 处理NPC点击: ${npcName} (${npcData.id})`);
+
+    // 🔧 手机游戏：点击NPC时停止玩家移动
+    if (this.scene.player) {
+      this.scene.isMovingToTarget = false;
+      this.scene.targetX = null;
+      this.scene.targetY = null;
+      if (this.scene.player.setVelocity) {
+        this.scene.player.setVelocity(0, 0);
+      }
+    }
 
     const currentDay = this.getCurrentDay();
     const unlockDay = npcData.unlockDay;
+    const todayMeals = this.getTodayMeals();
+    
+    console.log(`📊 NPC点击检查:`, {
+      NPC: npcName,
+      当前天数: currentDay,
+      NPC解锁天数: unlockDay,
+      今日已记录餐食: todayMeals,
+    });
     
     // 检查前一天餐食记录
     const prevDayMeals = this.getMealsForDay(unlockDay - 1);
@@ -346,6 +399,7 @@ export default class NPCManager {
       const message = lang === "zh" 
         ? `这个NPC需要完成第${unlockDay - 1}天的餐食记录才能解锁`
         : `Complete Day ${unlockDay - 1} meal records to unlock this NPC`;
+      console.log(`🔒 NPC未解锁: ${message}`);
       this.scene.showNotification(message, 3000);
       return;
     }
@@ -355,11 +409,13 @@ export default class NPCManager {
       const message = lang === "zh"
         ? "你已经和这个NPC完成了对话，去找下一个NPC吧！"
         : "You've completed this NPC's dialogue. Find the next NPC!";
+      console.log(`⏭️ 不是当天NPC: ${message}`);
       this.scene.showNotification(message, 2500);
       return;
     }
 
     // ✅ 可以对话
+    console.log(`✅ 开始对话: ${npcName}`);
     this.startDialogWithNPC(npcData);
   }
 
@@ -373,8 +429,7 @@ export default class NPCManager {
       // 暂停主场景
       this.scene.scene.pause();
 
-      // 启动对话场景
-      this.scene.scene.launch("DialogScene", {
+      const dialogData = {
         npcId: npcData.id,
         npcName: npcName,
         playerId: this.scene.playerId,
@@ -382,9 +437,18 @@ export default class NPCManager {
         currentDay: this.getCurrentDay(),
         todayMeals: this.getTodayMeals(), // ['breakfast', 'lunch']
         hasTalkedBefore: this.hasCompletedNPC(npcData.id),
-      });
+        npcManager: this, // 🔧 传递 NPCManager 实例
+        useConvAI: true, // 🔧 关键：启用ConvAI API进行开场白
+        mainScene: this.scene, // 🔧 传递主场景引用
+      };
 
-      console.log("✅ DialogScene 已启动");
+      console.log(`📦 对话数据:`, dialogData);
+      console.log(`🎯 useConvAI: true - 将调用ConvAI API`);
+
+      // 🔧 启动新的重构版对话场景
+      this.scene.scene.launch("DialogSceneRefactored", dialogData);
+
+      console.log("✅ DialogSceneRefactored 已启动");
     } catch (error) {
       console.error("❌ 启动对话场景失败:", error);
       this.scene.scene.resume();
@@ -514,6 +578,77 @@ export default class NPCManager {
   }
 
   // 销毁
+  // 🔧 新增：添加线索到UIManager
+  addClue(npcId, clueText, day, stage = null) {
+    console.log(
+      "📝 [NPCManager.addClue] NPC:",
+      npcId,
+      "Day:",
+      day,
+      "Stage:",
+      stage,
+      "Clue:",
+      clueText?.slice(0, 40)
+    );
+
+    if (!this.scene.uiManager) {
+      console.error("❌ UIManager 未初始化，无法添加线索");
+      return;
+    }
+
+    const lang = this.scene.playerData?.language || "zh";
+    const npcData = this.npcData.find((n) => n.id === npcId);
+    const npcName = npcData ? npcData.name[lang] : npcId;
+
+    // 调用UIManager的addClue方法（会显示通知）
+    this.scene.uiManager.addClue(
+      {
+        npcId,
+        npcName,
+        clue: clueText,
+        day,
+        stage,
+        receivedAt: new Date(),
+      },
+      true // 显示通知
+    );
+
+    // 同时保存到数据库
+    this.saveClueToDatabase(npcId, clueText, day);
+  }
+
+  // 🔧 保存线索到数据库
+  async saveClueToDatabase(npcId, clueText, day) {
+    try {
+      const playerId = this.scene.playerId;
+      if (!playerId) {
+        console.error("❌ 无法保存线索：playerId 不存在");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/save-clue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId,
+          npcId,
+          clueText,
+          day,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log("✅ 线索已保存到数据库");
+      } else {
+        console.error("❌ 保存线索失败:", data.error);
+      }
+    } catch (error) {
+      console.error("❌ 保存线索到数据库时出错:", error);
+    }
+  }
+
   destroy() {
     console.log("💥 销毁 NPCManager");
     

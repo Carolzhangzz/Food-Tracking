@@ -30,7 +30,9 @@ const Control = memo(() => {
   }, []);
 
   const toggleMusic = useCallback(() => {
-    const newMusicState = !playerData.music;
+    // 🔧 默认音乐开启（如果未设置，则为true）
+    const currentMusicState = playerData.music !== false; // undefined或true都算开启
+    const newMusicState = !currentMusicState;
 
     setPlayerData((prevData) => ({
       ...prevData,
@@ -151,21 +153,25 @@ const Control = memo(() => {
       : buttonStyle.boxShadow,
   }), [buttonStyle, isHoveringLang, isDesktop]);
 
-  const musicButtonStyle = useMemo(() => ({
-    ...buttonStyle,
-    backgroundColor: playerData.music
-      ? "rgba(34, 197, 94, 0.9)"
-      : "rgba(239, 68, 68, 0.9)",
-    borderColor: playerData.music 
-      ? isDesktop ? "#22c55e" : "rgba(34, 197, 94, 0.6)"
-      : isDesktop ? "#ef4444" : "rgba(239, 68, 68, 0.6)",
-    transform: isHoveringMusic && isDesktop ? "translateY(-3px) scale(1.05)" : "translateY(0) scale(1)",
-    boxShadow: isHoveringMusic && isDesktop
-      ? playerData.music
-        ? "0 8px 20px rgba(34, 197, 94, 0.5)"
-        : "0 8px 20px rgba(239, 68, 68, 0.5)"
-      : buttonStyle.boxShadow,
-  }), [buttonStyle, playerData.music, isHoveringMusic, isDesktop]);
+  const musicButtonStyle = useMemo(() => {
+    // 🔧 默认音乐开启（如果未设置，则为true）
+    const isMusicOn = playerData.music !== false;
+    return {
+      ...buttonStyle,
+      backgroundColor: isMusicOn
+        ? "rgba(34, 197, 94, 0.9)"
+        : "rgba(239, 68, 68, 0.9)",
+      borderColor: isMusicOn 
+        ? isDesktop ? "#22c55e" : "rgba(34, 197, 94, 0.6)"
+        : isDesktop ? "#ef4444" : "rgba(239, 68, 68, 0.6)",
+      transform: isHoveringMusic && isDesktop ? "translateY(-3px) scale(1.05)" : "translateY(0) scale(1)",
+      boxShadow: isHoveringMusic && isDesktop
+        ? isMusicOn
+          ? "0 8px 20px rgba(34, 197, 94, 0.5)"
+          : "0 8px 20px rgba(239, 68, 68, 0.5)"
+        : buttonStyle.boxShadow,
+    };
+  }, [buttonStyle, playerData.music, isHoveringMusic, isDesktop]);
 
   return (
     <div style={{
@@ -196,12 +202,12 @@ const Control = memo(() => {
         onMouseEnter={() => isDesktop && setIsHoveringMusic(true)}
         onMouseLeave={() => setIsHoveringMusic(false)}
         title={
-          playerData.music
+          playerData.music !== false
             ? "点击关闭音乐 / Click to mute"
             : "点击开启音乐 / Click to unmute"
         }
       >
-        {playerData.music ? "🎵" : "🔇"}
+        {playerData.music !== false ? "🎵" : "🔇"}
       </button>
     </div>
   );
