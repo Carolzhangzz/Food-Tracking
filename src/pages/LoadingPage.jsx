@@ -136,42 +136,42 @@ function LoadingPage() {
           </p>
         </div>
       ) : (
-        <div style={styles.content}>
-          {/* 标题 */}
-          <h1 style={styles.title}>
-            🍳 FEASTORY
-          </h1>
+      <div style={styles.content}>
+        {/* 标题 */}
+        <h1 style={styles.title}>
+          🍳 FEASTORY
+        </h1>
 
-          {/* 加载图标 */}
-          <div style={styles.loadingIcon}>
-            <div style={styles.spinner} />
-          </div>
-
-          {/* 加载消息 */}
-          <div style={styles.loadingText}>
-            {playerData?.language === 'zh' ? '正在进入游戏世界...' : 'Entering the game world...'}
-          </div>
-
-          {/* 进度条 */}
-          <div style={styles.progressBarContainer}>
-            <div 
-              style={{
-                ...styles.progressBar,
-                width: `${loadingProgress}%`
-              }}
-            />
-          </div>
-
-          {/* 进度百分比 */}
-          <div style={styles.progressText}>
-            {Math.round(loadingProgress)}%
-          </div>
-
-          {/* 提示信息 */}
-          <div style={styles.tipContainer}>
-            <p style={styles.tip}>{loadingTip}</p>
-          </div>
+        {/* 加载图标 */}
+        <div style={styles.loadingIcon}>
+          <div style={styles.spinner} />
         </div>
+
+        {/* 加载消息 */}
+        <div style={styles.loadingText}>
+          {playerData?.language === 'zh' ? '正在进入游戏世界...' : 'Entering the game world...'}
+        </div>
+
+        {/* 进度条 */}
+        <div style={styles.progressBarContainer}>
+          <div 
+            style={{
+              ...styles.progressBar,
+              width: `${loadingProgress}%`
+            }}
+          />
+        </div>
+
+        {/* 进度百分比 */}
+        <div style={styles.progressText}>
+          {Math.round(loadingProgress)}%
+        </div>
+
+        {/* 提示信息 */}
+        <div style={styles.tipContainer}>
+          <p style={styles.tip}>{loadingTip}</p>
+        </div>
+      </div>
       )}
 
       {/* 添加动画样式 */}

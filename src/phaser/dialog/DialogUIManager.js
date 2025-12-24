@@ -61,7 +61,8 @@ export default class DialogUIManager {
 
     const npcName = document.createElement("div");
     npcName.id = "dialog-npc-name";
-    npcName.textContent = this.scene.npcData?.name || "NPC";
+    // 🔧 修复：使用getNPCDisplayName()获取正确的名字
+    npcName.textContent = this.getNPCDisplayName();
     npcName.style.cssText = `
       font-size: ${isMobile ? "28px" : "32px"};
       font-weight: 700;
@@ -203,8 +204,15 @@ export default class DialogUIManager {
   }
 
   // 添加消息到对话历史
-  addMessage(speaker, text, options = {}) {
+  // 🔧 options可以是对象{allowHtml: true}或者字符串（兼容旧代码）
+  addMessage(speaker, text, displayNameOverride = null, allowHtml = false) {
     if (!this.messagesContainer) return;
+
+    // 🔧 兼容旧的调用方式：addMessage("NPC", text, {allowHtml: true})
+    if (typeof displayNameOverride === 'object' && displayNameOverride !== null) {
+      allowHtml = displayNameOverride.allowHtml || false;
+      displayNameOverride = null;
+    }
 
     const { width } = this.scene.scale;
     const isMobile = width < 768;
@@ -214,7 +222,7 @@ export default class DialogUIManager {
     const isSystem = speaker === "System";
 
     // 获取NPC的实际名字
-    const npcDisplayName = this.getNPCDisplayName();
+    const npcDisplayName = displayNameOverride || this.getNPCDisplayName();
 
     this.messageHistory.push({ speaker, text, timestamp: Date.now() });
 
@@ -228,7 +236,12 @@ export default class DialogUIManager {
         padding: 10px 20px;
         animation: messageSlideIn 0.3s ease-out;
       `;
-      messageDiv.textContent = text;
+      // 🔧 系统消息也支持HTML（用于高亮提示）
+      if (allowHtml) {
+        messageDiv.innerHTML = text;
+      } else {
+        messageDiv.textContent = text;
+      }
     } else {
       // NPC或玩家消息
       messageDiv.style.cssText = `
@@ -270,7 +283,12 @@ export default class DialogUIManager {
       `;
 
       const textContent = document.createElement("div");
-      textContent.textContent = text;
+      // 🔧 支持HTML内容（用于高亮关键词）
+      if (allowHtml) {
+        textContent.innerHTML = text;
+      } else {
+        textContent.textContent = text;
+      }
       textContent.style.cssText = `
         font-size: ${isMobile ? "20px" : "22px"};
         color: #f1f5f9;
@@ -395,14 +413,14 @@ export default class DialogUIManager {
       `;
 
       button.onclick = () => {
-        // 添加玩家选择到历史
-        this.addMessage("Player", option.text);
+        // 🔧 不在这里添加消息！由DialogSceneRefactored.onQuestionAnswered统一添加
+        // 避免消息重复显示2次
         
         // 如果是"其他"选项，显示输入框
         if (option.isOther) {
           this.showInputBox(callback);
         } else {
-          callback(option.value);
+          callback(option.value || option.text);
         }
       };
 
@@ -478,7 +496,7 @@ export default class DialogUIManager {
     const handleSubmit = () => {
       const value = input.value.trim();
       if (value) {
-        this.addMessage("Player", value);
+        // 🔧 不在这里添加消息，由调用方（DialogSceneRefactored）统一添加
         this.inputContainer.innerHTML = "";
         callback(value);
       }

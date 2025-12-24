@@ -36,10 +36,19 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
+      const now = new Date();
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerId: playerIdInput }),
+        body: JSON.stringify({ 
+          playerId: playerIdInput,
+          // 🔧 发送本地日期的年、月、日，确保时区同步
+          clientDate: {
+            year: now.getFullYear(),
+            month: now.getMonth() + 1,
+            day: now.getDate()
+          }
+        }),
       });
 
       const data = await response.json();

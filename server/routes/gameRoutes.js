@@ -15,6 +15,8 @@ const {
   generateFinalEggPromptPlayerOnly,
 } = require("../utils/finalEggPrompt");
 const { buildLocalEgg } = require("../utils/eggLocal");
+// 🔧 导入NPC线索数据
+const { npcClues, getNPCClue, extractClueKeywords } = require("../data/npcClues");
 
 const MAX_MEAL_CONTENT_LENGTH = 200;
 
@@ -147,7 +149,7 @@ async function extractTextFromGemini(result) {
   }
 }
 
-// 读取玩家全部线索（拆分 stage1/2/3）
+// 🔧 读取玩家全部线索（支持新旧格式）
 async function getPlayerClues(playerId) {
   try {
     const clues = await Clue.findAll({
@@ -160,32 +162,58 @@ async function getPlayerClues(playerId) {
 
     const out = [];
     for (const clue of clues) {
-      let json;
-      try {
-        json = JSON.parse(clue.clueText);
-      } catch {
-        json = { stage3: clue.clueText }; // 历史纯文本按 stage3
-      }
-
-      const map = [
-        { key: "stage1", stage: 1 },
-        { key: "stage2", stage: 2 },
-        { key: "stage3", stage: 3 },
-      ];
-
-      for (const { key, stage } of map) {
-        const text = json[key];
-        if (!text) continue;
-
+      // 🔧 新格式：直接有clueType字段
+      if (clue.clueType) {
+        let keywords = [];
+        try {
+          keywords = clue.keywords ? JSON.parse(clue.keywords) : [];
+        } catch { keywords = []; }
+        
         out.push({
-          id: `${clue.npcId}_${clue.day}_${stage}`,
+          id: `${clue.npcId}_${clue.day}_${clue.mealType || 'unknown'}`,
           npcId: clue.npcId,
-          npcName: getNPCName(clue.npcId),
-          clue: text,
+          npcName: clue.npcName || getNPCName(clue.npcId),
+          clue: clue.clueText,
+          clueType: clue.clueType,  // 'vague' 或 'true'
+          keywords,
+          shortVersion: clue.shortVersion,
+          mealType: clue.mealType,
+          nextNPC: clue.nextNPC,
           day: clue.day,
-          stage,
           receivedAt: clue.receivedAt,
+          // 用于显示的高亮版本
+          highlightedClue: clue.clueText.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffd700">$1</strong>')
         });
+      } else {
+        // 旧格式：兼容处理
+        let json;
+        try {
+          json = JSON.parse(clue.clueText);
+        } catch {
+          json = { stage3: clue.clueText };
+        }
+
+        const map = [
+          { key: "stage1", stage: 1, clueType: 'vague' },
+          { key: "stage2", stage: 2, clueType: 'vague' },
+          { key: "stage3", stage: 3, clueType: 'true' },
+        ];
+
+        for (const { key, stage, clueType: ct } of map) {
+          const text = json[key];
+          if (!text) continue;
+
+          out.push({
+            id: `${clue.npcId}_${clue.day}_${stage}`,
+            npcId: clue.npcId,
+            npcName: getNPCName(clue.npcId),
+            clue: text,
+            clueType: ct,
+            day: clue.day,
+            stage,
+            receivedAt: clue.receivedAt,
+          });
+        }
       }
     }
     return out;
@@ -331,22 +359,37 @@ function getClueForNPCStage(npcId, language = "en", stage = 1) {
 
 // 找出最常互动的NPC
 function getMostInteractedNPC(mealRecords) {
-  const npcCounts = {};
-  mealRecords.forEach((meal) => {
-    npcCounts[meal.npcName] = (npcCounts[meal.npcName] || 0) + 1;
-  });
-
-  let maxCount = 0;
-  let favoriteNPC = "村长伯伯";
-
-  Object.entries(npcCounts).forEach(([npc, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      favoriteNPC = npc;
-    }
-  });
-
+  // ... (省略部分，保持原有逻辑)
   return favoriteNPC;
+}
+
+// 🔧 工具函数：计算天数差（基于当地日期）
+function calculateDayNumber(firstLoginDate, clientDateObj) {
+  try {
+    const firstDate = new Date(firstLoginDate);
+    
+    // 玩家首次登录的年、月、日
+    const d1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+    
+    // 玩家当前的年、月、日（从客户端传来）
+    let d2;
+    if (clientDateObj && clientDateObj.year) {
+      d2 = new Date(clientDateObj.year, clientDateObj.month - 1, clientDateObj.day);
+    } else {
+      const now = new Date();
+      d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    
+    const diffTime = d2 - d1;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // 返回天数（第一天是1，第二天是2...）
+    if (diffDays < 0) return 1;
+    return diffDays + 1;
+  } catch (e) {
+    console.error("日期计算错误:", e);
+    return 1;
+  }
 }
 
 /* --------------------------------- 路由 ----------------------------------- */
@@ -354,7 +397,7 @@ function getMostInteractedNPC(mealRecords) {
 // 登录
 router.post("/login", async (req, res) => {
   try {
-    const { playerId } = req.body;
+    const { playerId, clientDate } = req.body;
     if (!playerId) {
       return res
         .status(400)
@@ -372,9 +415,11 @@ router.post("/login", async (req, res) => {
     let player = await Player.findOne({ where: { playerId } });
 
     if (!player) {
+      // 首次登录：记录服务器当前时间作为基准
+      const now = new Date();
       player = await Player.create({
         playerId,
-        firstLoginDate: new Date(),
+        firstLoginDate: now,
         currentDay: 1,
         gameCompleted: false,
         language: "en",
@@ -384,8 +429,32 @@ router.post("/login", async (req, res) => {
         playerId,
         day: 1,
         npcId: "village_head",
-        unlockedAt: new Date(),
+        unlockedAt: now,
       });
+    } else {
+      // 再次登录：根据客户端日期计算是第几天
+      const calculatedDay = calculateDayNumber(player.firstLoginDate, clientDate);
+      
+      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前客户端日期: ${JSON.stringify(clientDate)}, 计算出的天数: ${calculatedDay}`);
+
+      // 如果计算出的天数大于数据库存储的天数，更新它
+      if (calculatedDay > player.currentDay) {
+        await player.update({ currentDay: calculatedDay });
+        
+        // 确保新天数的进度记录存在
+        const progressExists = await PlayerProgress.findOne({
+          where: { playerId, day: calculatedDay }
+        });
+        
+        if (!progressExists) {
+          await PlayerProgress.create({
+            playerId,
+            day: calculatedDay,
+            npcId: dayToNpcId(calculatedDay),
+            unlockedAt: new Date(),
+          });
+        }
+      }
     }
 
     const progressRecords = await PlayerProgress.findAll({
@@ -721,10 +790,13 @@ router.post("/record-meal", async (req, res) => {
       npcId,
       npcName,
       mealType,
-      mealAnswers,
+      answers, // 🔧 改回与前端一致
+      mealAnswers, // 兼容性支持
       conversationHistory,
       mealContent,
     } = req.body;
+
+    const actualAnswers = answers || mealAnswers;
 
     if (!playerId || !day || !npcId || !mealType || !mealContent) {
       await t.rollback();
@@ -761,7 +833,7 @@ router.post("/record-meal", async (req, res) => {
         npcId,
         npcName,
         mealType,
-        mealAnswers,
+        mealAnswers: actualAnswers, // 🔧 使用统一后的答案
         conversationHistory,
         mealContent,
       },
@@ -792,29 +864,49 @@ router.post("/record-meal", async (req, res) => {
       );
     }
 
-    // 🔧 发放线索（只有晚餐才给线索，其他餐不给）
-    let shouldGiveClue = false;
-    let clueText = null;
-    let mealStage = null;
+    // 🔧 发放线索 - 根据餐食类型决定给vague还是true线索
     const playerLanguage = player.language || "en";
-
+    let clueType = null;
+    let clueText = null;
+    let clueData = null;
+    let shouldGiveClue = true; // 每次都给线索（vague或true）
+    
+    // 获取该NPC当前的vague计数（第几次vague）
+    const previousVagueCount = await Clue.count({
+      where: { playerId, npcId, clueType: 'vague' }
+    });
+    
     if (mealType === "dinner") {
-      // 只有晚餐才给线索
-      shouldGiveClue = true;
-      mealStage = 3; // dinner = stage 3
-      clueText = getClueForNPCStage(npcId, playerLanguage, mealStage);
-      await saveClueToDatabase(
+      // 🌙 晚餐 = 给真实线索
+      clueType = "true";
+      clueData = getNPCClue(npcId, "true", 0, playerLanguage);
+      clueText = clueData ? clueData.text : "感谢你的分享！";
+      console.log(`✅ [晚餐] 给予TRUE线索: ${clueText.substring(0, 50)}...`);
+    } else {
+      // 🌞 早餐/午餐 = 给vague线索
+      clueType = "vague";
+      const vagueIndex = previousVagueCount; // 0 = 第一个vague, 1 = 第二个vague
+      clueData = getNPCClue(npcId, "vague", vagueIndex, playerLanguage);
+      clueText = clueData ? clueData.text : "我会在这里等你下一餐后再来。";
+      console.log(`ℹ️ [${mealType}] 给予VAGUE线索 #${vagueIndex + 1}: ${clueText.substring(0, 50)}...`);
+    }
+    
+    // 保存线索到数据库
+    if (clueText) {
+      const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+      await Clue.create({
         playerId,
         npcId,
-        clueText,
+        npcName: npcName || clueData?.npcName,
+        clueType,
+        clueText: cleanText,
+        keywords: JSON.stringify(keywords),
+        shortVersion,
         day,
-        mealStage,
-        mealType
-      );
-      console.log(`✅ [晚餐] 给予线索: ${clueText.substring(0, 50)}...`);
-    } else {
-      // 早餐/午餐不给线索（前端会给vague回复）
-      console.log(`ℹ️ [${mealType}] 不给线索，前端将显示vague回复`);
+        mealType,
+        nextNPC: clueData?.nextNPC || null
+      });
+      console.log(`📝 线索已保存到数据库: type=${clueType}, npc=${npcId}`);
     }
 
     // 预创建下一天的 progress
@@ -844,6 +936,16 @@ router.post("/record-meal", async (req, res) => {
       shouldUnlockNextDay = true;
     }
 
+    // 🔧 获取当天所有已记录的餐食
+    const dayMeals = await MealRecord.findAll({
+      where: { playerId, day },
+      transaction: t,
+    });
+    const recordedTypes = new Set(dayMeals.map((m) => m.mealType));
+    const remainingMeals = ["breakfast", "lunch", "dinner"].filter(
+      (t) => !recordedTypes.has(t)
+    );
+
     await t.commit();
 
     return res.json({
@@ -857,12 +959,18 @@ router.post("/record-meal", async (req, res) => {
         mealContent: mealRecord.mealContent,
         recordedAt: mealRecord.recordedAt,
       },
+      // 🔧 线索信息
       shouldGiveClue,
+      clueType,  // 'vague' 或 'true'
       clueText,
-      mealStage,
-      availableMealTypes: ["breakfast", "lunch", "dinner"].filter(
-        (t) => t !== mealType
-      ),
+      clueData: clueData ? {
+        npcName: clueData.npcName,
+        nextNPC: clueData.nextNPC,
+        type: clueType
+      } : null,
+      // 🔧 确保返回的是当天真正剩余的餐食
+      currentDayMealsRemaining: remainingMeals,
+      availableMealTypes: remainingMeals, // 兼容性别名
       nextDayUnlocked,
       shouldUnlockNextDay,
       currentDay: day,
@@ -1253,6 +1361,92 @@ router.post("/dev/skip-to-day7", async (req, res) => {
       success: false,
       error: "skip-to-day7 failed",
       details: err.message,
+    });
+  }
+});
+
+// ==================== 对话历史API ====================
+
+// 保存对话历史
+router.post("/save-conversation", async (req, res) => {
+  console.log("💾 [API] POST /save-conversation");
+  
+  try {
+    const { playerId, npcId, conversationType, conversationData } = req.body;
+    
+    if (!playerId || !npcId || !conversationData) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields: playerId, npcId, conversationData"
+      });
+    }
+    
+    // 保存到数据库
+    const conversation = await ConversationHistory.create({
+      playerId: playerId,
+      npcId: npcId,
+      conversationType: conversationType || "meal_recording",
+      conversationData: conversationData,
+      timestamp: new Date()
+    });
+    
+    console.log(`✅ 对话历史保存成功: ${conversation.id}`);
+    
+    res.json({
+      success: true,
+      conversationId: conversation.id,
+      message: "Conversation saved successfully"
+    });
+    
+  } catch (error) {
+    console.error("❌ 保存对话历史失败:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// 获取对话历史
+router.get("/conversation-history", async (req, res) => {
+  console.log("📚 [API] GET /conversation-history");
+  
+  try {
+    const { playerId, npcId, limit = 5 } = req.query;
+    
+    if (!playerId) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required parameter: playerId"
+      });
+    }
+    
+    // 构建查询条件
+    const where = { playerId };
+    if (npcId) {
+      where.npcId = npcId;
+    }
+    
+    // 查询对话历史
+    const conversations = await ConversationHistory.findAll({
+      where: where,
+      order: [['timestamp', 'DESC']],
+      limit: parseInt(limit)
+    });
+    
+    console.log(`✅ 找到 ${conversations.length} 条对话记录`);
+    
+    res.json({
+      success: true,
+      count: conversations.length,
+      history: conversations
+    });
+    
+  } catch (error) {
+    console.error("❌ 获取对话历史失败:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });

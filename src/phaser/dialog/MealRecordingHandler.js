@@ -1,5 +1,5 @@
 // src/phaser/dialog/MealRecordingHandler.js
-// 餐食记录处理器 - 处理Groq API的食物日志问答
+// 🔧 重构版：前3个按钮选择 + 后3个自由回复 + 时间检查
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -7,110 +7,253 @@ export default class MealRecordingHandler {
   constructor(scene) {
     this.scene = scene;
     this.questions = this.initializeQuestions();
+    this.currentQuestionIndex = 0;
+    this.mealAnswers = {};
+    this.needsTimeFollowUp = false;
   }
 
-  // 初始化预定义的问题和选项
+  // 🔧 初始化7个固定问题（Q1-Q3按钮，Q4-Q6自由，Q_time_followup条件性）
   initializeQuestions() {
     return {
+      // === 按钮选择问题 ===
       Q1: {
+        id: "Q1",
+        type: "choice",
         text: {
-          en: "What did you eat?",
-          zh: "你吃了什么？"
+          en: "How is your meal obtained?",
+          zh: "你的这顿饭是怎么获得的？"
         },
         options: {
-          en: ["Rice", "Noodles", "Bread", "Vegetables", "Meat", "Soup"],
-          zh: ["米饭", "面条", "面包", "蔬菜", "肉类", "汤"]
+          en: [
+            "Home-cooked meals",
+            "Eat out at restaurants",
+            "Takeout or delivery",
+            "Ready-to-eat meals"
+          ],
+          zh: [
+            "家里做的",
+            "在餐厅吃",
+            "外卖或配送",
+            "即食餐"
+          ]
         }
       },
       Q2: {
+        id: "Q2",
+        type: "choice",
         text: {
-          en: "How much did you eat?",
-          zh: "你吃了多少？"
+          en: "What time did you have this meal?",
+          zh: "你什么时候吃的这顿饭？"
         },
         options: {
-          en: ["A little", "Normal amount", "A lot", "Too much"],
-          zh: ["一点点", "正常量", "很多", "太多了"]
+          en: [
+            "Early morning (before 7AM)",
+            "Morning (7–11AM)",
+            "Midday (11AM–2PM)",
+            "Afternoon (2–5PM)",
+            "Evening (5–9PM)",
+            "Night (after 9PM)"
+          ],
+          zh: [
+            "清晨（7点前）",
+            "早上（7点-11点）",
+            "中午（11点-14点）",
+            "下午（14点-17点）",
+            "傍晚（17点-21点）",
+            "晚上（21点后）"
+          ]
         }
       },
       Q3: {
+        id: "Q3",
+        type: "choice",
         text: {
-          en: "How did it taste?",
-          zh: "味道怎么样？"
+          en: "How long did you eat?",
+          zh: "你吃了多久？"
         },
         options: {
-          en: ["Delicious", "Good", "Okay", "Not good"],
-          zh: ["很美味", "不错", "还行", "不好吃"]
+          en: [
+            "Less than 10 minutes",
+            "10–30 minutes",
+            "30–60 minutes",
+            "More than 60 minutes"
+          ],
+          zh: [
+            "少于10分钟",
+            "10-30分钟",
+            "30-60分钟",
+            "超过60分钟"
+          ]
         }
       },
+      // === 自由回复问题 ===
       Q4: {
+        id: "Q4",
+        type: "input",
         text: {
-          en: "Did you eat with anyone?",
-          zh: "你和谁一起吃的？"
-        },
-        options: {
-          en: ["Alone", "With family", "With friends", "With colleagues"],
-          zh: ["独自一人", "和家人", "和朋友", "和同事"]
+          en: "What did you have (for [MEAL])?",
+          zh: "你吃了什么（[MEAL]）？"
         }
       },
       Q5: {
+        id: "Q5",
+        type: "input",
         text: {
-          en: "Where did you eat?",
-          zh: "你在哪里吃的？"
-        },
-        options: {
-          en: ["At home", "At restaurant", "At work", "On the go"],
-          zh: ["在家", "在餐厅", "在工作地点", "在路上"]
+          en: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?",
+          zh: "你吃了多少份量？你是如何决定这个份量的？吃的时候或吃完后身体感觉如何？"
         }
       },
       Q6: {
+        id: "Q6",
+        type: "input",
         text: {
-          en: "How do you feel after eating?",
-          zh: "吃完后感觉如何？"
-        },
-        options: {
-          en: ["Very satisfied", "Satisfied", "Still hungry", "Too full"],
-          zh: ["非常满足", "满足", "还有点饿", "太撑了"]
+          en: "Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?",
+          zh: "你为什么选择这顿饭？比如，方便、想吃、健康选择？"
+        }
+      },
+      // === 条件性问题（时间不合理时） ===
+      Q_TIME_FOLLOWUP: {
+        id: "Q_TIME_FOLLOWUP",
+        type: "input",
+        text: {
+          en: "Why did you eat at this time rather than earlier or later?",
+          zh: "你为什么在这个时间吃饭，而不是早一点或晚一点？"
         }
       }
     };
   }
 
-  // 获取问题文本
-  getQuestionText(questionId, language = "en") {
+  // 获取问题文本（替换[MEAL]占位符）
+  getQuestionText(questionId, language = "en", mealType = "this meal") {
     const question = this.questions[questionId];
-    return question ? question.text[language] || question.text.en : "";
+    if (!question) return "";
+
+    let text = question.text[language] || question.text.en;
+    
+    // 替换餐食类型占位符
+    const mealNames = {
+      breakfast: language === "zh" ? "早餐" : "breakfast",
+      lunch: language === "zh" ? "午餐" : "lunch",
+      dinner: language === "zh" ? "晚餐" : "dinner"
+    };
+    
+    text = text.replace("[MEAL]", mealNames[mealType] || mealType);
+    
+    return text;
   }
 
-  // 获取问题选项（添加"其他"选项）
+  // 获取问题选项（仅用于Q1-Q3）
   getQuestionOptions(questionId, language = "en") {
     const question = this.questions[questionId];
-    if (!question) return [];
+    if (!question || !question.options) return [];
     
     const options = question.options[language] || question.options.en;
-    const otherText = language === "zh" ? "其他" : "Other";
+    return options.map(text => ({ text, value: text, isOther: false }));
+  }
+
+  // 获取问题类型
+  getQuestionType(questionId) {
+    const question = this.questions[questionId];
+    return question ? question.type : "input";
+  }
+
+  // 🔧 检查餐食时间是否不合常理
+  checkUnusualMealTime(timeValue, mealType) {
+    const unusualTimes = {
+      breakfast: [
+        "Early morning (before 7AM)",
+        "Midday (11AM–2PM)",
+        "Afternoon (2–5PM)",
+        "Evening (5–9PM)",
+        "Night (after 9PM)",
+        "清晨（7点前）",
+        "中午（11点-14点）",
+        "下午（14点-17点）",
+        "傍晚（17点-21点）",
+        "晚上（21点后）"
+      ],
+      lunch: [
+        "Early morning (before 7AM)",
+        "Morning (7–11AM)",
+        "Afternoon (2–5PM)",
+        "Evening (5–9PM)",
+        "Night (after 9PM)",
+        "清晨（7点前）",
+        "早上（7点-11点）",
+        "下午（14点-17点）",
+        "傍晚（17点-21点）",
+        "晚上（21点后）"
+      ],
+      dinner: [
+        "Early morning (before 7AM)",
+        "Morning (7–11AM)",
+        "Midday (11AM–2PM)",
+        "Afternoon (2–5PM)",
+        "清晨（7点前）",
+        "早上（7点-11点）",
+        "中午（11点-14点）",
+        "下午（14点-17点）"
+      ]
+    };
     
-    // 返回选项数组，最后一项标记为"其他"
-    return [
-      ...options.map(text => ({ text, value: text, isOther: false })),
-      { text: otherText, value: "other", isOther: true }
-    ];
+    const unusual = unusualTimes[mealType] || [];
+    return unusual.some(time => timeValue.includes(time) || time.includes(timeValue));
   }
 
-  // 获取下一个问题ID
-  getNextQuestion(answeredQuestions) {
-    const allQuestions = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"];
-    return allQuestions.find(q => !answeredQuestions.has(q));
+  // 保存答案并检查是否需要时间follow-up
+  saveAnswer(questionId, answer, mealType) {
+    this.mealAnswers[questionId] = answer;
+    console.log(`📝 保存答案: ${questionId} = ${JSON.stringify(answer)}`);
+    
+    // 如果是Q2（meal_time），检查时间是否合理
+    if (questionId === "Q2") {
+      this.needsTimeFollowUp = this.checkUnusualMealTime(answer.value || answer, mealType);
+      console.log(`⏰ 时间检查结果: needsFollowUp = ${this.needsTimeFollowUp}`);
+    }
   }
 
-  // 检查是否完成所有必需问题
-  isRecordingComplete(answeredQuestions) {
-    const requiredQuestions = ["Q1", "Q2", "Q3"]; // 至少要回答这3个问题
-    return requiredQuestions.every(q => answeredQuestions.has(q));
+  // 🔧 获取下一个问题ID（按顺序：Q1→Q2→Q3→[Q_TIME_FOLLOWUP]→Q4→Q5→Q6）
+  getNextQuestionId(currentQuestionId) {
+    const sequence = ["Q1", "Q2", "Q3"];
+    
+    // 如果当前是Q3且需要时间follow-up
+    if (currentQuestionId === "Q3" && this.needsTimeFollowUp) {
+      return "Q_TIME_FOLLOWUP";
+    }
+    
+    // 如果当前是Q3或Q_TIME_FOLLOWUP，进入自由回复阶段
+    if (currentQuestionId === "Q3" || currentQuestionId === "Q_TIME_FOLLOWUP") {
+      return "Q4";
+    }
+    
+    if (currentQuestionId === "Q4") return "Q5";
+    if (currentQuestionId === "Q5") return "Q6";
+    if (currentQuestionId === "Q6") return null; // 完成
+    
+    // Q1→Q2→Q3
+    const currentIndex = sequence.indexOf(currentQuestionId);
+    if (currentIndex !== -1 && currentIndex < sequence.length - 1) {
+      return sequence[currentIndex + 1];
+    }
+    
+    return null;
+  }
+
+  // 检查是否完成所有问题
+  isComplete(currentQuestionId) {
+    return currentQuestionId === null || currentQuestionId === "Q6";
+  }
+
+  // 获取问题索引
+  getQuestionIndex(questionId) {
+    const sequence = ["Q1", "Q2", "Q3", "Q_TIME_FOLLOWUP", "Q4", "Q5", "Q6"];
+    return sequence.indexOf(questionId);
   }
 
   // 提交餐食记录到后端
   async submitMealRecord(playerId, npcId, mealType, answers, currentDay) {
     console.log("📤 提交餐食记录:", { playerId, npcId, mealType, currentDay });
+    console.log("📤 餐食答案:", answers);
 
     try {
       const response = await fetch(`${API_URL}/record-meal`, {
@@ -124,7 +267,7 @@ export default class MealRecordingHandler {
           mealType: mealType,
           day: currentDay,
           mealContent: this.formatMealContent(answers),
-          answers: answers,
+          answers: answers, // 🔧 确保发送给后端的字段名一致
           timestamp: new Date().toISOString(),
         }),
       });
@@ -161,9 +304,15 @@ export default class MealRecordingHandler {
 
   // 格式化餐食内容（用于存储）
   formatMealContent(answers) {
-    return Object.entries(answers)
-      .map(([question, answer]) => `${question}: ${answer}`)
-      .join("; ");
+    const formatted = [];
+    const actualAnswers = answers || this.mealAnswers;
+    
+    Object.entries(actualAnswers).forEach(([questionId, answer]) => {
+      const value = typeof answer === 'object' ? answer.value || answer.text : answer;
+      formatted.push(`${questionId}: ${value}`);
+    });
+    
+    return formatted.join("; ");
   }
 
   // 获取vague回复（非晚餐时）
@@ -189,5 +338,11 @@ export default class MealRecordingHandler {
       ? "谢谢你和我分享这顿饭。" 
       : "Thanks for sharing your meal with me.";
   }
-}
 
+  // 重置状态
+  reset() {
+    this.currentQuestionIndex = 0;
+    this.mealAnswers = {};
+    this.needsTimeFollowUp = false;
+  }
+}

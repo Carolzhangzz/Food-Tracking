@@ -4,6 +4,7 @@
 import Phaser from "phaser";
 import DialogStateManager from "./DialogStateManager.js";
 import ConvAIHandler from "./ConvAIHandler.js";
+import GeminiHandler from "./GeminiHandler.js";
 import MealRecordingHandler from "./MealRecordingHandler.js";
 import ClueManager from "./ClueManager.js";
 import DialogUIManager from "./DialogUIManager.js";
@@ -50,6 +51,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 🔧 初始化所有模块
     this.stateManager = new DialogStateManager(this);
     this.convaiHandler = new ConvAIHandler(this);
+    this.geminiHandler = new GeminiHandler(this);
     this.mealHandler = new MealRecordingHandler(this);
     this.clueManager = new ClueManager(this);
     this.uiManager = new DialogUIManager(this);
@@ -70,7 +72,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   }
 
   // ==================== 场景创建 ====================
-  create() {
+  async create() {
     const { width, height } = this.scale;
 
     // 检查横屏
@@ -85,10 +87,62 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 2. 创建现代化UI
     this.uiManager.createDialogBox();
 
-    // 3. 开始对话流程
+    // 🔧 3. 加载并显示历史对话记录
+    await this.loadAndDisplayHistory();
+
+    // 4. 开始对话流程
     this.startDialogFlow();
 
     console.log("✅ DialogScene创建完成");
+  }
+  
+  // 🔧 新增：加载并显示历史对话记录
+  async loadAndDisplayHistory() {
+    console.log("📚 加载历史对话记录...");
+    
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const response = await fetch(
+        `${API_URL}/conversation-history?playerId=${this.playerId}&npcId=${this.currentNPC}&limit=1`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.history && data.history.length > 0) {
+          const lastConversation = data.history[0];
+          const previousMessages = lastConversation.conversationData?.history || [];
+          
+          if (previousMessages.length > 0) {
+            console.log(`✅ 找到 ${previousMessages.length} 条历史消息`);
+            
+            const lang = this.playerData?.language || "zh";
+            const headerText = lang === "zh" ? "--- 之前的对话记录 ---" : "--- Previous Conversation ---";
+            
+            this.uiManager.addMessage("System", headerText);
+            
+            // 显示历史消息（最多显示最近15条）
+            const messagesToShow = previousMessages.slice(-15);
+            
+            messagesToShow.forEach((msg) => {
+              this.uiManager.addMessage(msg.speaker, msg.text);
+            });
+            
+            // 添加分隔符
+            const separator = lang === "zh" ? "--- 新对话开始 ---" : "--- New Conversation ---";
+            this.uiManager.addMessage("System", separator);
+          } else {
+            console.log("📭 没有历史对话记录");
+          }
+        } else {
+          console.log("📭 没有历史对话记录");
+        }
+      } else {
+        console.warn("⚠️ 加载历史对话失败:", response.status);
+      }
+    } catch (error) {
+      console.error("❌ 加载历史对话错误:", error);
+    }
   }
 
   // ==================== 对话流程 ====================
@@ -114,11 +168,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         // 显示开场白
         this.uiManager.addMessage("NPC", response.message);
         
-        // 等待一下让玩家阅读
-        await this.delay(800);
-        
-        // Phase 2: 直接进入餐食选择
-        this.showMealSelection();
+        // 🔧 Phase 2: 自由回复环节（NEW!）
+        await this.delay(500);
+        this.showFreeResponsePrompt();
       } else {
         // Fallback: 使用默认开场白
         console.log("⚠️ ConvAI失败，使用Fallback");
@@ -127,14 +179,79 @@ export default class DialogSceneRefactored extends Phaser.Scene {
           this.playerData.language || "en"
         );
         this.uiManager.addMessage("NPC", fallbackIntro);
-        await this.delay(800);
-        this.showMealSelection();
+        await this.delay(500);
+        this.showFreeResponsePrompt();
       }
     } catch (error) {
       console.error("❌ 对话流程错误:", error);
       this.uiManager.hideTypingIndicator();
       this.uiManager.updateStatus("发生错误");
     }
+  }
+
+  // 🔧 新增：显示自由回复提示
+  showFreeResponsePrompt() {
+    console.log("💬 显示自由回复环节");
+    const lang = this.playerData.language || "zh";
+    
+    // 提示玩家可以自由回复或选择记录餐食
+    const prompt = lang === "zh"
+      ? "你想和我继续聊天，还是记录今天的餐食？"
+      : "Would you like to chat more, or record your meal?";
+    
+    this.uiManager.addMessage("NPC", prompt);
+    
+    const options = [
+      {
+        text: lang === "zh" ? "💬 继续聊天" : "💬 Continue chatting",
+        value: "chat",
+        isOther: false,
+      },
+      {
+        text: lang === "zh" ? "🍽️ 记录餐食" : "🍽️ Record meal",
+        value: "record_meal",
+        isOther: false,
+      },
+    ];
+    
+    this.uiManager.showButtons(options, (choice) => {
+      if (choice === "chat") {
+        this.startFreeChat();
+      } else {
+        this.showMealSelection();
+      }
+    });
+  }
+
+  // 🔧 新增：开始自由聊天
+  async startFreeChat() {
+    console.log("💬 开始自由聊天");
+    const lang = this.playerData.language || "zh";
+    
+    const chatPrompt = lang === "zh"
+      ? "你想说什么？（随时可以选择记录餐食）"
+      : "What would you like to say? (You can record a meal anytime)";
+    
+    this.uiManager.addMessage("NPC", chatPrompt);
+    
+    this.uiManager.showInputBox(async (userInput) => {
+      // 🔧 添加玩家消息
+      const lang = this.playerData?.language || "zh";
+      this.uiManager.addMessage("Player", userInput, lang === "zh" ? "你" : "You");
+      
+      // 调用ConvAI继续对话
+      this.uiManager.showTypingIndicator();
+      const response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+      this.uiManager.hideTypingIndicator();
+      
+      if (response.success) {
+        this.uiManager.addMessage("NPC", response.message);
+      }
+      
+      // 再次显示选择
+      await this.delay(800);
+      this.showFreeResponsePrompt();
+    });
   }
 
   // 显示餐食选择
@@ -188,41 +305,98 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.stateManager.selectMealType(mealType);
     this.stateManager.setPhase("meal_recording");
     
-    // 开始问答
+    // 🔧 重置MealHandler状态
+    this.mealHandler.reset();
+    
+    // 🔧 开始新的问题序列：Q1→Q2→Q3→[Q_TIME_FOLLOWUP]→Q4→Q5→Q6
+    this.currentQuestionId = "Q1";
     this.askNextQuestion();
   }
 
-  // 询问下一个问题
-  askNextQuestion() {
-    const nextQuestion = this.mealHandler.getNextQuestion(
-      this.stateManager.askedQuestions
-    );
-
-    if (!nextQuestion) {
+  // 🔧 询问下一个问题（接入 Gemini AI）
+  async askNextQuestion(userAnswer = null) {
+    if (!this.currentQuestionId) {
       // 所有问题已完成
       this.completeMealRecording();
       return;
     }
 
     const lang = this.playerData.language || "zh";
-    const questionText = this.mealHandler.getQuestionText(nextQuestion, lang);
-    const options = this.mealHandler.getQuestionOptions(nextQuestion, lang);
+    const mealType = this.stateManager.selectedMealType;
+    const questionType = this.mealHandler.getQuestionType(this.currentQuestionId);
+    
+    // 🔧 准备上下文
+    const questionControl = {
+      currentQuestionId: this.currentQuestionId,
+      currentQuestionIndex: this.mealHandler.getQuestionIndex(this.currentQuestionId),
+      maxQuestions: 6
+    };
+    
+    const mealAnswers = this.stateManager.questionAnswers;
+    const dialogHistory = this.uiManager.getMessageHistory();
+    const npcId = this.currentNPC || "uncle_bo";
 
+    // 🔧 调用 Gemini 获取 character-driven 的问题文本
+    this.uiManager.showTypingIndicator();
+    
+    // 如果是第一个问题且没有 userAnswer，userInput 为餐食类型
+    const userInput = userAnswer || `I want to record my ${mealType}`;
+    
+    const geminiResult = await this.geminiHandler.getGeminiResponse(
+      userInput,
+      npcId,
+      mealType,
+      dialogHistory,
+      mealAnswers,
+      questionControl
+    );
+    
+    this.uiManager.hideTypingIndicator();
+    
+    const questionText = geminiResult.success ? geminiResult.message : this.mealHandler.getQuestionText(this.currentQuestionId, lang, mealType);
+    
+    // 显示问题
     this.uiManager.addMessage("NPC", questionText);
+    
+    console.log(`❓ 提问: ${this.currentQuestionId}, 类型: ${questionType}`);
 
-    // 🔧 options已经是对象数组格式 { text, value, isOther }
-    this.uiManager.showButtons(options, (answer) => {
-      this.onQuestionAnswered(nextQuestion, answer);
-    });
+    if (questionType === "choice") {
+      // Q1-Q3: 按钮选择
+      const options = this.mealHandler.getQuestionOptions(this.currentQuestionId, lang);
+      
+      this.uiManager.showButtons(options, (answer) => {
+        this.onQuestionAnswered(this.currentQuestionId, answer);
+      });
+    } else {
+      // Q4-Q6 或 Q_TIME_FOLLOWUP: 自由输入
+      this.uiManager.showInputBox((answer) => {
+        this.onQuestionAnswered(this.currentQuestionId, answer);
+      });
+    }
   }
 
-  // 问题被回答
+  // 🔧 问题被回答
   onQuestionAnswered(questionId, answer) {
-    console.log(`✅ 回答: ${questionId} = ${answer}`);
+    console.log(`✅ 回答: ${questionId} = ${JSON.stringify(answer)}`);
+    
+    // 显示玩家的回答
+    const lang = this.playerData?.language || "zh";
+    const displayText = typeof answer === 'object' ? (answer.text || answer.value) : answer;
+    this.uiManager.addMessage("Player", displayText, lang === "zh" ? "你" : "You");
+    
+    // 保存答案
+    const mealType = this.stateManager.selectedMealType;
+    this.mealHandler.saveAnswer(questionId, answer, mealType);
     this.stateManager.recordAnswer(questionId, answer);
     
-    // 继续下一个问题
-    this.askNextQuestion();
+    // 🔧 获取下一个问题ID（会自动处理时间follow-up逻辑）
+    const nextQuestionId = this.mealHandler.getNextQuestionId(questionId);
+    this.currentQuestionId = nextQuestionId;
+    
+    console.log(`➡️ 下一个问题: ${this.currentQuestionId}`);
+    
+    // 继续下一个问题，并将当前的答案传递给 Gemini 产生 character-driven 的回应
+    this.askNextQuestion(displayText);
   }
 
   // 完成餐食记录
@@ -234,9 +408,11 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     
     this.uiManager.addMessage("NPC", completionMsg);
 
-    // 提交到后端
+    // 🔧 提交到后端（包含对话历史）
     this.uiManager.updateStatus("正在保存...");
     this.uiManager.showTypingIndicator();
+    
+    const conversationHistory = this.uiManager.getMessageHistory();
     
     const result = await this.mealHandler.submitMealRecord(
       this.playerId,
@@ -249,74 +425,169 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.uiManager.hideTypingIndicator();
 
     if (result.success) {
+      console.log("✅ 餐食保存成功");
       this.stateManager.markMealSubmitted(result);
       this.uiManager.updateStatus("✅ 保存成功");
       
-      // 🔧 判断是否给线索（只有晚餐才有可能给线索）
-      console.log("🍽️ 餐食类型:", this.stateManager.selectedMealType);
-      console.log("🎁 是否给线索:", result.shouldGiveClue);
+      // 🔧 同步 React UI 数据
+      if (this.mainScene && this.mainScene.updatePlayerdata) {
+        console.log("🔄 同步餐食进度到 React UI:", result.currentDayMealsRemaining);
+        const updatedData = {
+          ...this.playerData,
+          currentDayMealsRemaining: result.currentDayMealsRemaining,
+          availableMealTypes: result.currentDayMealsRemaining // 兼容性别名
+        };
+        this.mainScene.updatePlayerdata(updatedData);
+        // 同时更新当前场景的数据，防止下次打开时旧数据
+        this.playerData = updatedData;
+      }
       
-      if (this.stateManager.selectedMealType === "dinner" && result.shouldGiveClue) {
-        await this.giveClue();
-      } else if (this.stateManager.selectedMealType !== "dinner") {
-        // 非晚餐给vague回复
-        await this.giveVagueResponse();
+      // 🔧 保存对话历史
+      await this.saveConversationHistory(conversationHistory);
+      
+      // 🔧 显示线索或vague回复（后端已保存，直接显示返回的内容）
+      console.log("🍽️ 餐食类型:", this.stateManager.selectedMealType);
+      console.log("🎁 后端返回clueType:", result.clueType);
+      console.log("📝 线索内容:", result.clueText);
+      
+      if (result.clueText) {
+        if (result.clueType === "true") {
+          // 🌙 晚餐 = 真实线索
+          await this.showTrueClue(result.clueText, result.clueData);
+        } else {
+          // 🌞 早餐/午餐 = vague线索
+          await this.showVagueClue(result.clueText);
+        }
       }
     } else {
-      this.uiManager.updateStatus("❌ 保存失败");
+      console.error("❌ 餐食保存失败:", result.error);
+      this.uiManager.updateStatus("❌ 保存失败: " + (result.error || "未知错误"));
     }
 
-    // 返回地图
-    setTimeout(() => {
-      this.returnToMainScene();
-    }, 3000);
+    // 🔧 修复：显示按钮让玩家选择，而不是立刻返回
+    this.showCompletionOptions();
   }
-
-  // 给线索
-  async giveClue() {
-    console.log("🔍 给予线索");
+  
+  // 🔧 新增：显示对话完成后的选项
+  showCompletionOptions() {
+    const lang = this.playerData?.language || "zh";
     
-    const lang = this.playerData.language || "zh";
-    const clueResult = await this.clueManager.getClueForNPC(this.currentNPC, lang);
+    const options = [
+      {
+        text: lang === "zh" ? "📖 查看对话记录" : "📖 View Conversation",
+        value: "view_history"
+      },
+      {
+        text: lang === "zh" ? "🗺️ 返回地图" : "🗺️ Return to Map",
+        value: "return_map"
+      }
+    ];
     
-    if (clueResult.success) {
-      this.uiManager.addMessage("System", "🎁 你获得了一条线索！");
-      await this.delay(500);
-      this.uiManager.addMessage("NPC", clueResult.clue);
-      
-      // 保存线索
-      await this.clueManager.saveClueToDatabase(
-        this.playerId,
-        this.currentNPC,
-        clueResult.clue,
-        this.currentDay
-      );
-      
-      // 更新UI
-      this.clueManager.notifyUIManager({
-        npcId: this.currentNPC,
-        npcName: this.npcManager?.npcData?.find(n => n.id === this.currentNPC)?.name[lang] || this.currentNPC,
-        clue: clueResult.clue,
+    // 显示选项按钮
+    this.uiManager.showButtons(options, (choice) => {
+      if (choice === "view_history") {
+        // 玩家可以继续查看对话记录，不做任何操作（对话框保持打开）
+        const message = lang === "zh" 
+          ? "你可以滚动查看对话记录，或者点击右上角关闭按钮返回地图。"
+          : "You can scroll to view the conversation history, or click the close button to return to the map.";
+        this.uiManager.addMessage("System", message);
+        
+        // 再次显示返回地图按钮
+        setTimeout(() => {
+          this.uiManager.showButtons([options[1]], (choice) => {
+            this.returnToMainScene();
+          });
+        }, 500);
+      } else {
+        this.returnToMainScene();
+      }
+    });
+  }
+  
+  // 🔧 新增：保存对话历史到数据库
+  async saveConversationHistory(history) {
+    console.log("💾 保存对话历史...");
+    
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const response = await fetch(`${API_URL}/save-conversation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playerId: this.playerId,
+          npcId: this.currentNPC,
+          conversationType: "meal_recording",
+          conversationData: {
+            mealType: this.stateManager.selectedMealType,
+            day: this.currentDay,
+            history: history,
+            timestamp: new Date().toISOString(),
+          },
+        }),
       });
+      
+      if (response.ok) {
+        console.log("✅ 对话历史保存成功");
+      } else {
+        console.error("⚠️ 对话历史保存失败:", response.status);
+      }
+    } catch (error) {
+      console.error("❌ 保存对话历史错误:", error);
     }
   }
 
-  // 给vague回复
-  async giveVagueResponse() {
-    console.log("💬 给予vague回复");
+  // 🔧 显示真实线索（晚餐）- 带高亮关键词
+  async showTrueClue(clueText, clueData) {
+    console.log("🎯 显示TRUE线索");
+    const lang = this.playerData?.language || "zh";
     
-    const lang = this.playerData.language || "zh";
-    const vagueCount = this.calculateVagueCount();
-    const vagueMsg = this.mealHandler.getVagueResponse(vagueCount, lang);
+    // 高亮显示
+    this.uiManager.addMessage("System", lang === "zh" ? "🎁 你获得了一条重要线索！" : "🎁 You received an important clue!");
+    await this.delay(500);
     
-    this.uiManager.addMessage("NPC", vagueMsg);
-    await this.delay(1000);
+    // 处理**关键词**高亮
+    const highlightedText = clueText.replace(
+      /\*\*(.*?)\*\*/g, 
+      '<span style="color:#ffd700;font-weight:bold;text-shadow:0 0 5px #ffd700;">$1</span>'
+    );
+    
+    this.uiManager.addMessage("NPC", highlightedText, null, true); // true = 允许HTML
+    await this.delay(1500);
+    
+    // 如果有下一个NPC提示
+    if (clueData?.nextNPC) {
+      const nextNPCHint = lang === "zh" 
+        ? `💡 提示：下一步可以去找 ${clueData.nextNPC}`
+        : `💡 Hint: Next, you can look for ${clueData.nextNPC}`;
+      this.uiManager.addMessage("System", nextNPCHint);
+    }
+    
+    // 通知UIManager更新线索本
+    if (this.scene?.scene?.get("MainScene")?.uiManager) {
+      try {
+        await this.scene.scene.get("MainScene").uiManager.loadCluesFromAPI();
+      } catch (e) {
+        console.log("更新线索本失败（非关键）:", e);
+      }
+    }
   }
 
-  // 计算vague回复次数
-  calculateVagueCount() {
-    // TODO: 从数据库查询该NPC的非晚餐记录次数
-    return 1;
+  // 🔧 显示vague线索（早餐/午餐）
+  async showVagueClue(clueText) {
+    console.log("💬 显示VAGUE线索");
+    const lang = this.playerData?.language || "zh";
+    
+    // NPC说vague的话
+    this.uiManager.addMessage("NPC", clueText);
+    await this.delay(1000);
+    
+    // 给一个小提示
+    const hint = lang === "zh" 
+      ? "💭 看来需要完成今天的最后一餐才能获得更多信息..."
+      : "💭 It seems you need to finish today's last meal for more information...";
+    this.uiManager.addMessage("System", hint);
   }
 
   // ==================== UI辅助方法 ====================

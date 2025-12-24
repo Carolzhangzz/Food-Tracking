@@ -29,29 +29,29 @@ function _sheetInfo(scene, sheetKey) {
 
 function getBottomLeftFrames(scene, sheetKey = "player") {
   const { totalCols, totalRows } = _sheetInfo(scene, sheetKey);
-
+  
   if (totalCols === 0 || totalRows === 0) {
     console.error("❌ 无法获取帧信息");
     return null;
   }
-
+  
   const blocksY = Math.floor(totalRows / 4);
   const blockCol = 0;
   const blockRow = blocksY - 1;
   const baseCol = blockCol * 3;
   const baseRow = blockRow * 4;
-
+  
   const rowToFrames = (row) => [
     row * totalCols + (baseCol + 0),
     row * totalCols + (baseCol + 1),
     row * totalCols + (baseCol + 2),
   ];
-
+  
   const down = rowToFrames(baseRow + 0);
   const left = rowToFrames(baseRow + 1);
   const right = rowToFrames(baseRow + 2);
   const up = rowToFrames(baseRow + 3);
-
+  
   return {
     down,
     left,
@@ -63,12 +63,12 @@ function getBottomLeftFrames(scene, sheetKey = "player") {
 
 function registerPlayerAnims(scene, sheetKey = "player", keyPrefix = "player") {
   const frames = getBottomLeftFrames(scene, sheetKey);
-
+  
   if (!frames) {
     console.error("❌ 无法注册动画:帧数据为空");
     return null;
   }
-
+  
   const mk = (key, arr) => {
     if (!scene.anims.exists(key)) {
       try {
@@ -84,12 +84,12 @@ function registerPlayerAnims(scene, sheetKey = "player", keyPrefix = "player") {
       }
     }
   };
-
+  
   mk(`${keyPrefix}-walk-down`, frames.down);
   mk(`${keyPrefix}-walk-left`, frames.left);
   mk(`${keyPrefix}-walk-right`, frames.right);
   mk(`${keyPrefix}-walk-up`, frames.up);
-
+  
   return frames;
 }
 
@@ -103,6 +103,7 @@ export default class MainScene extends Phaser.Scene {
     this.uiManager = null;
     this.mapScale = 1;
     this.fullyInitialized = false;
+    this.isMobile = window.innerWidth < 768; // 🔧 定义isMobile
     this.keyboardState = {
       listeners: [],
       resizeTimer: null
@@ -111,17 +112,17 @@ export default class MainScene extends Phaser.Scene {
 
   preload() {
     console.log("📦 MainScene preload started");
-
+    
     // 添加加载错误处理
     this.load.on('loaderror', (file) => {
       console.error('❌ 加载失败:', file.key, file.url);
       console.error('   检查文件是否存在:', file.src);
     });
-
+    
     this.load.on('filecomplete', (key) => {
       console.log('✅ 加载完成:', key);
     });
-
+    
     // 🎯 使用横向地图图片（手机游戏适配）
     this.load.image("bigmap", "/assets/map_horizontal.JPG");
 
@@ -138,7 +139,7 @@ export default class MainScene extends Phaser.Scene {
     this.load.image("cluebook", "/assets/elements/cluebook.png");
 
     console.log("📦 加载boy/girl角色 + 7个NPC图片 + 线索本图标");
-
+    
     console.log("📦 MainScene preload completed");
   }
 
@@ -149,12 +150,14 @@ export default class MainScene extends Phaser.Scene {
     const sceneData = this.scene.settings.data || {};
     this.playerId = sceneData.playerId;
     this.playerData = sceneData.playerData;
+    this.updatePlayerdata = sceneData.updatePlayerdata; // 🔧 存储更新函数
 
-    console.log("📊 Scene data:", {
-      playerId: this.playerId,
+    console.log("📊 Scene data:", { 
+      playerId: this.playerId, 
       hasPlayerData: !!this.playerData,
       language: this.playerData?.language,
-      gender: this.playerData?.gender
+      gender: this.playerData?.gender,
+      hasUpdateFn: !!this.updatePlayerdata
     });
 
     // 验证资源加载
@@ -195,7 +198,7 @@ export default class MainScene extends Phaser.Scene {
       // 🔧 横向地图：玩家起始位置在左下角区域
       const startX = mapW * 0.15;  // 地图左侧15%位置
       const startY = mapH * 0.7;   // 地图下方70%位置
-
+      
       this.player = this.physics.add
         .sprite(startX, startY, playerImageKey)  // 🔧 使用单张图片，不需要frame参数
         .setOrigin(0.5)
@@ -221,7 +224,7 @@ export default class MainScene extends Phaser.Scene {
 
       this.cameras.main.setZoom(zoom);
       this.cameras.main.setBounds(0, 0, mapW, mapH);
-
+      
       // 🎯 居中地图（不跟随玩家）
       this.cameras.main.centerOn(mapW / 2, mapH / 2);
 
@@ -237,11 +240,11 @@ export default class MainScene extends Phaser.Scene {
         // 将屏幕坐标转换为世界坐标
         const worldX = pointer.worldX;
         const worldY = pointer.worldY;
-
+        
         // 🔧 调试模式：显示点击坐标，方便配置NPC位置
         console.log(`🖱️ 点击位置: x: ${Math.round(worldX)}, y: ${Math.round(worldY)}`);
         console.log(`   复制这个坐标: { x: ${Math.round(worldX)}, y: ${Math.round(worldY)} }`);
-
+        
         // 移动玩家到点击位置
         this.targetX = worldX;
         this.targetY = worldY;
@@ -250,7 +253,7 @@ export default class MainScene extends Phaser.Scene {
 
       // === 4️⃣ 初始化系统 ===
       console.log("🔧 初始化 NPCManager 和 UIManager...");
-
+      
       this.npcManager = new NPCManager(this);
       this.uiManager = new UIManager(this);
 
@@ -274,20 +277,6 @@ export default class MainScene extends Phaser.Scene {
       this.scale.on("resize", this.handleResize, this);
       this.handleResize();
 
-      // === 6️⃣ 初始化 UIManager ===
-      console.log("🎨 初始化 UIManager...");
-      this.uiManager = new UIManager(this);
-      this.uiManager.init();
-
-      // 从数据库加载线索
-      if (this.playerId) {
-        this.uiManager.loadCluesFromAPI().catch(err => {
-          console.error("加载线索失败:", err);
-        });
-      }
-
-      console.log("✅ UIManager 初始化完成");
-
 
       this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -299,7 +288,7 @@ export default class MainScene extends Phaser.Scene {
         玩家位置: `${startX}, ${startY}`,
         NPCs数量: this.npcManager?.npcSprites?.length || 0,
       });
-
+      
     } catch (error) {
       console.error("❌ MainScene create 错误:", error);
       this.fullyInitialized = true; // 即使出错也标记为完成,避免卡住
@@ -317,12 +306,12 @@ export default class MainScene extends Phaser.Scene {
   handleResize() {
     // 🔧 修复：不要调用 this.scale.resize()，这会触发无限递归
     // Phaser 的 Scale Manager 会自动处理窗口大小变化
-
+    
     const width = window.innerWidth;
     const height = window.innerHeight;
-
+    
     console.log(`📐 窗口大小变化: ${width} x ${height}`);
-
+    
     // 更新摄像机视口
     this.cameras.main.setViewport(0, 0, width, height);
 
@@ -426,8 +415,8 @@ export default class MainScene extends Phaser.Scene {
           ? "🎉 恭喜完成所有7天的旅程!正在准备最终彩蛋..."
           : "🎉 Congratulations on completing all 7 days! Preparing final surprise..."
         : lang === "zh"
-          ? `第${currentDay}天的记录完成!下次登录时可以与新的NPC对话`
-          : `Day ${currentDay} record complete! You can talk to a new NPC next time you login`;
+        ? `第${currentDay}天的记录完成!下次登录时可以与新的NPC对话`
+        : `Day ${currentDay} record complete! You can talk to a new NPC next time you login`;
     this.showNotification(msg, 4000);
   }
 
@@ -517,7 +506,7 @@ export default class MainScene extends Phaser.Scene {
 
   destroy() {
     console.log("💥 MainScene destroy");
-
+    
     if (this.keyboardState?.listeners) {
       this.keyboardState.listeners.forEach(({ target, event, handler }) => {
         try {
@@ -561,26 +550,26 @@ export default class MainScene extends Phaser.Scene {
 
   createFallbackPlayer() {
     console.log("🎨 创建备用玩家");
-
+    
     const width = window.innerWidth;
     const height = window.innerHeight;
-
+    
     const graphics = this.add.graphics();
     graphics.fillStyle(0x0066ff, 1);
     graphics.fillRect(-16, -24, 32, 48);
     graphics.generateTexture('fallback-player', 32, 48);
     graphics.destroy();
-
+    
     this.player = this.physics.add
       .sprite(width / 2, height / 2, 'fallback-player')
       .setOrigin(0.5)
       .setDepth(10);
-
+    
     this.physics.world.setBounds(0, 0, width, height);
     this.cameras.main.startFollow(this.player);
-
+    
     this.cursors = this.input.keyboard.createCursorKeys();
-
+    
     const text = this.add.text(width / 2, 50, '⚠️ 资源加载失败,使用备用模式', {
       fontSize: '20px',
       fill: '#ffffff',
@@ -589,7 +578,7 @@ export default class MainScene extends Phaser.Scene {
     });
     text.setOrigin(0.5);
     text.setScrollFactor(0);
-
+    
     console.log("✅ 备用玩家创建完成");
   }
 

@@ -458,6 +458,12 @@ export default class NPCManager {
   // ==================== 工具方法 ====================
 
   getCurrentDay() {
+    // 🔧 优先使用数据库返回的当前天数，这是最准确的
+    if (this.playerStatus && this.playerStatus.currentDay) {
+      return Number(this.playerStatus.currentDay);
+    }
+    
+    // 兜底逻辑
     if (!this.playerStatus || !this.playerStatus.first_login_time) {
       return 1;
     }
@@ -465,11 +471,14 @@ export default class NPCManager {
     const firstLogin = new Date(this.playerStatus.first_login_time);
     const now = new Date();
     
-    // 计算天数差异
-    const diffTime = Math.abs(now - firstLogin);
+    // 设置为 0 点比较日期
+    const d1 = new Date(firstLogin.getFullYear(), firstLogin.getMonth(), firstLogin.getDate());
+    const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const diffTime = d2 - d1;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    return Math.min(diffDays + 1, 7); // 最多7天
+    return Math.max(1, Math.min(diffDays + 1, 7));
   }
 
   getTodayMeals() {
