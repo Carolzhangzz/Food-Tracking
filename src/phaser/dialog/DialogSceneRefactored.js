@@ -196,12 +196,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
     this.uiManager.updateDialogText(questionText);
 
-    const buttonOptions = options.map(opt => ({
-      text: opt,
-      value: opt,
-    }));
-
-    this.uiManager.showButtons(buttonOptions, (answer) => {
+    // 🔧 options已经是对象数组格式 { text, value, isOther }
+    this.uiManager.showButtons(options, (answer) => {
       this.onQuestionAnswered(nextQuestion, answer);
     });
   }
@@ -238,10 +234,14 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     if (result.success) {
       this.stateManager.markMealSubmitted(result);
       
-      // 判断是否给线索
-      if (result.shouldGiveClue && this.stateManager.selectedMealType === "dinner") {
+      // 🔧 判断是否给线索（只有晚餐才有可能给线索）
+      console.log("🍽️ 餐食类型:", this.stateManager.selectedMealType);
+      console.log("🎁 是否给线索:", result.shouldGiveClue);
+      
+      if (this.stateManager.selectedMealType === "dinner" && result.shouldGiveClue) {
         await this.giveClue();
-      } else {
+      } else if (this.stateManager.selectedMealType !== "dinner") {
+        // 非晚餐给vague回复
         await this.giveVagueResponse();
       }
     } else {

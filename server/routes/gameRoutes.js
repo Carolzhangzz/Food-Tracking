@@ -792,15 +792,16 @@ router.post("/record-meal", async (req, res) => {
       );
     }
 
-    // 发放线索
+    // 🔧 发放线索（只有晚餐才给线索，其他餐不给）
     let shouldGiveClue = false;
     let clueText = null;
     let mealStage = null;
     const playerLanguage = player.language || "en";
 
-    if (["breakfast", "lunch", "dinner"].includes(mealType)) {
+    if (mealType === "dinner") {
+      // 只有晚餐才给线索
       shouldGiveClue = true;
-      mealStage = mealType === "breakfast" ? 1 : mealType === "lunch" ? 2 : 3;
+      mealStage = 3; // dinner = stage 3
       clueText = getClueForNPCStage(npcId, playerLanguage, mealStage);
       await saveClueToDatabase(
         playerId,
@@ -810,6 +811,10 @@ router.post("/record-meal", async (req, res) => {
         mealStage,
         mealType
       );
+      console.log(`✅ [晚餐] 给予线索: ${clueText.substring(0, 50)}...`);
+    } else {
+      // 早餐/午餐不给线索（前端会给vague回复）
+      console.log(`ℹ️ [${mealType}] 不给线索，前端将显示vague回复`);
     }
 
     // 预创建下一天的 progress

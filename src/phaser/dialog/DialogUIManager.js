@@ -53,19 +53,20 @@ export default class DialogUIManager {
     const textPadding = 30;
     const textY = boxY + textPadding;
     const textW = boxW - textPadding * 2;
-    const fontSize = Math.min(20, Math.max(16, width / 50));
+    // 🔧 增大字体：手机24-28px，PC 26-32px
+    const fontSize = isMobile ? Math.max(24, width / 30) : Math.max(26, width / 40);
 
     this.dialogText = this.scene.add
       .text(boxX + textPadding, textY, "", {
         fontSize: `${fontSize}px`,
-        fontFamily: "'Segoe UI', 'Arial', sans-serif",
+        fontFamily: "'Segoe UI', 'Arial', 'Microsoft YaHei', sans-serif",
         fill: "#f1f5f9",
         wordWrap: { width: textW, useAdvancedWrap: true },
-        lineSpacing: 8,
+        lineSpacing: 12, // 增加行距
         stroke: "#000000",
-        strokeThickness: 1,
+        strokeThickness: 2, // 增加描边
       })
-      .setShadow(1, 1, "#000000", 3, false, true)
+      .setShadow(2, 2, "#000000", 4, false, true) // 增强阴影
       .setDepth(11)
       .setScrollFactor(0);
 
@@ -151,19 +152,21 @@ export default class DialogUIManager {
     this.clearButtons();
 
     const { width, height } = this.scene.scale;
-    const startY = height * 0.6;
-    const buttonSpacing = 70;
-    const fontSize = "18px";
+    const isMobile = width < 768;
+    const startY = height * 0.55;
+    const buttonSpacing = isMobile ? 60 : 70;
+    // 🔧 增大按钮字体
+    const fontSize = isMobile ? "20px" : "22px";
 
     options.forEach((option, index) => {
       const buttonY = startY + index * buttonSpacing;
       
       const button = this.scene.add.text(width / 2, buttonY, option.text, {
         fontSize: fontSize,
-        fontFamily: "monospace",
-        fill: "#e2e8f0",
+        fontFamily: "'Arial', 'Microsoft YaHei', sans-serif",
+        fill: "#ffffff",
         backgroundColor: "#4a5568",
-        padding: { x: 20, y: 12 },
+        padding: { x: 25, y: 15 }, // 增大padding
       });
 
       button
@@ -173,11 +176,17 @@ export default class DialogUIManager {
         .setInteractive({ useHandCursor: true })
         .on("pointerdown", () => {
           this.clearButtons();
-          callback(option.value);
+          
+          // 🔧 如果是"其他"选项，显示输入框
+          if (option.isOther) {
+            this.showInputBox(callback);
+          } else {
+            callback(option.value);
+          }
         })
         .on("pointerover", () => {
           button.setTint(0x667eea);
-          button.setScale(1.05);
+          button.setScale(1.08);
         })
         .on("pointerout", () => {
           button.clearTint();
@@ -186,6 +195,73 @@ export default class DialogUIManager {
 
       this.buttons.push(button);
     });
+  }
+
+  // 🔧 显示输入框（用于"其他"选项）
+  showInputBox(callback) {
+    const { width, height } = this.scene.scale;
+    const isMobile = width < 768;
+
+    // 创建输入框容器
+    const inputY = height * 0.7;
+    const inputWidth = isMobile ? width * 0.8 : 500;
+
+    // 创建HTML输入框
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = this.scene.playerData?.language === "zh" ? "请输入..." : "Type here...";
+    input.style.position = "absolute";
+    input.style.left = `${(width - inputWidth) / 2}px`;
+    input.style.top = `${inputY}px`;
+    input.style.width = `${inputWidth}px`;
+    input.style.fontSize = isMobile ? "20px" : "22px";
+    input.style.padding = "15px";
+    input.style.borderRadius = "8px";
+    input.style.border = "2px solid #667eea";
+    input.style.backgroundColor = "#1a1a2e";
+    input.style.color = "#ffffff";
+    input.style.zIndex = "1000";
+
+    document.body.appendChild(input);
+    input.focus();
+
+    // 提交按钮
+    const submitBtn = this.scene.add.text(width / 2, inputY + 80, 
+      this.scene.playerData?.language === "zh" ? "提交" : "Submit", {
+      fontSize: isMobile ? "20px" : "22px",
+      fontFamily: "Arial",
+      fill: "#ffffff",
+      backgroundColor: "#667eea",
+      padding: { x: 30, y: 12 },
+    });
+
+    submitBtn
+      .setOrigin(0.5)
+      .setDepth(26)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => {
+        const value = input.value.trim();
+        if (value) {
+          document.body.removeChild(input);
+          submitBtn.destroy();
+          callback(value);
+        }
+      });
+
+    // 回车提交
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        const value = input.value.trim();
+        if (value) {
+          document.body.removeChild(input);
+          submitBtn.destroy();
+          callback(value);
+        }
+      }
+    });
+
+    this.textarea = input;
   }
 
   // 清除所有按钮

@@ -81,10 +81,19 @@ export default class MealRecordingHandler {
     return question ? question.text[language] || question.text.en : "";
   }
 
-  // 获取问题选项
+  // 获取问题选项（添加"其他"选项）
   getQuestionOptions(questionId, language = "en") {
     const question = this.questions[questionId];
-    return question ? question.options[language] || question.options.en : [];
+    if (!question) return [];
+    
+    const options = question.options[language] || question.options.en;
+    const otherText = language === "zh" ? "其他" : "Other";
+    
+    // 返回选项数组，最后一项标记为"其他"
+    return [
+      ...options.map(text => ({ text, value: text, isOther: false })),
+      { text: otherText, value: "other", isOther: true }
+    ];
   }
 
   // 获取下一个问题ID

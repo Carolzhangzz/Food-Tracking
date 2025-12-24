@@ -1,7 +1,6 @@
 // src/phaser/MainScene.js - 使用 bigmap 的完整版本
 import Phaser from "phaser";
 import Agent from "./Agent";
-import DialogScene from "./DialogScene.js";
 import NPCManager from "./NPCManager.js";
 import UIManager from "./UIManager.js";
 import { playBGM, stopBGM } from "../utils/audioManager";

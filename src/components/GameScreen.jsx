@@ -2,7 +2,6 @@
 import React, { useEffect, useCallback, useContext, useState, useRef } from "react";
 import Phaser from "phaser";
 import MainScene from "../phaser/MainScene";
-import DialogScene from "../phaser/DialogScene";
 import DialogSceneRefactored from "../phaser/dialog/DialogSceneRefactored";
 import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
@@ -76,7 +75,7 @@ function GameScreen() {
     );
 
     const gameConfig = {
-      scene: [MainScene, DialogSceneRefactored, DialogScene], // 新场景优先，保留旧场景作为备份
+      scene: [MainScene, DialogSceneRefactored], // 使用重构后的对话场景
       title: "Village Secrets",
       type: Phaser.AUTO,
       width: gameWidth,
