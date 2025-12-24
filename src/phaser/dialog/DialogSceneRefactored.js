@@ -426,37 +426,35 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.uiManager.hideTypingIndicator();
 
     if (result.success) {
-      console.log("✅ 餐食保存成功");
+      console.log("✅ [DialogScene] 餐食记录保存成功:", result);
       this.stateManager.markMealSubmitted(result);
       this.uiManager.updateStatus("✅ 保存成功");
       
-      // 🔧 同步 React UI 数据
+      // 🔧 同步数据到 React UI (地图进度图标)
       if (this.mainScene && this.mainScene.updatePlayerdata) {
-        console.log("🔄 同步餐食进度到 React UI:", result.currentDayMealsRemaining);
+        const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
+        console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
+        
         const updatedData = {
           ...this.playerData,
-          currentDayMealsRemaining: result.currentDayMealsRemaining,
-          availableMealTypes: result.currentDayMealsRemaining // 兼容性别名
+          currentDayMealsRemaining: remaining,
+          availableMealTypes: remaining
         };
+        
         this.mainScene.updatePlayerdata(updatedData);
-        // 同时更新当前场景的数据，防止下次打开时旧数据
         this.playerData = updatedData;
+      } else {
+        console.warn("⚠️ [DialogScene] 无法同步到 React UI: mainScene.updatePlayerdata 未定义");
       }
       
       // 🔧 保存对话历史
       await this.saveConversationHistory(conversationHistory);
       
-      // 🔧 显示线索或vague回复（后端已保存，直接显示返回的内容）
-      console.log("🍽️ 餐食类型:", this.stateManager.selectedMealType);
-      console.log("🎁 后端返回clueType:", result.clueType);
-      console.log("📝 线索内容:", result.clueText);
-      
+      // 🔧 显示线索或vague回复
       if (result.clueText) {
         if (result.clueType === "true") {
-          // 🌙 晚餐 = 真实线索
           await this.showTrueClue(result.clueText, result.clueData);
         } else {
-          // 🌞 早餐/午餐 = vague线索
           await this.showVagueClue(result.clueText);
         }
       }
@@ -565,12 +563,12 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       this.uiManager.addMessage("System", nextNPCHint);
     }
     
-    // 通知UIManager更新线索本
-    if (this.scene?.scene?.get("MainScene")?.uiManager) {
+    // 🔧 统一使用 this.mainScene
+    if (this.mainScene?.uiManager) {
       try {
-        await this.scene.scene.get("MainScene").uiManager.loadCluesFromAPI();
+        await this.mainScene.uiManager.loadCluesFromAPI();
       } catch (e) {
-        console.log("更新线索本失败（非关键）:", e);
+        console.log("更新线索本失败:", e);
       }
     }
   }
@@ -589,6 +587,15 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       ? "💭 看来需要完成今天的最后一餐才能获得更多信息..."
       : "💭 It seems you need to finish today's last meal for more information...";
     this.uiManager.addMessage("System", hint);
+
+    // 🔧 新增：即使是vague线索也尝试更新一下线索本（因为后端也会保存vague线索）
+    if (this.mainScene?.uiManager) {
+      try {
+        await this.mainScene.uiManager.loadCluesFromAPI();
+      } catch (e) {
+        console.log("更新线索本失败:", e);
+      }
+    }
   }
 
   // ==================== UI辅助方法 ====================

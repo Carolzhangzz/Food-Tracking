@@ -284,6 +284,23 @@ export default class MainScene extends Phaser.Scene {
 
       this.cursors = this.input.keyboard.createCursorKeys();
 
+      // 🔧 监听场景恢复事件，用于刷新状态（如餐食进度、线索等）
+      this.events.on("resume", async () => {
+        console.log("🌅 MainScene 恢复运行，开始同步最新数据...");
+        try {
+          // 1. 刷新 NPC 状态（地图上的指示器）
+          if (this.npcManager) {
+            await this.npcManager.refreshAvailableNPCs();
+          }
+          // 2. 刷新线索本数据
+          if (this.uiManager && typeof this.uiManager.loadCluesFromAPI === 'function') {
+            await this.uiManager.loadCluesFromAPI();
+          }
+        } catch (error) {
+          console.error("❌ 恢复场景时同步数据失败:", error);
+        }
+      });
+
       // 标记为完全初始化
       this.fullyInitialized = true;
       console.log("✅ MainScene 完全初始化完成");

@@ -161,6 +161,12 @@ export default class NPCManager {
         this.playerStatus = data;
         this.mealRecords = data.mealRecords || [];
         
+        // 🔧 同步关键数据到主场景
+        if (this.scene.playerData) {
+          this.scene.playerData.currentDay = data.player?.currentDay || data.currentDay || this.scene.playerData.currentDay;
+          this.scene.playerData.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
+        }
+        
         console.log("✅ 玩家状态加载成功:", {
           当前天数: this.getCurrentDay(),
           餐食记录: this.mealRecords.length,
