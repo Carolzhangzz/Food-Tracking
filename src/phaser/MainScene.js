@@ -324,6 +324,24 @@ export default class MainScene extends Phaser.Scene {
     }
   }
 
+  // 🔧 新增：供 React (Control.jsx) 调用，实时更新玩家数据（如语言、音乐等）
+  setPlayerData(newData) {
+    console.log("🔄 MainScene: 接收到新的玩家数据", newData);
+    this.playerData = newData;
+    
+    // 如果 UI 已经初始化，刷新 UI 文字语言
+    if (this.uiManager) {
+      // 刷新日期显示和餐食进度的语言（如果还有的话）
+      if (typeof this.uiManager.createDateDisplay === 'function') this.uiManager.createDateDisplay();
+      if (typeof this.uiManager.createMealProgress === 'function') this.uiManager.createMealProgress();
+    }
+
+    // 刷新地图上 NPC 的名字标签语言
+    if (this.npcManager && typeof this.npcManager.updateNPCStates === 'function') {
+      this.npcManager.updateNPCStates();
+    }
+  }
+
   handleResize() {
     // 🔧 修复：不要调用 this.scale.resize()，这会触发无限递归
     // Phaser 的 Scale Manager 会自动处理窗口大小变化

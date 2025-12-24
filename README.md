@@ -1,6 +1,6 @@
 # 🎮 Village Secrets - Food Tracking RPG Game
 
-[中文](#-village-secrets---食物日志记录rpg游戏) | [English](#-village-secrets---food-tracking-rpg-game-1)
+[中文](#-village-secrets---食物日志记录rpg游戏-chinese) | [English](#-village-secrets---food-tracking-rpg-game-english)
 
 ---
 

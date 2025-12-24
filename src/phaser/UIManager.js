@@ -170,6 +170,7 @@ export default class UIManager {
 
   createDateDisplay() {
     // 逻辑已移至 React，此处仅保留空壳或基础提示
+    // 如果之后要在Phaser里保留，可以加在这里
   }
 
   createMealProgress() {
