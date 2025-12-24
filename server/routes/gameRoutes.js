@@ -29,29 +29,29 @@ const CROSS_DAY_WAIT_HOURS = Number(process.env.CROSS_DAY_WAIT_HOURS || 24);
 // NPC ID 映射
 function dayToNpcId(day) {
   const map = {
-    1: "village_head",
+    1: "uncle_bo",
     2: "shop_owner",
-    3: "spice_woman",
+    3: "spice_granny",
     4: "restaurant_owner",
     5: "fisherman",
     6: "old_friend",
     7: "secret_apprentice",
   };
-  return map[day] || "village_head";
+  return map[day] || "uncle_bo";
 }
 
 // NPC 名称映射
 function getNPCName(npcId) {
   const npcNames = {
-    village_head: "村长伯伯",
-    shop_owner: "店主阿桂",
-    spice_woman: "香料婆婆",
-    restaurant_owner: "餐厅店长老韩",
-    fisherman: "渔夫阿梁",
-    old_friend: "林川",
-    secret_apprentice: "念念",
+    uncle_bo: "村长",
+    shop_owner: "杂货铺老板",
+    spice_granny: "香料婆婆",
+    restaurant_owner: "餐馆老板",
+    fisherman: "渔夫",
+    old_friend: "旧友",
+    secret_apprentice: "秘密学徒",
   };
-  return npcNames[npcId] || "Unknown NPC";
+  return npcNames[npcId] || npcId;
 }
 
 // 检查是否至少记录了1餐
@@ -428,7 +428,7 @@ router.post("/login", async (req, res) => {
       await PlayerProgress.create({
         playerId,
         day: 1,
-        npcId: "village_head",
+        npcId: "uncle_bo",
         unlockedAt: now,
       });
     } else {
@@ -786,20 +786,23 @@ router.post("/record-meal", async (req, res) => {
   try {
     const {
       playerId,
-      day,
+      day: rawDay,
       npcId,
       npcName,
       mealType,
-      answers, // 🔧 改回与前端一致
-      mealAnswers, // 兼容性支持
+      answers, 
+      mealAnswers, 
       conversationHistory,
       mealContent,
     } = req.body;
 
-    const actualAnswers = answers || mealAnswers;
+    const day = Number(rawDay); // 🔧 强制转换为数字
+    const actualAnswers = answers || mealAnswers || {};
+    const actualNPCName = npcName || getNPCName(npcId); 
 
     if (!playerId || !day || !npcId || !mealType || !mealContent) {
       await t.rollback();
+      console.error("❌ 缺少必要字段:", { playerId, day, npcId, mealType, hasContent: !!mealContent });
       return res.status(400).json({ success: false, error: "缺少必要字段" });
     }
 
@@ -831,9 +834,9 @@ router.post("/record-meal", async (req, res) => {
         playerId,
         day,
         npcId,
-        npcName,
+        npcName: actualNPCName,
         mealType,
-        mealAnswers: actualAnswers, // 🔧 使用统一后的答案
+        mealAnswers: actualAnswers,
         conversationHistory,
         mealContent,
       },
@@ -893,20 +896,25 @@ router.post("/record-meal", async (req, res) => {
     
     // 保存线索到数据库
     if (clueText) {
-      const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
-      await Clue.create({
-        playerId,
-        npcId,
-        npcName: npcName || clueData?.npcName,
-        clueType,
-        clueText: cleanText,
-        keywords: JSON.stringify(keywords),
-        shortVersion,
-        day,
-        mealType,
-        nextNPC: clueData?.nextNPC || null
-      });
-      console.log(`📝 线索已保存到数据库: type=${clueType}, npc=${npcId}`);
+      try {
+        const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+        await Clue.create({
+          playerId,
+          npcId,
+          npcName: actualNPCName || clueData?.npcName,
+          clueType,
+          clueText: cleanText,
+          keywords: JSON.stringify(keywords),
+          shortVersion,
+          day,
+          mealType,
+          nextNPC: clueData?.nextNPC || null
+        }, { transaction: t });
+        console.log(`📝 线索已保存到数据库: type=${clueType}, npc=${npcId}`);
+      } catch (clueError) {
+        console.error("⚠️ 保存线索失败，但不影响餐食记录:", clueError.message);
+        // 不在这里回滚事务，除非这是必须成功的
+      }
     }
 
     // 预创建下一天的 progress

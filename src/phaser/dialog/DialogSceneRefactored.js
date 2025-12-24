@@ -417,6 +417,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const result = await this.mealHandler.submitMealRecord(
       this.playerId,
       this.currentNPC,
+      this.npcData?.name[lang] || this.currentNPC, // 🔧 新增：传递 NPC 名字
       this.stateManager.selectedMealType,
       this.stateManager.questionAnswers,
       this.currentDay

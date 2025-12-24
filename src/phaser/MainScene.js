@@ -267,9 +267,13 @@ export default class MainScene extends Phaser.Scene {
 
       // 🔧 初始加载线索数据
       console.log("📋 初始加载线索...");
-      this.uiManager.loadCluesFromAPI().catch(err => {
-        console.error("❌ 初始加载线索失败:", err);
-      });
+      if (this.uiManager && typeof this.uiManager.loadCluesFromAPI === 'function') {
+        this.uiManager.loadCluesFromAPI().catch(err => {
+          console.error("❌ 初始加载线索失败:", err);
+        });
+      } else {
+        console.warn("⚠️ UIManager.loadCluesFromAPI 未定义，可能是版本不匹配");
+      }
 
       this.setupAudio();
 

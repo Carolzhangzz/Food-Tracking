@@ -251,8 +251,8 @@ export default class MealRecordingHandler {
   }
 
   // 提交餐食记录到后端
-  async submitMealRecord(playerId, npcId, mealType, answers, currentDay) {
-    console.log("📤 提交餐食记录:", { playerId, npcId, mealType, currentDay });
+  async submitMealRecord(playerId, npcId, npcName, mealType, answers, currentDay) {
+    console.log("📤 提交餐食记录:", { playerId, npcId, npcName, mealType, currentDay });
     console.log("📤 餐食答案:", answers);
 
     try {
@@ -264,10 +264,11 @@ export default class MealRecordingHandler {
         body: JSON.stringify({
           playerId: playerId,
           npcId: npcId,
+          npcName: npcName, // 🔧 必须传递名字，否则后端报错
           mealType: mealType,
           day: currentDay,
           mealContent: this.formatMealContent(answers),
-          answers: answers, // 🔧 确保发送给后端的字段名一致
+          answers: answers,
           timestamp: new Date().toISOString(),
         }),
       });
@@ -288,6 +289,10 @@ export default class MealRecordingHandler {
         success: true,
         shouldGiveClue: result.shouldGiveClue || false,
         clueText: result.clueText || null,
+        clueType: result.clueType || null,
+        clueData: result.clueData || null,
+        currentDayMealsRemaining: result.currentDayMealsRemaining || [],
+        availableMealTypes: result.availableMealTypes || [],
         mealStage: result.mealStage || "completed",
         message: result.message || "Meal recorded successfully",
       };

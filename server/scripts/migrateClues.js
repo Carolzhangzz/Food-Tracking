@@ -1,6 +1,7 @@
 // server/scripts/migrateClues.js
 // 为Clues表添加新字段
-
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const sequelize = require('../db');
 
 async function migrateClues() {
@@ -9,12 +10,16 @@ async function migrateClues() {
     
     // 添加新字段（如果不存在）
     const queries = [
+      // Clues 表字段
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "npcName" VARCHAR(255)`,
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "mealType" VARCHAR(50)`,
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "clueType" VARCHAR(50) DEFAULT 'true'`,
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "keywords" TEXT`,
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "shortVersion" TEXT`,
       `ALTER TABLE "Clues" ADD COLUMN IF NOT EXISTS "nextNPC" VARCHAR(255)`,
+      
+      // PlayerProgresses 表字段
+      `ALTER TABLE "PlayerProgresses" ADD COLUMN IF NOT EXISTS "available_meal_types" TEXT DEFAULT '["breakfast", "lunch", "dinner"]'`,
     ];
     
     for (const query of queries) {
