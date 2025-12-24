@@ -35,6 +35,12 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.currentDay = data.currentDay || 1;
     this.isMobile = this.scale.width < 768;
 
+    // 🔧 获取NPC完整数据（包括名字）
+    this.npcData = this.npcManager?.npcData?.find(n => n.id === this.currentNPC) || {
+      id: this.currentNPC,
+      name: data.npcName || "NPC"
+    };
+
     // 可用餐食
     const availableNPC = this.npcManager?.availableNPCs?.find(
       (n) => n.npcId === this.currentNPC
@@ -76,10 +82,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 1. 创建背景
     this.createBackground();
 
-    // 2. 创建UI
+    // 2. 创建现代化UI
     this.uiManager.createDialogBox();
-    this.uiManager.createReturnButton();
-    this.uiManager.createStatusText();
 
     // 3. 开始对话流程
     this.startDialogFlow();
@@ -97,15 +101,21 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
   async playConvAIIntro() {
     this.uiManager.updateStatus("正在开始对话...");
+    this.uiManager.showTypingIndicator();
 
     try {
       const response = await this.convaiHandler.callAPI("hello", this.currentNPC);
+      
+      this.uiManager.hideTypingIndicator();
       
       if (response.success) {
         console.log("✅ ConvAI开场白成功");
         
         // 显示开场白
-        await this.showMessage(response.message);
+        this.uiManager.addMessage("NPC", response.message);
+        
+        // 等待一下让玩家阅读
+        await this.delay(800);
         
         // Phase 2: 直接进入餐食选择
         this.showMealSelection();
@@ -116,11 +126,13 @@ export default class DialogSceneRefactored extends Phaser.Scene {
           this.currentNPC,
           this.playerData.language || "en"
         );
-        await this.showMessage(fallbackIntro);
+        this.uiManager.addMessage("NPC", fallbackIntro);
+        await this.delay(800);
         this.showMealSelection();
       }
     } catch (error) {
       console.error("❌ 对话流程错误:", error);
+      this.uiManager.hideTypingIndicator();
       this.uiManager.updateStatus("发生错误");
     }
   }
@@ -137,9 +149,11 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         ? "今天的餐食已经全部记录完了，明天再来吧！"
         : "All meals for today have been recorded, come back tomorrow!";
       
-      this.showMessage(message).then(() => {
+      this.uiManager.addMessage("NPC", message);
+      
+      setTimeout(() => {
         this.returnToMainScene();
-      });
+      }, 2000);
       return;
     }
 
@@ -149,7 +163,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       ? "选择要记录的餐食类型:"
       : "Which meal do you want to record?";
     
-    this.uiManager.updateDialogText(question);
+    this.uiManager.addMessage("NPC", question);
 
     // 创建餐食按钮
     const mealNames = {
@@ -194,7 +208,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const questionText = this.mealHandler.getQuestionText(nextQuestion, lang);
     const options = this.mealHandler.getQuestionOptions(nextQuestion, lang);
 
-    this.uiManager.updateDialogText(questionText);
+    this.uiManager.addMessage("NPC", questionText);
 
     // 🔧 options已经是对象数组格式 { text, value, isOther }
     this.uiManager.showButtons(options, (answer) => {
@@ -218,10 +232,11 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const lang = this.playerData.language || "zh";
     const completionMsg = this.mealHandler.getCompletionMessage(lang);
     
-    await this.showMessage(completionMsg);
+    this.uiManager.addMessage("NPC", completionMsg);
 
     // 提交到后端
     this.uiManager.updateStatus("正在保存...");
+    this.uiManager.showTypingIndicator();
     
     const result = await this.mealHandler.submitMealRecord(
       this.playerId,
@@ -231,8 +246,11 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       this.currentDay
     );
 
+    this.uiManager.hideTypingIndicator();
+
     if (result.success) {
       this.stateManager.markMealSubmitted(result);
+      this.uiManager.updateStatus("✅ 保存成功");
       
       // 🔧 判断是否给线索（只有晚餐才有可能给线索）
       console.log("🍽️ 餐食类型:", this.stateManager.selectedMealType);
@@ -245,13 +263,13 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         await this.giveVagueResponse();
       }
     } else {
-      this.uiManager.updateStatus("保存失败");
+      this.uiManager.updateStatus("❌ 保存失败");
     }
 
     // 返回地图
     setTimeout(() => {
       this.returnToMainScene();
-    }, 2000);
+    }, 3000);
   }
 
   // 给线索
@@ -262,7 +280,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const clueResult = await this.clueManager.getClueForNPC(this.currentNPC, lang);
     
     if (clueResult.success) {
-      await this.showMessage(clueResult.clue);
+      this.uiManager.addMessage("System", "🎁 你获得了一条线索！");
+      await this.delay(500);
+      this.uiManager.addMessage("NPC", clueResult.clue);
       
       // 保存线索
       await this.clueManager.saveClueToDatabase(
@@ -289,7 +309,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const vagueCount = this.calculateVagueCount();
     const vagueMsg = this.mealHandler.getVagueResponse(vagueCount, lang);
     
-    await this.showMessage(vagueMsg);
+    this.uiManager.addMessage("NPC", vagueMsg);
+    await this.delay(1000);
   }
 
   // 计算vague回复次数
@@ -299,19 +320,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   }
 
   // ==================== UI辅助方法 ====================
-  showMessage(text) {
-    return new Promise((resolve) => {
-      this.uiManager.updateDialogText(text);
-      this.uiManager.showContinueHint(true);
-      
-      const continueHandler = () => {
-        this.uiManager.showContinueHint(false);
-        this.input.off("pointerdown", continueHandler);
-        resolve();
-      };
-      
-      this.input.once("pointerdown", continueHandler);
-    });
+  // 延迟函数
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   createBackground() {
@@ -354,16 +365,21 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   returnToMainScene() {
     console.log("🔙 返回主场景");
     
-    // 清理
-    this.uiManager.destroy();
+    // 清理UI（移除DOM元素）
+    this.uiManager.cleanup();
+    
+    // 停止当前场景
+    this.scene.stop("DialogSceneRefactored");
     
     // 恢复主场景
-    this.scene.stop();
-    this.scene.resume("MainScene");
-    
-    // 刷新NPC状态
-    if (this.npcManager) {
-      this.npcManager.refreshAvailableNPCs();
+    const mainScene = this.scene.get("MainScene");
+    if (mainScene) {
+      this.scene.resume("MainScene");
+      
+      // 刷新NPC状态
+      if (mainScene.npcManager) {
+        mainScene.npcManager.updateNPCStates();
+      }
     }
   }
 
