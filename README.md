@@ -1,6 +1,6 @@
 # 🎮 Village Secrets - Food Tracking RPG Game
 
-[中文](#-village-secrets---食物日志记录rpg游戏-chinese) | [English](#-village-secrets---food-tracking-rpg-game-english)
+[中文说明](#-village-secrets---食物日志记录rpg游戏-chinese) | [English Version](#-village-secrets---food-tracking-rpg-game-english)
 
 ---
 
@@ -9,13 +9,12 @@
 一款结合了食物日志记录和解谜元素的互动式RPG游戏。玩家通过与7个NPC对话，记录每日三餐，收集线索，最终解开村庄的秘密。
 
 ### 📋 目录
-- [技术栈](#技术栈)
-- [功能特性](#功能特性)
-- [安装与配置](#安装与配置)
-- [本地开发](#本地开发)
-- [部署与运行](#部署与运行)
-- [数据库管理](#数据库管理)
-- [游戏逻辑说明](#游戏逻辑说明)
+- [技术栈](#🛠️-技术栈)
+- [功能特性](#✨-功能特性)
+- [安装与配置](#🚀-安装与配置)
+- [本地开发](#💻-本地开发)
+- [游戏逻辑](#🎮-游戏逻辑说明)
+- [数据库管理](#🗄️-数据库管理)
 
 ### 🛠️ 技术栈
 - **前端**: React 18, Phaser 3, React Router DOM, Context API
@@ -31,7 +30,7 @@
 
 ### 🚀 安装与配置
 ```bash
-# 安装依赖
+# 安装项目依赖
 npm install
 cd server && npm install && cd ..
 ```
@@ -41,8 +40,19 @@ cd server && npm install && cd ..
 - 前端 (`.env`): `REACT_APP_API_URL=http://localhost:5000/api`
 
 ### 💻 本地开发
-- **后端**: `cd server && npm start`
-- **前端**: `npm start` (开发模式，支持热更新)
+- **后端服务器**: `cd server && npm start`
+- **前端应用**: `npm start`
+
+### 🎮 游戏逻辑说明
+- **NPC 解锁**: [游戏天数达到] + [前一个NPC至少记录过1餐]。
+- **线索获取**: 只有记录**晚餐**时才会获得存入线索本的“真实线索”。早午餐仅提供“模糊回复”。
+
+### 🗄️ 数据库管理
+连接命令: `heroku pg:psql -a foodtracking-t1`
+- `Players`: 玩家基础信息
+- `MealRecords`: 餐食记录与对话历史
+- `Clues`: 已收集的线索
+- `allowed_ids`: 登录白名单
 
 ---
 
@@ -51,13 +61,12 @@ cd server && npm install && cd ..
 An interactive RPG that combines food journaling with mystery-solving. Players interact with 7 NPCs to record daily meals, collect clues, and uncover the village's secrets.
 
 ### 📋 Table of Contents
-- [Tech Stack](#tech-stack)
-- [Features](#features)
-- [Installation](#installation)
-- [Local Development](#development)
-- [Deployment](#deployment)
-- [Database](#database)
-- [Game Logic](#logic)
+- [Tech Stack](#-tech-stack)
+- [Features](#-features)
+- [Installation](#-installation)
+- [Local Development](#-local-development)
+- [Game Logic](#-game-logic)
+- [Database Management](#-database-management)
 
 ### 🛠️ Tech Stack
 - **Frontend**: React 18, Phaser 3, React Router DOM, Context API
@@ -73,7 +82,7 @@ An interactive RPG that combines food journaling with mystery-solving. Players i
 
 ### 🚀 Installation
 ```bash
-# Install dependencies
+# Install all dependencies
 npm install
 cd server && npm install && cd ..
 ```
@@ -82,36 +91,21 @@ cd server && npm install && cd ..
 - Backend (`server/.env`): `DATABASE_URL`, `CONVAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`
 - Frontend (`.env`): `REACT_APP_API_URL=http://localhost:5000/api`
 
-### 💻 Development
-- **Backend**: `cd server && npm start`
-- **Frontend**: `npm start` (Dev mode with hot reload)
+### 💻 Local Development
+- **Backend Server**: `cd server && npm start`
+- **Frontend App**: `npm start`
+
+### 🎮 Game Logic
+- **NPC Unlocking**: [Required Game Day reached] AND [At least 1 meal recorded with the previous NPC].
+- **Clue Acquisition**: Only **Dinner** records provide "True Clues" that are saved to the Clue Journal. Breakfast and Lunch provide "Vague Responses" only.
+
+### 🗄️ Database Management
+Connection: `heroku pg:psql -a foodtracking-t1`
+- `Players`: Basic player profile and progress.
+- `MealRecords`: Meal data and conversation history.
+- `Clues`: Collected True/Vague clues.
+- `allowed_ids`: Whitelisted IDs for login.
 
 ---
 
-## 🎮 游戏逻辑说明 / Game Logic
-
-### NPC 解锁规则 / NPC Unlocking
-- **CN**: [游戏天数达到] + [前一个NPC至少记录过1餐]。
-- **EN**: [Game Day Reached] + [At least 1 meal recorded with the previous NPC].
-
-### 线索机制 / Clue Mechanism
-- **晚餐 (Dinner)**: 获得 **True Clue (真实线索)**，存入线索本。
-- **EN**: Receive **True Clues**, saved automatically to the Clue Journal (📖).
-- **早/午餐 (Breakfast/Lunch)**: 获得 **Vague Response (模糊回复)**。
-- **EN**: Receive **Vague Responses**, providing small hints and memories.
-
----
-
-## 🗄️ 数据库管理 / Database Management
-连接 / Connect: `heroku pg:psql -a foodtracking-t1`
-
-| Table | Description (CN) | Description (EN) |
-| :--- | :--- | :--- |
-| `Players` | 玩家核心数据 | Core player stats (Day, Gender) |
-| `MealRecords` | 餐食记录及历史 | Detailed meal answers & history |
-| `Clues` | 获得的线索 | Collected clues (True/Vague) |
-| `allowed_ids` | 登录白名单 | Whitelist for Player IDs |
-
----
-
-**🎮 Happy Gaming! 祝游戏愉快！**
+**🎮 Happy Gaming!**
