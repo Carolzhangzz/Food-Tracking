@@ -63,7 +63,7 @@ const npcClues = {
       }
     ],
     trueClue: {
-      zh: "对了，差点忘了。**韩**前几天也来过，笑得很客气，但心思不纯。他不是来找味道的，而是在打听你师父的“**灵魂香料**”。你应该去问问**餐馆老板**。",
+      zh: "对了，差点忘了。**韩**前几天也来过，笑得很客气，但心思不纯。他不是来找味道的，而是在打听你师父的'灵魂香料'。你应该去问问**餐馆老板**。",
       en: "Oh right — Han came by a few days ago. All smiles, but full of tricks. He wasn't here for flavor. Between the lines, he was asking about your master’s soul spice. You should ask the Restaurant Owner."
     },
     nextNPC: "restaurant_owner"
@@ -117,7 +117,7 @@ const npcClues = {
     name: { zh: "旧友Rowan", en: "Old Friend Rowan" },
     vague: [
       {
-        zh: "等你忙完这点“小任务”，改天我给你做顿饭。记得下顿饭后再来。",
+        zh: "等你忙完这点'小任务'，改天我给你做顿饭。记得下顿饭后再来。",
         en: "Finish your little mission first. Come back after your next meal — someday I’ll cook for you."
       },
       {

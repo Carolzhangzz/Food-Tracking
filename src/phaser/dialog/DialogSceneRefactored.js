@@ -460,9 +460,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("🎉 餐食记录完成");
     
     const lang = this.playerData.language || "zh";
-    
-    // 🔧 移除手动添加的 completionMsg，因为 Gemini 已经说了 "Thanks for sharing"
-    // 或者在后面统一显示后端返回的内容
+    const mealType = this.stateManager.selectedMealType;
     
     // 提交到后端
     this.uiManager.updateStatus("正在保存...");
@@ -471,7 +469,6 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const conversationHistory = this.uiManager.getMessageHistory();
     
     // 🔧 修复 NPC 名字提取逻辑
-    // this.npcData.name 可能是对象 {zh, en}，也可能是字符串
     let npcNameStr = "NPC";
     if (typeof this.npcData?.name === 'object') {
       npcNameStr = this.npcData.name[lang] || this.npcData.name.zh || this.npcData.name.en;
@@ -482,8 +479,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const result = await this.mealHandler.submitMealRecord(
       this.playerId,
       this.currentNPC,
-      npcNameStr, // 🔧 传递清洗后的 NPC 名字字符串
-      this.stateManager.selectedMealType,
+      npcNameStr,
+      mealType,
       this.stateManager.questionAnswers,
       this.currentDay
     );
@@ -495,22 +492,49 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       this.stateManager.markMealSubmitted(result);
       this.uiManager.updateStatus("✅ 保存成功");
       
-      // 🔧 发放线索
-      if (result.shouldGiveClue && result.clueText) {
+      // 🔧 直接从前端数据获取线索（更可靠！）
+      const { getNPCClue, getNPCName } = await import('../../data/npcClues.js');
+      
+      // 判断应该给什么类型的线索
+      let clueType, clueText, clueData;
+      
+      if (mealType === "dinner") {
+        // 晚餐：给真实线索
+        clueType = "true";
+        clueData = getNPCClue(this.currentNPC, "true", 0, lang);
+        clueText = clueData ? clueData.text : "Good job!";
+        console.log("🗝️ [前端] 晚餐 - 给予真实线索:", clueText.substring(0, 50) + "...");
+      } else {
+        // 早餐/午餐：给模糊线索
+        clueType = "vague";
+        // 获取该NPC已给过几次vague线索（从本地存储或初始化）
+        const clueKey = `${this.playerId}_${this.currentNPC}_vague_count`;
+        const previousVagueCount = parseInt(localStorage.getItem(clueKey) || '0');
+        const vagueIndex = Math.min(previousVagueCount, 1); // 最多2个vague clue
+        
+        clueData = getNPCClue(this.currentNPC, "vague", vagueIndex, lang);
+        clueText = clueData ? clueData.text : "Great job!";
+        
+        // 更新计数
+        localStorage.setItem(clueKey, (previousVagueCount + 1).toString());
+        console.log(`🌫️ [前端] ${mealType} - 给予模糊线索 ${vagueIndex + 1}:`, clueText.substring(0, 50) + "...");
+      }
+      
+      // NPC说出线索
+      if (clueText) {
         console.log("🗝️ NPC 正在说出线索...");
-        // 让 NPC 说出线索文本（从后端获取的正确文本）
-        this.uiManager.addMessage("NPC", result.clueText);
+        this.uiManager.addMessage("NPC", clueText);
         
-        // 保存到线索本系统
-        if (result.clueType === "true") {
-          this.clueManager.showTrueClue(result.clueText, result.clueData);
-        } else {
-          this.clueManager.showVagueClue(result.clueText);
-        }
-        
-        // 刷新线索本列表数据
+        // 添加到本地线索列表（确保立即显示）
         if (this.mainScene && this.mainScene.uiManager) {
-          this.mainScene.uiManager.loadCluesFromAPI();
+          this.mainScene.uiManager.addClue({
+            npcId: this.currentNPC,
+            npcName: npcNameStr,
+            clue: clueText,
+            clueType: clueType,
+            day: this.currentDay,
+            mealType: mealType
+          }, true);
         }
         
         await this.delay(1000);

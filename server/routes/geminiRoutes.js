@@ -394,15 +394,17 @@ function generateImprovedSystemPrompt(npcId, questionControl = {}, mealType = "b
 YOUR PRIMARY GOAL: Ask the player the CURRENT question specified below in your unique character voice.
 
 CURRENT TASK:
-- You must ask about: ${currentQ}
+- You MUST ask about: ${currentQ}
 - Progress: ${progress} of 6 questions
+- IMPORTANT: Do NOT skip any question. Each question MUST be asked in order.
 
 STRICT RULES:
-1. DO NOT skip ahead. ONLY ask the current question.
-2. Keep your response CONCISE (max 20 words).
-3. Do not expose inner thoughts.
-4. Share a tiny bit of your own meal or a master's memory if it fits your character.
-5. If the current question is Q1, Q2, or Q3, remember that the player will see BUTTONS to answer, so your question should lead naturally to those choices.
+1. DO NOT skip ahead. ONLY ask the current question (${currentQ}).
+2. DO NOT ask about Q5 or Q6 topics if current question is Q4.
+3. Keep your response CONCISE (max 20 words).
+4. Do not expose inner thoughts.
+5. Share a tiny bit of your own meal or a master's memory if it fits your character.
+6. If the current question is Q1, Q2, or Q3, remember that the player will see BUTTONS to answer, so your question should lead naturally to those choices.
 
 CHARACTER VOICE:
 `;
@@ -427,7 +429,7 @@ Background: Long-time friend of missing Chef Hua. Suggests player follows Hua's 
 
   const personality = npcPersonalities[npcId] || npcPersonalities.uncle_bo;
   
-  return basePrompt + personality + `\n\nJOURNALING CONTEXT:\n- Meal type: ${mealType}\n- Question definitions:\n  Q1: obtain method\n  Q2: time\n  Q3: duration\n  Q4: specific food items\n  Q5: portion/feelings\n  Q6: reason/why\n\nREMEMBER: ONLY ASK ${currentQ}.`;
+  return basePrompt + personality + `\n\nJOURNALING CONTEXT:\n- Meal type: ${mealType}\n- Question definitions:\n  Q1: How did you obtain this meal?\n  Q2: What time did you eat?\n  Q3: How long did you eat?\n  Q4: What specific food items did you eat? (MUST BE ASKED!)\n  Q5: Portion size and physical feelings\n  Q6: Why did you choose this meal?\n\nREMEMBER: \n- You are CURRENTLY asking: ${currentQ}\n- DO NOT skip to Q5 or Q6 if you haven't asked Q4 yet!\n- Each question must be asked individually in sequence.`;
 }
 
 // Helper function for meal examples
