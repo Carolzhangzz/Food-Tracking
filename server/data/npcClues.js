@@ -1,66 +1,70 @@
 // server/data/npcClues.js
-// NPC线索数据 - 每个NPC有2个vague线索 + 1个真实线索
+// NPC线索数据 - 整合用户提供的完整线索库
 
 const npcClues = {
-  // NPC 1 - Village Head / Uncle Bo（村长）
+  // NPC 1 - Village Head（村长 / 师父的老友）
   uncle_bo: {
     id: "uncle_bo",
     name: { zh: "村长", en: "Village Head" },
+    intro: {
+      zh: "三天前，他一声不响地离开了村子。\n他厨房里的火还是温的——但人已经不见了。\n\n你和我一样清楚……他不是那种会无缘无故消失的人。他很少离开村子。\n\n你曾经是他的徒弟。如果有人能查出发生了什么……那就是你。\n\n但这次寻找——不只是翻找厨房抽屉。\n\n不久前，他每次见人都会带着一个笔记本。\n\n也许通过他的方法，你能理解他的想法。\n\n我相信那些记录里藏着关键。",
+      en: "Three days ago, he left the village without a word.\n\nThe fire in his kitchen was still warm—but he was gone.\n\nYou know as well as I do… he was never the kind to vanish without a reason. He has barely left the village.\n\nYou were once his apprentice. If anyone can find out what happened to him… it's you.\n\nBut this search—it's not just about turning over kitchen drawers.\n\nNot long ago, he always brought a notebook whenever he met someone.\n\nMaybe by following his method, you can understand how he thinks.\n\nI believe those records hold the key."
+    },
     vague: [
       {
-        zh: "我记得你师父以前经常去一个地方，但我一时想不起来是哪里了...记忆力不如从前了。你先去准备下一餐吧，过几个小时再来找我，也许到时候我能想起来。",
-        en: "I remember your master used to visit a place often, but I can't recall where exactly... My memory isn't what it used to be. Go prepare your next meal first, come back in a few hours, maybe I'll remember by then."
+        zh: "你师父以前有个总爱去的地方……嗯，是哪里来着？哎，老了老了。哦，时候到了，我得去备下一餐的材料了。过几个小时再来吧，也许我会想起点什么。",
+        en: "Your master used to have a place he visited all the time... Hmm, where was it again? Ah, my memory's not what it used to be. Oh! It's time for me to prep for my next meal. Come back in a few hours. Maybe something will come back to me."
       },
       {
-        zh: "我隐约记得师父经常拜访一位女士，但我还是想不起她是谁。再给我一些时间吧，等你完成今天的最后一餐再来，也许那时我的记忆会更清晰。",
-        en: "I vaguely recall your master frequently visited a woman, but I still can't confirm who she is. Give me more time, come back after you finish your last meal today, perhaps my memory will be clearer then."
+        zh: "我记起来他常去看一位女人……唔，她是谁来着？再给我一点时间——等你吃完今天的最后一餐，我们再聊。",
+        en: "I remember he always visited a woman... Hmm, who was she again? Give me a bit more time — let's talk again after you've finished your last meal of the day."
       }
     ],
     trueClue: {
-      zh: "【真实线索】你很有耐心，不要急于求成。一顿饭一顿饭地理解师父的过往吧。我想起来了——师父常去**Grace的杂货铺**买食材，她和Chef Hua相识多年。你应该去找**杂货铺老板**问问。",
-      en: "[TRUE CLUE] You've been patient. Don't rush. Understand your master's past one meal at a time. I remember now — your master often went to **Grace's grocery store** for ingredients. She's known Chef Hua for years. You should go ask the **Shop Owner**."
+      zh: "干得好！一点一点地，你会开始理解他当时在想什么、在隐藏什么。别着急，一顿一顿来。他经常去**阿桂的杂货铺**买食材，他和华主厨认识很久了。也许你能从她那里得到一些线索。",
+      en: "Good job! Little by little, you'll start to understand what he was thinking back then, and what he was hiding. No need to rush — just take it one meal at a time. He often stopped by **Grace's shop** for ingredients. He and Chef Hua go way back. Maybe you'll get some insights from her."
     },
     nextNPC: "shop_owner"
   },
 
-  // NPC 2 - Shop Owner / Grace（杂货铺老板）
+  // NPC 2 - Shop Owner（杂货铺老板 / 阿桂）
   shop_owner: {
     id: "shop_owner",
     name: { zh: "杂货铺老板", en: "Shop Owner Grace" },
     vague: [
       {
-        zh: "很高兴听你详细分享吃饭的经历。我怀念过去和Chef Hua讨论美食和食材的日子...你吃完下一餐后再来找我吧，也许到那时我能想起更多。",
-        en: "I'm glad to hear you share your meal in such detail. I miss the days when I used to discuss food and ingredients with Chef Hua... Come find me after your next meal, maybe I'll remember more by then."
+        zh: "听你这么细细地讲真不错。我很想念和华主厨聊美食、聊那些让菜特别的小食材。等你下一餐后再来吧，也许那时我会想得更清楚。",
+        en: "It’s nice hearing you share in such detail. I miss talking to Chef Hua about food, and all the little ingredients that make a dish special. Come back after your next meal — maybe then things will make more sense."
       },
       {
-        zh: "我努力在回忆师父提到过的一种叫'绿木籽'的东西，就差一点想起来了...等你完成今天的最后一餐后再来，希望味觉能唤起我的记忆。",
-        en: "I'm trying hard to remember something your master mentioned — 'greenwood seeds'. It's on the tip of my tongue... Come back after you finish your last meal today, hopefully the taste will trigger my memory."
+        zh: "我一直在努力回想他说过的绿木籽……就在嘴边。等你吃完今天最后一顿饭，我们再聊，也许味道会回来。",
+        en: "I keep trying to remember what he said about the greenwood seeds. It’s right on the tip of my tongue. Let’s talk again after you’ve wrapped up your eating for the day."
       }
     ],
     trueClue: {
-      zh: "【真实线索】我想起来了！师父曾用**绿木籽**煮过一道汤，味道惊人，但我始终无法复刻。你去冰箱里尝尝剩下的汤吧。记住，不要只是吃，要思考**怎么吃、为什么吃**。我确信那种味道来自**香料婆婆**，你应该去找她。",
-      en: "[TRUE CLUE] I remember now! Your master once made a soup with **greenwood seeds**, the taste was amazing, but I could never replicate it. Go taste the leftover soup in the fridge. Remember, don't just eat — think about **how to eat and why**. I'm certain that flavor came from the **Spice Granny**, you should go find her."
+      zh: "我想起来了——那天他做了一道**绿木籽汤**，味道绝了。我后来一直试着复刻，却从没成功。冰箱里还有一点，去尝尝吧。但别只是吃，想想你怎么吃、为什么吃。这是你师父的方式。那味道……我敢肯定来自**香料婆婆**的店。",
+      en: "Ah, I remember now — he made a soup with greenwood seeds that day. It tasted incredible. I tried to recreate it, but never got it right. There’s still some in my fridge. Go try it — but don’t just eat. Think about how you’re eating, and why. That’s how your master worked. There’s a flavor in there… I swear it came from Spice Granny’s shop."
     },
     nextNPC: "spice_granny"
   },
 
-  // NPC 3 - Spice Granny（香料婆婆）
+  // NPC 3 - Spice Woman（香料婆婆）
   spice_granny: {
     id: "spice_granny",
     name: { zh: "香料婆婆", en: "Spice Granny" },
     vague: [
       {
-        zh: "我每天接待各种各样的客人。有人只买基础香料，有人像你师父一样追求大胆独特的味道。你下一餐后再来吧，我会继续回忆关于师父的事。",
-        en: "I receive all kinds of customers every day. Some just buy basic spices, others like your master pursue bold and unique flavors. Come back after your next meal, I'll continue recalling things about your master."
+        zh: "我这儿客人来来往往，有人只买基础香料，有人像华主厨一样追求大胆的味道。等你下一餐后再来吧，我也会继续回忆他。",
+        en: "I get all kinds of customers. Some just buy the basics, others chase bold flavors like Chef Hua. Come back after your next meal — I’ll try to recall more about him."
       },
       {
-        zh: "你师父总是不满足现状，不断尝试新事物。但仅从香料中能学到的有限...也许还有其他'线索之线'值得追寻。过一段时间再来找我吧。",
-        en: "Your master was never satisfied, always trying new things. But there's only so much you can learn from spices alone... Perhaps there are other 'threads of clues' worth pursuing. Come back to me in a while."
+        zh: "华主厨从不满足，总在尝试新东西。香料能告诉你的有限，也许还有别的线索值得追。过几个小时再来吧。",
+        en: "Chef Hua was never satisfied — always trying something new. You can only learn so much from spices. There might be other threads worth following. Come back in a few hours."
       }
     ],
     trueClue: {
-      zh: "【真实线索】有个叫**Han**的人最近来过，表面客气、满脸笑容，但明显别有用心。他并非为味道而来，而是在打听师父的'**灵魂香料**'。这事不简单...你应该去问问**餐馆老板**，他可能知道更多。",
-      en: "[TRUE CLUE] Someone named **Han** came by recently, polite on the surface with a smile, but clearly had ulterior motives. He wasn't here for the taste — he was asking about your master's '**soul spice**'. This isn't simple... You should ask the **Restaurant Owner**, he might know more."
+      zh: "对了，差点忘了。**韩**前几天也来过，笑得很客气，但心思不纯。他不是来找味道的，而是在打听你师父的“**灵魂香料**”。你应该去问问**餐馆老板**。",
+      en: "Oh right — Han came by a few days ago. All smiles, but full of tricks. He wasn't here for flavor. Between the lines, he was asking about your master’s soul spice. You should ask the Restaurant Owner."
     },
     nextNPC: "restaurant_owner"
   },
@@ -71,17 +75,17 @@ const npcClues = {
     name: { zh: "餐馆老板", en: "Restaurant Owner" },
     vague: [
       {
-        zh: "我正忙着准备下一波饭点呢。如果你在下一餐后还感兴趣，可以回来继续聊。",
-        en: "I'm busy preparing for the next meal rush. If you're still interested after your next meal, come back and we can talk more."
+        zh: "要准备饭点了。这样吧，等你下一餐后我们再聊。",
+        en: "Time to prep — next meal rush is coming. Come back after your next meal and we’ll talk."
       },
       {
-        zh: "我和你师父之间有过矛盾，最终导致他离开。我留在这里经营餐馆，为家庭勉强维持生活...等你完成今天所有的饮食体验后再来，我们谈谈更深的事。",
-        en: "Your master and I had conflicts that eventually led him to leave. I stayed here running this restaurant, barely making ends meet for my family... Come back after you complete all your meals today, we'll talk about deeper matters."
+        zh: "我和你师父的矛盾一点点积累，直到有一天，他走了，从不回头。我留下来经营这家店，活下来了。等你今天都吃完，我们再把话说完。",
+        en: "Conflict built up between us until one day he left and never looked back. I stayed, ran this place, survived. Finish your meals for today, then we’ll finish this conversation."
       }
     ],
     trueClue: {
-      zh: "【真实线索】师父有一道**鱼粥**从不让我碰。每次做这道菜前，他都会去**清水河**，找同一个沉默的渔夫。你应该去找**渔夫**问问，记得回来告诉我结果。",
-      en: "[TRUE CLUE] Your master had a **fish congee** he never let me touch. Every time before making it, he would go to **Clearwater River** to find the same silent fisherman. You should go ask the **Fisherman**, and remember to come back and tell me what you find."
+      zh: "他的**鱼粥**，从不让我碰。他总去**清水河**取一种食材，只找那个沉默的渔夫。每次做鱼粥，都会先找他。你若能让他说话，记得回来告诉我。",
+      en: "His fish porridge — he never let me touch it. He always went to Clearwater River for one ingredient, always to the same silent fisherman. If you get him to talk, come back and tell me."
     },
     nextNPC: "fisherman"
   },
@@ -92,61 +96,61 @@ const npcClues = {
     name: { zh: "渔夫", en: "Fisherman" },
     vague: [
       {
-        zh: "我认出你了。我还记得和你师父在河边分享故事的日子。我要回家了，但你之后可以再来找我。",
-        en: "I recognize you. I remember the days sharing stories with your master by the river. I need to go home now, but you can come find me later."
+        zh: "你长大了。你师父和我在这河边聊过不少故事。等会儿再来，我们再聊。",
+        en: "You’ve grown. Your master and I shared many stories by this river. Come back later and we’ll talk more."
       },
       {
-        zh: "你师父最近一直在默默帮助村子，为最需要的人做饭，但他从不说明离开的真正原因...你先完成自己的事情，之后再回来坐一会儿吧。",
-        en: "Your master has been quietly helping the village lately, cooking for those who need it most, but he never explained why he left... Finish your own matters first, then come back and sit with me for a while."
+        zh: "他默默为村子做饭，帮助需要的人。但他离开的原因……我说不出口。等你都忙完了，再回来坐坐。",
+        en: "He quietly helped the village, cooking for those in need. But why he left… I can’t say. Come back when you’re done for the day."
       }
     ],
     trueClue: {
-      zh: "【真实线索】你知道**Rowan**吗？他是你师父最早的徒弟之一。我还记得你们小时候为鱼粥的做法争论不休...Rowan现在住在**河对岸的林子附近**，你应该去找他。",
-      en: "[TRUE CLUE] Do you know **Rowan**? He was one of your master's earliest apprentices. I remember you two arguing about fish congee recipes as children... Rowan still lives **near the woods across the river**, you should go find him."
+      zh: "你还记得**罗文**吗？你们小时候为鱼粥吵过。他住在林子那边，是你师父最早的徒弟。去找他问问吧。",
+      en: "Do you remember Rowan? You argued over fish congee as kids. He still lives past the grove. Rowan — your master’s first apprentice. Go ask him."
     },
     nextNPC: "old_friend"
   },
 
-  // NPC 6 - Old Friend / Rowan（旧友/前徒弟）
+  // NPC 6 - Old Friend（老朋友 / Rowan）
   old_friend: {
     id: "old_friend",
     name: { zh: "旧友Rowan", en: "Old Friend Rowan" },
     vague: [
       {
-        zh: "哈哈，等你忙完'任务'后我们可以来一场做饭对决！记得在下一餐后回来找我。",
-        en: "Haha, after you finish your 'quest' we can have a cooking showdown! Remember to come back after your next meal."
+        zh: "等你忙完这点“小任务”，改天我给你做顿饭。记得下顿饭后再来。",
+        en: "Finish your little mission first. Come back after your next meal — someday I’ll cook for you."
       },
       {
-        zh: "如果你只记录了一部分饮食体验，那只是'半个故事'。你得完成最后一餐再来找我。",
-        en: "If you've only recorded part of your meal experiences, that's only 'half the story'. You need to finish your last meal before coming back to me."
+        zh: "只记录了一部分，那只是半个故事。等你完成最后一餐再来。",
+        en: "If you only log part of the day, you’re telling half the story. Finish your last meal first."
       }
     ],
     trueClue: {
-      zh: "【真实线索】你寻找的答案不在我这里。但我知道师父最近收了一位年轻徒弟叫**Mira**。他教她凭**直觉**做菜，而不是遵循严格配方。Mira住在**村子尽头的木亭**里，你应该去找她。",
-      en: "[TRUE CLUE] The answers you seek aren't with me. But I know your master recently took on a young apprentice named **Mira**. He taught her to cook by **intuition**, not strict recipes. Mira lives in **the wooden pavilion at the edge of the village**, you should go find her."
+      zh: "你要找的东西不在我这。去年，华主厨收了个年轻徒弟，叫**米拉**。她住在村子尽头的木亭里。",
+      en: "What you’re looking for isn’t with me. Last year, Master Hua took on a young apprentice — Mira. She lives in a wooden pavilion at the edge of the village."
     },
     nextNPC: "secret_apprentice"
   },
 
-  // NPC 7 - Secret Apprentice / Mira（秘密学徒）
+  // NPC 7 - Secret Apprentice（秘密徒弟 · Mira）
   secret_apprentice: {
     id: "secret_apprentice",
     name: { zh: "秘密学徒Mira", en: "Secret Apprentice Mira" },
     vague: [
       {
-        zh: "欢迎你的到来！'最好的总是在最后'，我会一直在这里等你。",
-        en: "Welcome! 'The best is always saved for last.' I'll be here waiting for you."
+        zh: "你已经走到这里了。相信我，最好的总是在最后。",
+        en: "You’ve come so far. Trust me — the best always comes at the end."
       },
       {
-        zh: "师父说过，'最后一顿饭'最能反映一天的真实感受。完成它再回来找我吧。",
-        en: "Master said the 'last meal' best reflects a day's true feelings. Finish it and come back to me."
+        zh: "师父总说，最后一顿饭最能说明一天的感觉。去完成它，再回来找我。",
+        en: "Master always said the last meal tells the most about a day. Finish it, then come back to me."
       }
     ],
     trueClue: {
-      zh: "【终极线索】一周前师父来过这里，在阁楼留下了一个**箱子**。他说你曾写信希望回村时见他。但他最终选择去追寻必须完成的事情，于是留下了这个箱子。打开它吧，揭开故事的最终答案。",
-      en: "[FINAL CLUE] A week ago, your master came here and left a **box** in the attic. He said you wrote letters hoping to see him when you returned to the village. But he chose to pursue something he had to complete, so he left this box. Open it and reveal the final answer to the story."
+      zh: "一周前，师父来过，留下了一个**箱子**。他说你会回来找他。去吧，打开它。",
+      en: "A week ago, Master came by and left a box. He said you’d come back looking for him. Go on — open it."
     },
-    nextNPC: null // 最后一个NPC，没有下一个
+    nextNPC: null
   }
 };
 
@@ -154,22 +158,24 @@ const npcClues = {
 function getNPCClue(npcId, clueType, vagueIndex = 0, language = "zh") {
   const npc = npcClues[npcId];
   if (!npc) {
-    console.error(`NPC not found: ${npcId}`);
+    console.error(`NPC not found in clues config: ${npcId}`);
     return null;
   }
 
   if (clueType === "vague") {
     const index = Math.min(vagueIndex, npc.vague.length - 1);
+    const text = npc.vague[index][language] || npc.vague[index].en;
     return {
       type: "vague",
-      text: npc.vague[index][language] || npc.vague[index].en,
+      text: text,
       npcName: npc.name[language] || npc.name.en,
       npcId: npcId
     };
   } else if (clueType === "true") {
+    const text = npc.trueClue[language] || npc.trueClue.en;
     return {
       type: "true",
-      text: npc.trueClue[language] || npc.trueClue.en,
+      text: text,
       npcName: npc.name[language] || npc.name.en,
       npcId: npcId,
       nextNPC: npc.nextNPC
@@ -214,4 +220,3 @@ module.exports = {
   getNPCName,
   extractClueKeywords
 };
-

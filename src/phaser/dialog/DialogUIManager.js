@@ -273,7 +273,12 @@ export default class DialogUIManager {
       `;
 
       const speakerLabel = document.createElement("div");
-      speakerLabel.textContent = isNPC ? npcDisplayName : (this.scene.playerData?.language === "zh" ? "你" : "You");
+      // 🔧 优先使用覆盖的名字
+      if (displayNameOverride) {
+        speakerLabel.textContent = displayNameOverride;
+      } else {
+        speakerLabel.textContent = isNPC ? npcDisplayName : (this.scene.playerData?.language === "zh" ? "你" : "You");
+      }
       speakerLabel.style.cssText = `
         font-size: ${isMobile ? "15px" : "16px"};
         color: ${isNPC ? "rgba(165, 180, 252, 0.9)" : "rgba(134, 239, 172, 0.9)"};

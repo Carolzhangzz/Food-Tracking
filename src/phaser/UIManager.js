@@ -31,8 +31,18 @@ export default class UIManager {
 
     try {
       console.log(`📥 UIManager: 正在从后端加载线索数据 (PlayerID: ${playerId})...`);
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-      const response = await fetch(`${API_URL}/clues/${playerId}`);
+      
+      // 🔧 改进 API 地址获取逻辑
+      let API_URL = this.scene.API_URL || process.env.REACT_APP_API_URL || window.location.origin + "/api";
+      
+      // 确保如果是 localhost:3000 则映射到 5000 (针对本地开发)
+      if (API_URL.includes('localhost:3000')) {
+        API_URL = API_URL.replace('3000', '5000');
+      }
+      
+      const fetchURL = API_URL.endsWith('/api') ? `${API_URL}/clues/${playerId}` : `${API_URL}/api/clues/${playerId}`;
+      
+      const response = await fetch(fetchURL);
       
       if (!response.ok) {
         throw new Error(`HTTP 错误: ${response.status}`);
@@ -58,8 +68,19 @@ export default class UIManager {
   }
 
   // 🔧 供 React 或其他场景调用的接口
-  showClueJournal() {
+  async showClueJournal() {
     console.log("📖 UIManager: 打开线索本面板");
+    
+    // 🔧 如果已经打开，先关闭，防止重复创建
+    if (this.cluePanel) {
+      console.log("⚠️ UIManager: 线索本已打开，先关闭旧面板");
+      this.hideCluePanel();
+    }
+    
+    // 🔧 加载最新的线索数据
+    await this.loadCluesFromAPI();
+    
+    // 显示面板
     this.showCluePanel();
   }
 
@@ -94,6 +115,12 @@ export default class UIManager {
   }
 
   showCluePanel() {
+    // 🔧 防止重复创建：如果已经存在面板，先销毁
+    if (this.cluePanel) {
+      console.log("⚠️ UIManager: 检测到已存在的线索面板，先销毁");
+      this.hideCluePanel();
+    }
+    
     const isMobile = this.scene.isMobile;
     const width = isMobile ? this.scene.cameras.main.width - 40 : 450;
     const height = isMobile ? this.scene.cameras.main.height - 100 : 550;
@@ -106,6 +133,7 @@ export default class UIManager {
     bg.setScrollFactor(0);
     bg.setDepth(200);
     bg.setStrokeStyle(3, 0x8b5cf6);
+    bg.setInteractive(); // 🔧 使背景可交互，防止点击穿透
 
     // 标题
     const title = this.scene.add.text(x, y - height / 2 + 35, lang === "zh" ? "📖 线索本" : "📖 Clue Book", {
@@ -121,7 +149,26 @@ export default class UIManager {
       fill: "#ef4444",
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true });
     
-    closeBtn.on("pointerdown", () => this.hideCluePanel());
+    // 🔧 确保关闭按钮只绑定一次事件
+    closeBtn.removeAllListeners();
+    closeBtn.on("pointerdown", () => {
+      console.log("🔘 UIManager: 点击关闭按钮");
+      this.hideCluePanel();
+    });
+    
+    // 🔧 背景点击也可以关闭（可选）
+    bg.on("pointerdown", (pointer) => {
+      // 只有点击背景空白处才关闭，不要点击内容区域就关闭
+      const clickX = pointer.x;
+      const clickY = pointer.y;
+      const isOutsideContent = clickX < x - width / 2 + 20 || clickX > x + width / 2 - 20 ||
+                               clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
+      
+      // 暂时禁用背景点击关闭，只允许通过关闭按钮关闭
+      // if (isOutsideContent) {
+      //   this.hideCluePanel();
+      // }
+    });
 
     // 内容渲染
     const clueTexts = [];
@@ -146,15 +193,41 @@ export default class UIManager {
     }
 
     this.cluePanel = { bg, title, closeBtn, clueTexts };
+    console.log("✅ UIManager: 线索面板创建完成");
   }
 
   hideCluePanel() {
-    if (!this.cluePanel) return;
-    this.cluePanel.bg.destroy();
-    this.cluePanel.title.destroy();
-    this.cluePanel.closeBtn.destroy();
-    this.cluePanel.clueTexts.forEach(t => t.destroy());
+    if (!this.cluePanel) {
+      console.log("⚠️ UIManager: 线索面板不存在，无需关闭");
+      return;
+    }
+    
+    console.log("🔒 UIManager: 关闭线索面板");
+    
+    // 🔧 安全销毁所有元素
+    try {
+      if (this.cluePanel.bg && this.cluePanel.bg.destroy) {
+        this.cluePanel.bg.destroy();
+      }
+      if (this.cluePanel.title && this.cluePanel.title.destroy) {
+        this.cluePanel.title.destroy();
+      }
+      if (this.cluePanel.closeBtn && this.cluePanel.closeBtn.destroy) {
+        this.cluePanel.closeBtn.destroy();
+      }
+      if (this.cluePanel.clueTexts && Array.isArray(this.cluePanel.clueTexts)) {
+        this.cluePanel.clueTexts.forEach(t => {
+          if (t && t.destroy) {
+            t.destroy();
+          }
+        });
+      }
+    } catch (error) {
+      console.error("❌ UIManager: 销毁线索面板元素时出错:", error);
+    }
+    
     this.cluePanel = null;
+    console.log("✅ UIManager: 线索面板已关闭");
   }
 
   showNotification(message) {

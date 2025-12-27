@@ -158,46 +158,30 @@ export default class MealRecordingHandler {
   }
 
   // 🔧 检查餐食时间是否不合常理
-  checkUnusualMealTime(timeValue, mealType) {
-    const unusualTimes = {
-      breakfast: [
-        "Early morning (before 7AM)",
-        "Midday (11AM–2PM)",
-        "Afternoon (2–5PM)",
-        "Evening (5–9PM)",
-        "Night (after 9PM)",
-        "清晨（7点前）",
-        "中午（11点-14点）",
-        "下午（14点-17点）",
-        "傍晚（17点-21点）",
-        "晚上（21点后）"
-      ],
-      lunch: [
-        "Early morning (before 7AM)",
-        "Morning (7–11AM)",
-        "Afternoon (2–5PM)",
-        "Evening (5–9PM)",
-        "Night (after 9PM)",
-        "清晨（7点前）",
-        "早上（7点-11点）",
-        "下午（14点-17点）",
-        "傍晚（17点-21点）",
-        "晚上（21点后）"
-      ],
-      dinner: [
-        "Early morning (before 7AM)",
-        "Morning (7–11AM)",
-        "Midday (11AM–2PM)",
-        "Afternoon (2–5PM)",
-        "清晨（7点前）",
-        "早上（7点-11点）",
-        "中午（11点-14点）",
-        "下午（14点-17点）"
-      ]
-    };
+  checkUnusualMealTime(answer, mealType) {
+    // 这里的answer可能是字符串文本，也可能是对象 {text, value}
+    const timeText = typeof answer === 'object' ? answer.text : answer;
     
-    const unusual = unusualTimes[mealType] || [];
-    return unusual.some(time => timeValue.includes(time) || time.includes(timeValue));
+    // 获取问题的选项列表（英文，用于稳定判断）
+    const options = this.questions.Q2.options.en;
+    const index = options.findIndex(opt => timeText.includes(opt) || opt.includes(timeText));
+    
+    // 如果找不到索引，说明是自定义输入（通过"其他"选项），默认认为不寻常
+    if (index === -1) return true;
+
+    // 索引从0开始：0:Before 7AM, 1:7-11AM, 2:11AM-2PM, 3:2-5PM, 4:5-9PM, 5:After 9PM
+    if (mealType === "breakfast") {
+      // 早餐：除了 7-11AM (索引1) 以外都是不寻常
+      return index !== 1;
+    } else if (mealType === "lunch") {
+      // 午餐：除了 11AM-2PM (索引2) 以外都是不寻常
+      return index !== 2;
+    } else if (mealType === "dinner") {
+      // 晚餐：除了 5-9PM (索引4) 和 After 9PM (索引5) 以外都是不寻常
+      return index < 4;
+    }
+    
+    return false;
   }
 
   // 保存答案并检查是否需要时间follow-up

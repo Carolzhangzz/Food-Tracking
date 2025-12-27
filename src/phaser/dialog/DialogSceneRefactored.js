@@ -75,6 +75,28 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   async create() {
     const { width, height } = this.scale;
 
+    // 🔧 修复：彻底禁用 Phaser 的键盘捕捉，确保 HTML 输入框可以正常按空格、退格等
+    if (this.input && this.input.keyboard) {
+      console.log("⌨️ 正在禁用 Phaser 键盘监听 (对话模式)...");
+      // 禁用整个键盘插件
+      this.input.keyboard.enabled = false;
+      // 清除所有按键捕获（防止冒泡被阻止）
+      if (typeof this.input.keyboard.clearCaptures === 'function') {
+        this.input.keyboard.clearCaptures();
+      }
+    }
+
+    // 监听场景关闭或停止，恢复键盘捕捉
+    const restoreKeyboard = () => {
+      if (this.input && this.input.keyboard) {
+        console.log("⌨️ 正在恢复 Phaser 键盘监听...");
+        this.input.keyboard.enabled = true;
+      }
+    };
+    this.events.on('shutdown', restoreKeyboard);
+    this.events.on('pause', restoreKeyboard);
+    this.events.on('destroy', restoreKeyboard);
+
     // 检查横屏
     if (height > width) {
       this.showRotationMessage();
@@ -194,31 +216,36 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("💬 显示自由回复环节");
     const lang = this.playerData.language || "zh";
     
-    // 提示玩家可以自由回复或选择记录餐食
+    // 🔧 移除按钮选择，改为纯自由输入，让流程更自然
     const prompt = lang === "zh"
-      ? "你想和我继续聊天，还是记录今天的餐食？"
-      : "Would you like to chat more, or record your meal?";
+      ? "你可以和我说说话，或者告诉我你想记录哪顿饭（早餐/午餐/晚餐）。"
+      : "You can chat with me, or tell me which meal you'd like to record (breakfast/lunch/dinner).";
     
     this.uiManager.addMessage("NPC", prompt);
     
-    const options = [
-      {
-        text: lang === "zh" ? "💬 继续聊天" : "💬 Continue chatting",
-        value: "chat",
-        isOther: false,
-      },
-      {
-        text: lang === "zh" ? "🍽️ 记录餐食" : "🍽️ Record meal",
-        value: "record_meal",
-        isOther: false,
-      },
-    ];
-    
-    this.uiManager.showButtons(options, (choice) => {
-      if (choice === "chat") {
-        this.startFreeChat();
-      } else {
+    this.uiManager.showInputBox(async (userInput) => {
+      const lowerInput = userInput.toLowerCase();
+      const isMealRecord = lowerInput.includes("breakfast") || lowerInput.includes("lunch") || lowerInput.includes("dinner") || 
+                          userInput.includes("早餐") || userInput.includes("午餐") || userInput.includes("晚餐") ||
+                          userInput.includes("记录") || lowerInput.includes("record");
+
+      if (isMealRecord) {
+        // 如果提到记录餐食，进入餐食选择
         this.showMealSelection();
+      } else {
+        // 否则继续自由聊天
+        this.uiManager.addMessage("Player", userInput, lang === "zh" ? "你" : "You");
+        this.uiManager.showTypingIndicator();
+        
+        const response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+        this.uiManager.hideTypingIndicator();
+        
+        if (response.success) {
+          this.uiManager.addMessage("NPC", response.message);
+        }
+        
+        await this.delay(800);
+        this.showFreeResponsePrompt();
       }
     });
   }
@@ -313,7 +340,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.askNextQuestion();
   }
 
-  // 🔧 询问下一个问题（接入 Gemini AI）
+  // 🔧 询问下一个问题（Q1-Q3硬编码，Q4-Q6接入Gemini AI）
   async askNextQuestion(userAnswer = null) {
     if (!this.currentQuestionId) {
       // 所有问题已完成
@@ -325,7 +352,31 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const mealType = this.stateManager.selectedMealType;
     const questionType = this.mealHandler.getQuestionType(this.currentQuestionId);
     
-    // 🔧 准备上下文
+    console.log(`❓ 准备提问: ${this.currentQuestionId}, 类型: ${questionType}`);
+
+    // ========================================
+    // 🔧 Q1-Q3：完全不调用Gemini，直接显示硬编码问题
+    // ========================================
+    if (questionType === "choice") {
+      const questionText = this.mealHandler.getQuestionText(this.currentQuestionId, lang, mealType);
+      const options = this.mealHandler.getQuestionOptions(this.currentQuestionId, lang);
+
+      console.log(`🔘 [硬编码Q1-Q3] 问题: ${questionText}`);
+      console.log(`🔘 [硬编码Q1-Q3] 选项:`, options);
+
+      // 直接显示问题文本和按钮
+      this.uiManager.addMessage("NPC", questionText);
+      await this.delay(300);
+      
+      this.uiManager.showButtons(options, (answer) => {
+        this.onQuestionAnswered(this.currentQuestionId, answer);
+      });
+      return;
+    }
+
+    // ========================================
+    // 🔧 Q_TIME_FOLLOWUP, Q4-Q6：调用Gemini生成符合角色性格的问题
+    // ========================================
     const questionControl = {
       currentQuestionId: this.currentQuestionId,
       currentQuestionIndex: this.mealHandler.getQuestionIndex(this.currentQuestionId),
@@ -353,30 +404,32 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     
     this.uiManager.hideTypingIndicator();
     
+    // 🔧 检查 Gemini 是否发出了结束信号（Q6 之后）
+    if (geminiResult.success && geminiResult.isComplete) {
+      console.log("🏁 Gemini 指示对话已完成，正在提交餐食记录以获取线索...");
+      // 先不要显示 Gemini 的最后一条消息，或者仅显示它，但随后立即提交
+      if (geminiResult.message && !geminiResult.message.toLowerCase().includes("thanks for sharing")) {
+        this.uiManager.addMessage("NPC", geminiResult.message);
+      }
+      await this.delay(500);
+      this.completeMealRecording();
+      return;
+    }
+    
     const questionText = geminiResult.success ? geminiResult.message : this.mealHandler.getQuestionText(this.currentQuestionId, lang, mealType);
     
     // 显示问题
     this.uiManager.addMessage("NPC", questionText);
+    await this.delay(300);
     
-    console.log(`❓ 提问: ${this.currentQuestionId}, 类型: ${questionType}`);
-
-    if (questionType === "choice") {
-      // Q1-Q3: 按钮选择
-      const options = this.mealHandler.getQuestionOptions(this.currentQuestionId, lang);
-      
-      this.uiManager.showButtons(options, (answer) => {
-        this.onQuestionAnswered(this.currentQuestionId, answer);
-      });
-    } else {
-      // Q4-Q6 或 Q_TIME_FOLLOWUP: 自由输入
-      this.uiManager.showInputBox((answer) => {
-        this.onQuestionAnswered(this.currentQuestionId, answer);
-      });
-    }
+    console.log(`⌨️ 显示输入框 (${this.currentQuestionId})`);
+    this.uiManager.showInputBox((answer) => {
+      this.onQuestionAnswered(this.currentQuestionId, answer);
+    });
   }
 
   // 🔧 问题被回答
-  onQuestionAnswered(questionId, answer) {
+  async onQuestionAnswered(questionId, answer) {
     console.log(`✅ 回答: ${questionId} = ${JSON.stringify(answer)}`);
     
     // 显示玩家的回答
@@ -384,6 +437,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const displayText = typeof answer === 'object' ? (answer.text || answer.value) : answer;
     this.uiManager.addMessage("Player", displayText, lang === "zh" ? "你" : "You");
     
+    // 🔧 增加一个小延迟，确保玩家消息先渲染出来
+    await this.delay(300);
+
     // 保存答案
     const mealType = this.stateManager.selectedMealType;
     this.mealHandler.saveAnswer(questionId, answer, mealType);
@@ -404,20 +460,29 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("🎉 餐食记录完成");
     
     const lang = this.playerData.language || "zh";
-    const completionMsg = this.mealHandler.getCompletionMessage(lang);
     
-    this.uiManager.addMessage("NPC", completionMsg);
-
-    // 🔧 提交到后端（包含对话历史）
+    // 🔧 移除手动添加的 completionMsg，因为 Gemini 已经说了 "Thanks for sharing"
+    // 或者在后面统一显示后端返回的内容
+    
+    // 提交到后端
     this.uiManager.updateStatus("正在保存...");
     this.uiManager.showTypingIndicator();
     
     const conversationHistory = this.uiManager.getMessageHistory();
     
+    // 🔧 修复 NPC 名字提取逻辑
+    // this.npcData.name 可能是对象 {zh, en}，也可能是字符串
+    let npcNameStr = "NPC";
+    if (typeof this.npcData?.name === 'object') {
+      npcNameStr = this.npcData.name[lang] || this.npcData.name.zh || this.npcData.name.en;
+    } else if (typeof this.npcData?.name === 'string') {
+      npcNameStr = this.npcData.name;
+    }
+
     const result = await this.mealHandler.submitMealRecord(
       this.playerId,
       this.currentNPC,
-      this.npcData?.name[lang] || this.currentNPC, // 🔧 新增：传递 NPC 名字
+      npcNameStr, // 🔧 传递清洗后的 NPC 名字字符串
       this.stateManager.selectedMealType,
       this.stateManager.questionAnswers,
       this.currentDay
@@ -430,19 +495,44 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       this.stateManager.markMealSubmitted(result);
       this.uiManager.updateStatus("✅ 保存成功");
       
+      // 🔧 发放线索
+      if (result.shouldGiveClue && result.clueText) {
+        console.log("🗝️ NPC 正在说出线索...");
+        // 让 NPC 说出线索文本（从后端获取的正确文本）
+        this.uiManager.addMessage("NPC", result.clueText);
+        
+        // 保存到线索本系统
+        if (result.clueType === "true") {
+          this.clueManager.showTrueClue(result.clueText, result.clueData);
+        } else {
+          this.clueManager.showVagueClue(result.clueText);
+        }
+        
+        // 刷新线索本列表数据
+        if (this.mainScene && this.mainScene.uiManager) {
+          this.mainScene.uiManager.loadCluesFromAPI();
+        }
+        
+        await this.delay(1000);
+      }
+
+      // 最后说结束语
+      const completionMsg = this.mealHandler.getCompletionMessage(lang);
+      this.uiManager.addMessage("NPC", completionMsg);
+      
       // 🔧 同步数据到 React UI (地图进度图标)
       if (this.mainScene && this.mainScene.updatePlayerdata) {
         const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
         console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
         
-        const updatedData = {
+        // 🔧 必须先更新本地的 playerData，否则后续逻辑使用的是旧数据
+        this.playerData = {
           ...this.playerData,
           currentDayMealsRemaining: remaining,
           availableMealTypes: remaining
         };
         
-        this.mainScene.updatePlayerdata(updatedData);
-        this.playerData = updatedData;
+        this.mainScene.updatePlayerdata(this.playerData);
       } else {
         console.warn("⚠️ [DialogScene] 无法同步到 React UI: mainScene.updatePlayerdata 未定义");
       }
@@ -578,8 +668,14 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("💬 显示VAGUE线索");
     const lang = this.playerData?.language || "zh";
     
+    // 🔧 即使是 vague 线索也支持 ** 关键词高亮
+    const highlightedText = clueText.replace(
+      /\*\*(.*?)\*\*/g, 
+      '<span style="color:#ffd700;font-weight:bold;text-shadow:0 0 5px #ffd700;">$1</span>'
+    );
+    
     // NPC说vague的话
-    this.uiManager.addMessage("NPC", clueText);
+    this.uiManager.addMessage("NPC", highlightedText, null, true);
     await this.delay(1000);
     
     // 给一个小提示

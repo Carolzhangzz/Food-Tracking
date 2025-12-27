@@ -19,31 +19,31 @@ export default class NPCManager {
     // 🎯 7个NPC配置 - 使用单独NPC图片 + 精确坐标
     this.npcData = [
       {
-        id: "uncle_bo",  // Uncle Bo / 阿桂（杂货铺） - Day 1
-        name: {
-          zh: "阿桂（杂货铺）",
-          en: "Uncle Bo"
-        },
-        position: { x: 135, y: 463 },  // 📍 用户提供的精确坐标
-        imageKey: "npc1",  // 🔧 使用单独NPC图片
-        unlockDay: 1,
-        description: {
-          zh: "杂货铺老板，记得师傅的笔记本",
-          en: "Grocery shop owner, remembers the notebook"
-        }
-      },
-      {
-        id: "village_head",  // Village Head / 村长 - Day 2
+        id: "uncle_bo",  // Village Head / 村长 - Day 1
         name: {
           zh: "村长",
           en: "Village Head"
         },
-        position: { x: 666, y: 138 },  // 📍 用户提供的精确坐标
-        imageKey: "npc2",  // 🔧 使用单独NPC图片
+        position: { x: 135, y: 463 },  
+        imageKey: "npc1",  
+        unlockDay: 1,
+        description: {
+          zh: "师父的老友",
+          en: "Old friend of the master"
+        }
+      },
+      {
+        id: "shop_owner",  // Shop Owner / 阿桂 - Day 2
+        name: {
+          zh: "杂货铺老板",
+          en: "Shop Owner Grace"
+        },
+        position: { x: 666, y: 138 },  
+        imageKey: "npc2",  
         unlockDay: 2,
         description: {
-          zh: "村里的领导者",
-          en: "Village leader"
+          zh: "杂货铺的经营者",
+          en: "Shop owner"
         }
       },
       {
@@ -75,45 +75,45 @@ export default class NPCManager {
         }
       },
       {
-        id: "little_girl",  // Little Girl / 小女孩 - Day 5
+        id: "fisherman",  // Fisherman / 渔夫 - Day 5
         name: {
-          zh: "小女孩",
-          en: "Little Girl"
+          zh: "渔夫",
+          en: "Fisherman"
         },
-        position: { x: 625, y: 431 },  // 📍 用户提供的精确坐标
-        imageKey: "npc5",  // 🔧 使用单独NPC图片
+        position: { x: 625, y: 431 },
+        imageKey: "npc5",
         unlockDay: 5,
         description: {
-          zh: "天真可爱的村里孩子",
-          en: "Innocent village child"
+          zh: "河边的沉默渔夫",
+          en: "Silent fisherman by the river"
         }
       },
       {
-        id: "mysterious_person",  // 神秘人 / Mysterious Person - Day 6
+        id: "old_friend",  // Old Friend / Rowan - Day 6
         name: {
-          zh: "神秘人",
-          en: "Mysterious Person"
+          zh: "旧友Rowan",
+          en: "Old Friend Rowan"
         },
-        position: { x: 914, y: 95 },  // 📍 用户提供的精确坐标
-        imageKey: "npc6",  // 🔧 使用单独NPC图片
+        position: { x: 914, y: 95 },
+        imageKey: "npc6",
         unlockDay: 6,
         description: {
-          zh: "知道最终秘密的人",
-          en: "Knows the final secret"
+          zh: "师父的徒弟之一",
+          en: "One of the master's apprentices"
         }
       },
       {
-        id: "final_npc",  // 第7个NPC - Day 7
+        id: "secret_apprentice",  // Secret Apprentice / Mira - Day 7
         name: {
-          zh: "最终NPC",
-          en: "Final NPC"
+          zh: "秘密学徒Mira",
+          en: "Secret Apprentice Mira"
         },
-        position: { x: 363, y: 492 },  // 📍 用户提供的精确坐标
-        imageKey: "npc7",  // 🔧 使用单独NPC图片
+        position: { x: 363, y: 492 },
+        imageKey: "npc7",
         unlockDay: 7,
         description: {
-          zh: "揭示最终真相",
-          en: "Reveals the final truth"
+          zh: "最后一位学徒",
+          en: "The last apprentice"
         }
       },
     ];
@@ -164,7 +164,10 @@ export default class NPCManager {
         // 🔧 同步关键数据到主场景
         if (this.scene.playerData) {
           this.scene.playerData.currentDay = data.player?.currentDay || data.currentDay || this.scene.playerData.currentDay;
-          this.scene.playerData.currentDayMealsRemaining = data.currentDayMealsRemaining || [];
+          // 🔧 只有当后端确实返回了该字段时才同步，避免默认为空导致图标变绿
+          if (data.currentDayMealsRemaining) {
+            this.scene.playerData.currentDayMealsRemaining = data.currentDayMealsRemaining;
+          }
         }
         
         console.log("✅ 玩家状态加载成功:", {

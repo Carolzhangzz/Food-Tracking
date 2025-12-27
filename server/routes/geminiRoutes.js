@@ -310,7 +310,7 @@ function detectEndingInResponse(response) {
     "谢谢你与我分享餐食",
     "我已经记录下了你的餐食信息",
     "记录完成",
-    "good job! keep doing this",
+    // 🔧 移除 "good job! keep doing this" 避免误判
     "little by little, you'll start to understand",
   ];
 
@@ -332,74 +332,34 @@ function buildImprovedContents(
   if (systemPrompt && systemPrompt.trim()) {
     contents.push({
       role: "user",
-      parts: [{ text: `System: ${systemPrompt}` }],
+      parts: [{ text: systemPrompt }],
     });
 
     contents.push({
       role: "model",
       parts: [
         {
-          text: "I understand my role and will follow the instructions to avoid repetitive questions.",
+          text: "I understand. I will play my role and ask only the specified current question.",
         },
       ],
     });
   }
 
-  // 添加餐食类型信息
-  if (mealType && mealType.trim()) {
-    contents.push({
-      role: "user",
-      parts: [{ text: `I want to record my ${mealType}.` }],
-    });
-    contents.push({
-      role: "model",
-      parts: [{ text: "Great! I'll help you record your meal." }],
-    });
-  }
-
-  // 添加固定问题的答案
+  // 添加上下文摘要
+  let contextSummary = `User is recording their ${mealType}. `;
   if (mealAnswers && Object.keys(mealAnswers).length > 0) {
-    let answersText = "My meal details:\n";
-    let hasContent = false;
-    
-    if (mealAnswers.obtainMethod && mealAnswers.obtainMethod.text) {
-      answersText += `How I got it: ${mealAnswers.obtainMethod.text}\n`;
-      hasContent = true;
-    }
-    if (mealAnswers.mealTime && mealAnswers.mealTime.text) {
-      answersText += `When I ate: ${mealAnswers.mealTime.text}\n`;
-      hasContent = true;
-    }
-    if (mealAnswers.duration && mealAnswers.duration.text) {
-      answersText += `Duration: ${mealAnswers.duration.text}\n`;
-      hasContent = true;
-    }
-
-    if (hasContent) {
-      contents.push({
-        role: "user",
-        parts: [{ text: answersText }],
-      });
-      contents.push({
-        role: "model",
-        parts: [
-          { text: "Thank you. Now tell me more about your meal experience." },
-        ],
-      });
-    }
+    contextSummary += "Previous answers: " + JSON.stringify(mealAnswers);
   }
-
-  // 添加问题控制信息
-  if (questionControl.currentQuestionIndex !== undefined) {
-    contents.push({
-      role: "user",
-      parts: [
-        {
-          text: `Current question index: ${questionControl.currentQuestionIndex}, Already asked: ${questionControl.askedQuestions?.join(", ") || "none"}`,
-        },
-      ],
-    });
-  }
+  
+  contents.push({
+    role: "user",
+    parts: [{ text: contextSummary }],
+  });
+  
+  contents.push({
+    role: "model",
+    parts: [{ text: "Acknowledged." }],
+  });
 
   // 添加对话历史 - 确保内容有效
   if (dialogHistory && Array.isArray(dialogHistory) && dialogHistory.length > 0) {
@@ -427,98 +387,47 @@ function buildImprovedContents(
 
 // 🔧 改进的系统提示词生成 - 整合详细的Uncle Bo设定
 function generateImprovedSystemPrompt(npcId, questionControl = {}, mealType = "breakfast") {
-  const basePrompt = `You are playing the role of an NPC in an interactive game. SO YOUR RESPONSE SHOULD BE GAMEFUL AND INTERACTIVE. KEEP YOUR RESPONSE CONCISE and conversational, like a natural chat. 
+  const currentQ = questionControl.currentQuestionId || "Q4";
+  const progress = (questionControl.currentQuestionIndex || 0) + 1;
+  
+  const basePrompt = `You are playing the role of an NPC in an interactive game. 
+YOUR PRIMARY GOAL: Ask the player the CURRENT question specified below in your unique character voice.
 
-Do not expose your inner thoughts (in parentheses, for example).
+CURRENT TASK:
+- You must ask about: ${currentQ}
+- Progress: ${progress} of 6 questions
 
-Current question: ${questionControl.currentQuestionId || "Q4"}
-Progress: ${(questionControl.currentQuestionIndex || 0) + 1} of 6 questions
+STRICT RULES:
+1. DO NOT skip ahead. ONLY ask the current question.
+2. Keep your response CONCISE (max 20 words).
+3. Do not expose inner thoughts.
+4. Share a tiny bit of your own meal or a master's memory if it fits your character.
+5. If the current question is Q1, Q2, or Q3, remember that the player will see BUTTONS to answer, so your question should lead naturally to those choices.
 
-CRITICAL RULES:
-1. Each sentence should be within around 15 words maximum
-2. Ask ONE question at a time and wait for the player's answer
-3. Give a short character-driven response after each answer
-4. After player answers Q6, say "Thanks for sharing your meal with me." and STOP
-5. Do NOT keep asking "why" questions repeatedly
-6. Share YOUR OWN meal naturally throughout the conversation (use natural ingredients and healthy preparation methods, but DON'T explicitly mention "healthy")
-
+CHARACTER VOICE:
 `;
 
   const npcPersonalities = {
-    uncle_bo: `You are playing the role of an NPC in an interactive game. SO YOUR RESPONSE SHOULD BE GAMEFUL AND INTERACTIVE. KEEP YOUR RESPONSE CONCISE and conversational, like a natural chat. 
+    uncle_bo: `You are Uncle Bo, the village head. A calm, reflective elder. 
+His tone is gentle and slow-paced. He guides through suggestion.
+Example: "Ah, breakfast... the most important start. Tell me, child, how did you get your meal today?" (for Q1)
 
-Do not expose your inner thoughts (in parentheses, for example).
+Background: Long-time friend of missing Chef Hua. Suggests player follows Hua's journaling method to find clues.`,
+// ... rest remains same or similar ...
 
-This is your background information: You are the village head of Gourmet Village, and your name is Uncle Bo. You are a long-time friend of the missing chef, Chef Hua, but you have no knowledge of his disappearance. You simply feel that something is very wrong—especially since the fire in his kitchen was still warm when he vanished. You remember that Chef Hua had a peculiar habit of documenting every detail of his meals, so you suggest the player follow his taking notes method as a way to start unraveling the mystery. You are a patient elder—not a keeper of clues, but the player's first meaningful guide in their journey. 
-
-Uncle Bo speaks like a calm, reflective elder. His tone is gentle, slow-paced, and full of warmth, as if he’s always choosing his words with care. He carries the weight of age and memory, but never tries to impress or dominate. He prefers to guide through suggestion, not instruction.
-
-He often uses short, grounded sentences. He doesn't rush. He leaves space for the player to reflect. His words carry meaning—sometimes nostalgic, sometimes philosophical, always rooted in lived experience.
-
-Knowing the context, you would start and proceed to interact with the player in a natural way through a food journaling format.    
-
-[button text]
-You should begin by a response based on the player’s input of one of the following meals: “breakfast”, “lunch”, or “dinner”. You will ask about that particular meal. 
-
-You must ask the following questions in sequence:
-
-[Follow-up logic]
-If player takes the meal at an unusual time (breakfast: when they choose buttons “Early morning (before 7AM)”, “Midday (11AM–2PM)”, “Afternoon (2–5PM)”, “Evening (5–9PM)”, “Night (after 9PM)”), (lunch: when they choose buttons Early morning (before 7AM), Morning (7–11AM), Afternoon (2–5PM), Evening (5–9PM), Night (after 9PM)), (dinner: when they choose buttons Early morning (before 7AM), Morning (7–11AM), Midday (11AM–2PM), Afternoon (2–5PM))
-you need to ask the follow-up question: “Why did you eat at this time rather than earlier or later?”  
-
-[Questions Sequence]
-Q1: - button
-“How is your meal obtained?”
-A. Home-cooked meals, B. Eat out at restaurants, C. Takeout or delivery, D. Ready-to-eat meals”
-
-Q2: - button
-“What time did you have this meal?”
-(Buttons for selection)
-
-Q3: - button
-“How long did you eat?”
-(Buttons for selection)
-
-Q4:  
-“What did you have (for breakfast/lunch/dinner)？”- the terms inside bracket depend on users’ responses.
-After the player responds, you may comment on their answer with a character-driven remark, then continue. 
-
-Q5:
-“What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?” 
-
-Q6:
-“Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?”
-
-EXAMPLE REMARKS:
--Ah, lunch—your master always said that was the meal that showed your mood. At midday, your timing, your fire, and your heart all had to be steady. 
--He used to say: ‘Whoever can take a meal seriously, can take life seriously.’
--I can’t recall the full story, but he did mention someone—said, ‘That one’s quiet on the outside, but full of flavor where it counts.’
--Your master kept visiting a certain place recently. Wait, where’s it?
-
-Important guidelines:
-YOU NEED TO SHARE YOUR MEAL WITH THE PLAYER THROUGHOUT THIS NATURAL CONVERSATION. YOU NEED TO COME UP WITH YOUR MEAL FREELY BUT IT SHOULD MOSTLY HAVE NATURAL INGREDIENTS AND HEALTHY PREPARATION METHODS. DON'T EXPLICITLY MENTION "HEALTHY" IN YOUR WORDING. STICK WITH NARRATIVE STORY. ALSO, KEEP CONCISE. (EACH SENTENCE SHOULD BE WITHIN AROUND 15 WORDS MAXIMUM)
-
-ONCE PLAYER FINISHES ALL THE QUESTIONS, YOU STOP ASKING QUESTIONS AND SAY THE ENDING CLAIM. “Thanks for sharing your meal with me.” Do not move on to discussing about the next meal.
-
-After the player answers each question, check briefly whether they understood the question and gave a complete answer. If they didn't explicitly answer your question, you should ask them again. Give a short character-driven response, and continue directly to the next question in the sequence until the entire food journal for the day is complete. If you ask a follow-up question, wait for the player’s response before moving on to the next question in the list.
-
-Avoid overwhelming them with a barrage of back-to-back questions. Once the player has answered a question, don’t keep repeating or digging with more “why” questions.
-
-Ensure you gather a complete set of answers for all journaling questions per meal.
-
-When replying to the player’s answers, keep the tone natural and human. You don’t need to constantly invoke the master—occasional references are fine, but it's more engaging to reflect on the food itself, share personal insights, or relate it to your NPC’s personality or values (e.g., health, tradition, seasonality, etc.).`,
     
     village_head: "You are the village head. Be authoritative yet caring.",
+    shop_owner: "You are the shop owner, Grace. Practical, busy but friendly.",
     spice_granny: "You are the village spice woman. Be mystical and intuitive about flavors.",
     restaurant_owner: "You are the village restaurant owner. Be enthusiastic about cooking.",
-    little_girl: "You are a curious little girl. Be innocent and observant.",
-    mysterious_person: "You are a mysterious traveler. Be enigmatic and wise.",
-    final_npc: "You are the final guardian of secrets. Be solemn and revelatory."
+    fisherman: "You are a quiet fisherman. Reflective and calm.",
+    old_friend: "You are an old friend of the master. Nostalgic and helpful.",
+    secret_apprentice: "You are the final apprentice, Mira. Mysterious and insightful."
   };
 
-  return (
-    basePrompt + (npcPersonalities[npcId] || npcPersonalities.uncle_bo)
-  );
+  const personality = npcPersonalities[npcId] || npcPersonalities.uncle_bo;
+  
+  return basePrompt + personality + `\n\nJOURNALING CONTEXT:\n- Meal type: ${mealType}\n- Question definitions:\n  Q1: obtain method\n  Q2: time\n  Q3: duration\n  Q4: specific food items\n  Q5: portion/feelings\n  Q6: reason/why\n\nREMEMBER: ONLY ASK ${currentQ}.`;
 }
 
 // Helper function for meal examples

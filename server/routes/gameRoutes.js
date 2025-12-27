@@ -41,17 +41,46 @@ function dayToNpcId(day) {
 }
 
 // NPC 名称映射
-function getNPCName(npcId) {
-  const npcNames = {
-    uncle_bo: "村长",
-    shop_owner: "杂货铺老板",
-    spice_granny: "香料婆婆",
-    restaurant_owner: "餐馆老板",
-    fisherman: "渔夫",
-    old_friend: "旧友",
-    secret_apprentice: "秘密学徒",
+function getNPCName(npcId, language = "zh") {
+  // 🔧 统一 ID 映射
+  const idMapping = {
+    "village_head": "uncle_bo",
+    "spice_woman": "spice_granny",
+    "npc1": "uncle_bo",
+    "npc2": "shop_owner",
+    "npc3": "spice_granny",
+    "npc4": "restaurant_owner",
+    "npc5": "fisherman",
+    "npc6": "old_friend",
+    "npc7": "secret_apprentice"
   };
-  return npcNames[npcId] || npcId;
+  
+  const actualId = idMapping[npcId] || npcId;
+
+  // 优先从 npcClues.js 获取
+  const { npcClues } = require("../data/npcClues");
+  if (npcClues && npcClues[actualId]) {
+    const npc = npcClues[actualId];
+    return npc.name[language] || npc.name.zh || npc.name.en;
+  }
+
+  // 备选
+  const npcNames = {
+    uncle_bo: { zh: "阿桂（杂货铺）", en: "Uncle Bo" },
+    shop_owner: { zh: "杂货铺老板 Grace", en: "Shop Owner Grace" },
+    spice_granny: { zh: "香料婆婆", en: "Spice Granny" },
+    restaurant_owner: { zh: "餐馆老板", en: "Restaurant Owner" },
+    fisherman: { zh: "渔夫", en: "Fisherman" },
+    old_friend: { zh: "旧友Rowan", en: "Old Friend Rowan" },
+    secret_apprentice: { zh: "秘密学徒Mira", en: "Secret Apprentice Mira" },
+  };
+  
+  const entry = npcNames[actualId];
+  if (entry) {
+    return entry[language] || entry.zh;
+  }
+  
+  return actualId || "Unknown NPC";
 }
 
 // 检查是否至少记录了1餐
@@ -303,57 +332,30 @@ async function saveConversationHistory(
 
 // 获取NPC线索文本（分阶段）
 function getClueForNPCStage(npcId, language = "en", stage = 1) {
-  const L = (zh, en) => (language === "zh" ? zh : en);
-
-  const lines = {
-    village_head: {
-      1: L(
-        "你师父以前有个总爱去的地方……嗯, 是哪里来着？哎, 老了老了。哦, 时候到了, 我得去备下一餐的材料了。过几个小时再来吧, 也许我会想起点什么。",
-        "Your master used to have a place he visited all the time...\nHmm, where was it again?\nAh, my memory's not what it used to be.\nOh! It's time for me to prep for my next meal. Come back in a few hours. Maybe something will come back to me."
-      ),
-      2: L(
-        "我记起来他常去看一位女人……唔, 她是谁来着？再给我一点时间——等你吃完今天的最后一餐, 我们再聊。",
-        "I remember he always visited a woman...\nHmm, who was she again?\nGive me a bit more time — let's talk again after you've finished your last meal of the day."
-      ),
-      3: L(
-        "干得好！继续这样做。一点一点地, 你会开始理解——他当时在想什么, 他在隐藏什么。\n不需要着急。这不是你可以强迫的事情——一次吃一顿饭就好。\n他经常去阿桂的杂货铺买食材。他和华主厨认识很久了。也许你能从她那里得到一些线索。",
-        "Good job! Keep doing this. Little by little, you'll start to understand—what he was thinking back then, and what he was hiding.\nNo need to rush. This isn't something you can force—just take it one meal at a time.\nHe often stopped by Grace's shop for ingredients. He and Chef Hua go way back. Maybe you will get some insights from her."
-      ),
-    },
-
-    shop_owner: {
-      1: L(
-        "听你这么细细地讲真不错。我很想念和华主厨聊各种美食, 聊那些让菜肴特别的小食材的日子。\n我会在这等你下一餐后再来, 也许那时我会想得更清楚。",
-        "It's nice hearing you share in such detail. I miss talking to Chef Hua about all things food, and all the little ingredients that make a dish special.\nI'll still be here till your next meal, so come back after that. Maybe then, the pieces will make more sense."
-      ),
-      2: L(
-        "我一直在努力回想他当时说的关于绿木籽的话, 就在嘴边……\n等你吃完今天的最后一顿饭, 我们再聊。也许那味道会回来。",
-        "I keep trying to remember exactly what he said about the greenwood seeds. It's right on the tip of my tongue.\nLet's talk again after you've wrapped up your eating for the day. Maybe the taste will come back to me."
-      ),
-      3: L(
-        "啊, 我想起来了——那天他做了一道用绿木籽的汤。味道绝了。我后来一直想重做, 可从没成功……也不知道他还加了什么。\n冰箱里还有一些。去吧, 尝尝。但别只是吃——想一想, 你怎么吃, 你为什么吃。这就是你师父的做事方式。\n里面有一种味道……我敢肯定是来自香料婆婆的店。你该去找她。",
-        "Ah, I remember now—he made a soup with greenwood seeds that day. Tasted incredible. I've tried to make it since, but I never got it right… No idea what else he put in there.\nThere's still some left in my fridge. Go ahead, give it a try. But don't just eat it—think about it. How you're eating, why you're eating. That's how your master did things.\nThere's a certain flavour in there… I swear it came from Spice Granny's shop. You should pay her a visit."
-      ),
-    },
-
-    spice_woman: {
-      1: L(
-        "你知道…我这儿客人来来往往。有的只买基本的黑白胡椒, 有的像华主厨一样追求大胆独特的味道。\n总之, 很高兴和你聊天。但等你下一餐后再来吧, 我也会尽量回忆更多有关华主厨的事。",
-        "You know... I have a lot of customers coming and going. Some just pick up the basics, black and white pepper. Some go for bold and unique flavors, like Chef Hua.\nAnyways, it's nice talking to you, but come back after your next meal, and meanwhile I'll try to recall some more details about Chef Hua."
-      ),
-      2: L(
-        "我一直在想华主厨最近在做什么。你知道, 他的菜总有一丝神秘感——他从不满足, 总在尝试新东西。\n或许有迹可循, 但我觉得你从香料中能学到的毕竟有限。\n如果有其他关联……也许还有别的线索值得跟。\n几个小时后再来吧。回忆这些事意外地挺有趣。如果我想起了什么, 还会告诉你。",
-        "I've been trying to think of what Chef Hua's been doing. You know how his cooking always had that touch of mystery—he was never satisfied, always trying something new.\nSure there might be a tell-tale sign, but I feel like you can only learn so much from spices.\nBut if there were other connections... there might be other threads worth following.\nWhy don't you come back in a few hours? It's been surprisingly fun retrieving these memories. I'll still be here if anything comes to mind."
-      ),
-      3: L(
-        "不错——你已经记起了不少细节。\n哦, 对了, 差点忘了。韩前几天也来过。他满脸笑容, 说话客气, 但你能看出来——那人满肚子坏水。\n他来可不是为了味道。言外之意, 他是在打听你师父的灵魂香料。",
-        "Not bad — you've recalled quite a bit of details.\nOh right, that reminds me. Han stopped by a couple days ago too.\nHe came in all smiles, talkin' nice, but you could tell — the guy's got nothin' but tricks up his sleeve.\nHe wasn't here for flavor. Between the lines, he was asking about your master's soul spice."
-      ),
-    },
+  const playerLanguage = language === "zh" ? "zh" : "en";
+  const { getNPCClue } = require("../data/npcClues");
+  
+  // 🔧 映射 ID 以匹配 npcClues.js
+  const idMapping = {
+    "village_head": "uncle_bo",
+    "spice_woman": "spice_granny",
+    "npc1": "uncle_bo",
+    "npc2": "shop_owner",
+    "npc3": "spice_granny",
+    "npc4": "restaurant_owner",
+    "npc5": "fisherman",
+    "npc6": "old_friend",
+    "npc7": "secret_apprentice"
   };
+  const actualId = idMapping[npcId] || npcId;
 
-  const npcLines = lines[npcId] || {};
-  return npcLines[stage] || npcLines[3] || L("做的好。", "Great Job.");
+  if (stage === 3) {
+    const clue = getNPCClue(actualId, "true", 0, playerLanguage);
+    return clue ? clue.text : (playerLanguage === "zh" ? "做的好。" : "Great Job.");
+  } else {
+    const clue = getNPCClue(actualId, "vague", stage - 1, playerLanguage);
+    return clue ? clue.text : (playerLanguage === "zh" ? "做的好。" : "Great Job.");
+  }
 }
 
 
@@ -646,6 +648,10 @@ router.post("/player-status", async (req, res) => {
       });
     });
 
+    // 获取当天剩余餐食
+    const recordedToday = new Set(mealsToday.map(m => m.mealType));
+    const currentDayMealsRemaining = ["breakfast", "lunch", "dinner"].filter(t => !recordedToday.has(t));
+
     return res.json({
       success: true,
       player: {
@@ -657,6 +663,7 @@ router.post("/player-status", async (req, res) => {
         progress: player.progress,
       },
       availableNPCs,
+      currentDayMealsRemaining, // 🔧 新增：同步返回当天剩余餐食
       mealRecords: mealRecords.map((r) => ({
         day: r.day,
         npcId: r.npcId,
@@ -796,15 +803,11 @@ router.post("/record-meal", async (req, res) => {
       mealContent,
     } = req.body;
 
-    const day = Number(rawDay); // 🔧 强制转换为数字
-    const actualAnswers = answers || mealAnswers || {};
-    const actualNPCName = npcName || getNPCName(npcId); 
-
-    if (!playerId || !day || !npcId || !mealType || !mealContent) {
-      await t.rollback();
-      console.error("❌ 缺少必要字段:", { playerId, day, npcId, mealType, hasContent: !!mealContent });
-      return res.status(400).json({ success: false, error: "缺少必要字段" });
-    }
+    // 🔧 确定实际的day值
+    const day = rawDay || 1;
+    
+    // 🔧 确定实际的answers（兼容旧格式）
+    const actualAnswers = mealAnswers || answers || {};
 
     const player = await Player.findOne({
       where: { playerId },
@@ -814,6 +817,19 @@ router.post("/record-meal", async (req, res) => {
     if (!player) {
       await t.rollback();
       return res.status(404).json({ success: false, error: "玩家未找到" });
+    }
+
+    // 🔧 修复 NPC 名字提取：如果传入的是 ID 或者 "NPC"，尝试获取漂亮的中文/英文名
+    let actualNPCName = npcName;
+    if (!npcName || npcName === "NPC" || npcName === npcId) {
+      actualNPCName = getNPCName(npcId, player.language || "zh");
+    }
+    
+    console.log(`👤 记录餐食 - NPC ID: ${npcId}, 最终名字: ${actualNPCName}, 餐食: ${mealType}, Day: ${day}`);
+    if (!playerId || !day || !npcId || !mealType || !mealContent) {
+      await t.rollback();
+      console.error("❌ 缺少必要字段:", { playerId, day, npcId, mealType, hasContent: !!mealContent });
+      return res.status(400).json({ success: false, error: "缺少必要字段" });
     }
 
     // 同天同餐别仅一次
@@ -876,45 +892,65 @@ router.post("/record-meal", async (req, res) => {
     
     // 获取该NPC当前的vague计数（第几次vague）
     const previousVagueCount = await Clue.count({
-      where: { playerId, npcId, clueType: 'vague' }
+      where: { playerId, npcId, clueType: 'vague' },
+      transaction: t
     });
     
+    console.log(`🎯 [线索判定] NPC: ${npcId}, 餐食: ${mealType}, 已有vague数: ${previousVagueCount}`);
+    
     if (mealType === "dinner") {
-      // 🌙 晚餐 = 给真实线索
+      // 🌙 晚餐 = 给真实线索 (Stage 3)
       clueType = "true";
-      clueData = getNPCClue(npcId, "true", 0, playerLanguage);
-      clueText = clueData ? clueData.text : "感谢你的分享！";
-      console.log(`✅ [晚餐] 给予TRUE线索: ${clueText.substring(0, 50)}...`);
+      clueText = getClueForNPCStage(npcId, playerLanguage, 3);
+      console.log(`✅ [晚餐] 给予真实线索 (${typeof clueText}):`, clueText);
     } else {
-      // 🌞 早餐/午餐 = 给vague线索
+      // 🌞 早餐/午餐 = 给模糊线索 (Stage 1 或 2)
       clueType = "vague";
-      const vagueIndex = previousVagueCount; // 0 = 第一个vague, 1 = 第二个vague
-      clueData = getNPCClue(npcId, "vague", vagueIndex, playerLanguage);
-      clueText = clueData ? clueData.text : "我会在这里等你下一餐后再来。";
-      console.log(`ℹ️ [${mealType}] 给予VAGUE线索 #${vagueIndex + 1}: ${clueText.substring(0, 50)}...`);
+      const stage = previousVagueCount === 0 ? 1 : 2;
+      clueText = getClueForNPCStage(npcId, playerLanguage, stage);
+      console.log(`ℹ️ [${mealType}] 给予模糊线索 (阶段 ${stage}, ${typeof clueText}):`, clueText);
     }
     
+    // 统一 ID 映射
+    const idMapping = {
+      "village_head": "uncle_bo",
+      "spice_woman": "spice_granny",
+      "npc1": "uncle_bo",
+      "npc2": "shop_owner",
+      "npc3": "spice_granny",
+      "npc4": "restaurant_owner",
+      "npc5": "fisherman",
+      "npc6": "old_friend",
+      "npc7": "secret_apprentice"
+    };
+    const actualNpcId = idMapping[npcId] || npcId;
+
     // 保存线索到数据库
-    if (clueText) {
+    if (clueText && typeof clueText === 'string') {
       try {
         const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+        console.log(`📝 正在保存线索: npcName=${actualNPCName}, clueType=${clueType}, text=${cleanText.substring(0, 30)}...`);
+        
         await Clue.create({
           playerId,
-          npcId,
-          npcName: actualNPCName || clueData?.npcName,
+          npcId: actualNpcId, // 使用统一的 ID
+          npcName: actualNPCName, 
           clueType,
           clueText: cleanText,
           keywords: JSON.stringify(keywords),
           shortVersion,
           day,
           mealType,
-          nextNPC: clueData?.nextNPC || null
+          nextNPC: npcClues[actualNpcId]?.nextNPC || null
         }, { transaction: t });
-        console.log(`📝 线索已保存到数据库: type=${clueType}, npc=${npcId}`);
+        
+        console.log(`✅ 线索保存成功！`);
       } catch (clueError) {
-        console.error("⚠️ 保存线索失败，但不影响餐食记录:", clueError.message);
-        // 不在这里回滚事务，除非这是必须成功的
+        console.error("⚠️ 保存线索失败:", clueError.message);
+        console.error("⚠️ 错误详情:", clueError);
       }
+    } else {
+      console.error(`❌ clueText 不是字符串或为空: ${typeof clueText}`, clueText);
     }
 
     // 预创建下一天的 progress
@@ -944,15 +980,17 @@ router.post("/record-meal", async (req, res) => {
       shouldUnlockNextDay = true;
     }
 
-    // 🔧 获取当天所有已记录的餐食
-    const dayMeals = await MealRecord.findAll({
+    // 🔧 获取当天所有已记录的餐食，确保准确性
+    const allRecordedMeals = await MealRecord.findAll({
       where: { playerId, day },
       transaction: t,
     });
-    const recordedTypes = new Set(dayMeals.map((m) => m.mealType));
+    const recordedTypes = new Set(allRecordedMeals.map((m) => m.mealType));
     const remainingMeals = ["breakfast", "lunch", "dinner"].filter(
-      (t) => !recordedTypes.has(t)
+      (type) => !recordedTypes.has(type)
     );
+    
+    console.log(`📊 餐食记录完成 - 今日已记: ${Array.from(recordedTypes).join(",")}, 剩余: ${remainingMeals.join(",")}`);
 
     await t.commit();
 
@@ -969,16 +1007,15 @@ router.post("/record-meal", async (req, res) => {
       },
       // 🔧 线索信息
       shouldGiveClue,
-      clueType,  // 'vague' 或 'true'
+      clueType,
       clueText,
       clueData: clueData ? {
         npcName: clueData.npcName,
         nextNPC: clueData.nextNPC,
         type: clueType
       } : null,
-      // 🔧 确保返回的是当天真正剩余的餐食
       currentDayMealsRemaining: remainingMeals,
-      availableMealTypes: remainingMeals, // 兼容性别名
+      availableMealTypes: remainingMeals,
       nextDayUnlocked,
       shouldUnlockNextDay,
       currentDay: day,

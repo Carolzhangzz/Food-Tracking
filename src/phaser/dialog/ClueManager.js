@@ -153,5 +153,29 @@ export default class ClueManager {
       };
     }
   }
+
+  // 🔧 显示模糊线索（早餐/午餐）
+  showVagueClue(clueText) {
+    console.log("🌫️ [ClueManager] 显示模糊线索:", clueText.substring(0, 50) + "...");
+    
+    // 通知 UIManager 刷新线索本
+    if (this.scene.mainScene && this.scene.mainScene.uiManager) {
+      this.scene.mainScene.uiManager.loadCluesFromAPI();
+    }
+    
+    return { success: true, type: "vague" };
+  }
+
+  // 🔧 显示真实线索（晚餐）
+  showTrueClue(clueText, clueData) {
+    console.log("🗝️ [ClueManager] 显示真实线索:", clueText.substring(0, 50) + "...");
+    
+    // 通知 UIManager 刷新线索本
+    if (this.scene.mainScene && this.scene.mainScene.uiManager) {
+      this.scene.mainScene.uiManager.loadCluesFromAPI();
+    }
+    
+    return { success: true, type: "true", data: clueData };
+  }
 }
 
