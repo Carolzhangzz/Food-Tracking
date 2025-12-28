@@ -8,23 +8,33 @@ import { playBGM, stopBGM } from "../utils/audioManager";
 // 使用 memo 包装组件，避免不必要的重渲染
 const Control = memo(() => {
   const { playerId, playerData, setPlayerData, gameRef } = useContext(PlayerContext);
+  
+  // 🔧 更精细的设备检测
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerHeight < 500); // 手机横屏检测
+  
   const [isHoveringLang, setIsHoveringLang] = useState(false);
   const [isHoveringMusic, setIsHoveringMusic] = useState(false);
   const [isHoveringClue, setIsHoveringClue] = useState(false);
   const [clueCount, setClueCount] = useState(0);
 
-  // 监听窗口大小变化
+  // 监听窗口大小变化 - 优化版
   useEffect(() => {
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         setIsDesktop(window.innerWidth >= 1024);
+        setIsMobile(window.innerWidth < 768);
+        setIsSmallScreen(window.innerHeight < 500); // 手机横屏
       }, 100);
     };
     
     window.addEventListener('resize', handleResize);
+    // 初始化时也执行一次
+    handleResize();
+    
     return () => {
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
@@ -159,29 +169,42 @@ const Control = memo(() => {
     return () => clearInterval(interval);
   }, [gameRef]);
 
-  // 响应式按钮样式 - 游戏风格优化
-  const buttonStyle = useMemo(() => ({
-    padding: isDesktop ? "14px" : "10px",
-    background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)",
-    color: "white",
-    border: isDesktop ? "3px solid rgba(102, 126, 234, 0.5)" : "2px solid rgba(102, 126, 234, 0.4)",
-    borderRadius: isDesktop ? "16px" : "12px",
-    cursor: "pointer",
-    fontSize: isDesktop ? "28px" : "22px",
-    fontWeight: "bold",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    backdropFilter: "blur(15px)",
-    minWidth: isDesktop ? "60px" : "48px",
-    minHeight: isDesktop ? "60px" : "48px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: isDesktop 
-      ? "0 6px 20px rgba(102, 126, 234, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)" 
-      : "0 4px 15px rgba(102, 126, 234, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.1)",
-    position: "relative",
-    overflow: "hidden",
-  }), [isDesktop]);
+  // 响应式按钮样式 - 游戏风格优化 + 小屏幕适配
+  const buttonStyle = useMemo(() => {
+    // 根据屏幕大小动态调整尺寸
+    const getSize = () => {
+      if (isSmallScreen) return { padding: '6px', minSize: '36px', fontSize: '18px', border: '2px' };
+      if (isMobile) return { padding: '8px', minSize: '42px', fontSize: '20px', border: '2px' };
+      return { padding: '14px', minSize: '60px', fontSize: '28px', border: '3px' };
+    };
+    
+    const size = getSize();
+    
+    return {
+      padding: size.padding,
+      background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)",
+      color: "white",
+      border: `${size.border} solid rgba(102, 126, 234, 0.5)`,
+      borderRadius: isSmallScreen ? '10px' : (isMobile ? '12px' : '16px'),
+      cursor: "pointer",
+      fontSize: size.fontSize,
+      fontWeight: "bold",
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      backdropFilter: "blur(15px)",
+      minWidth: size.minSize,
+      minHeight: size.minSize,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: isSmallScreen 
+        ? "0 2px 8px rgba(102, 126, 234, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.1)"
+        : (isMobile 
+          ? "0 4px 15px rgba(102, 126, 234, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.1)"
+          : "0 6px 20px rgba(102, 126, 234, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)"),
+      position: "relative",
+      overflow: "hidden",
+    };
+  }, [isDesktop, isMobile, isSmallScreen]);
 
   const langButtonStyle = useMemo(() => ({
     ...buttonStyle,
@@ -232,38 +255,40 @@ const Control = memo(() => {
   return (
     <div style={{
       position: "fixed",
-      top: isDesktop ? "24px" : "16px",
-      right: isDesktop ? "24px" : "16px",
+      top: isSmallScreen ? "6px" : (isMobile ? "12px" : "24px"),
+      right: isSmallScreen ? "6px" : (isMobile ? "12px" : "24px"),
       display: "flex",
-      gap: isDesktop ? "16px" : "12px",
+      gap: isSmallScreen ? "6px" : (isMobile ? "8px" : "16px"),
       zIndex: 1000,
     }}>
-      {/* 🔧 新增：左上角进度提示 - 游戏风格优化 */}
+      {/* 🔧 新增：左上角进度提示 - 游戏风格优化 + 小屏幕适配 */}
       <div style={{
         position: "fixed",
-        top: isDesktop ? "20px" : "12px",
-        left: isDesktop ? "20px" : "12px",
+        top: isSmallScreen ? "6px" : (isMobile ? "12px" : "20px"),
+        left: isSmallScreen ? "6px" : (isMobile ? "12px" : "20px"),
         display: "flex",
         flexDirection: "column",
-        gap: isDesktop ? "12px" : "8px",
+        gap: isSmallScreen ? "4px" : (isMobile ? "6px" : "12px"),
         zIndex: 1000,
         pointerEvents: "none"
       }}>
-        {/* 天数卡片 - 游戏风格 */}
+        {/* 天数卡片 - 游戏风格 + 小屏幕适配 */}
         <div style={{
           background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)",
           backdropFilter: "blur(15px)",
-          padding: isDesktop ? "12px 24px" : "8px 16px",
-          borderRadius: isDesktop ? "20px" : "14px",
-          border: "3px solid rgba(245, 158, 11, 0.5)",
+          padding: isSmallScreen ? "4px 10px" : (isMobile ? "6px 12px" : "12px 24px"),
+          borderRadius: isSmallScreen ? "10px" : (isMobile ? "12px" : "20px"),
+          border: isSmallScreen ? "2px solid rgba(245, 158, 11, 0.5)" : "3px solid rgba(245, 158, 11, 0.5)",
           color: "#fff",
-          fontSize: isDesktop ? "18px" : "15px",
+          fontSize: isSmallScreen ? "11px" : (isMobile ? "13px" : "18px"),
           fontWeight: "800",
           display: "flex",
           alignItems: "center",
-          gap: isDesktop ? "14px" : "10px",
-          boxShadow: "0 8px 25px rgba(245, 158, 11, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)",
-          borderLeft: "5px solid rgba(245, 158, 11, 0.8)",
+          gap: isSmallScreen ? "6px" : (isMobile ? "8px" : "14px"),
+          boxShadow: isSmallScreen 
+            ? "0 2px 10px rgba(245, 158, 11, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.1)"
+            : "0 8px 25px rgba(245, 158, 11, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)",
+          borderLeft: isSmallScreen ? "3px solid rgba(245, 158, 11, 0.8)" : "5px solid rgba(245, 158, 11, 0.8)",
           position: "relative",
           overflow: "hidden",
         }}>
@@ -278,25 +303,36 @@ const Control = memo(() => {
             pointerEvents: "none",
           }}/>
           
-          <span style={{ fontSize: isDesktop ? "24px" : "20px", position: "relative", zIndex: 1 }}>📅</span>
+          <span style={{ 
+            fontSize: isSmallScreen ? "14px" : (isMobile ? "16px" : "24px"), 
+            position: "relative", 
+            zIndex: 1 
+          }}>📅</span>
           <div style={{ position: "relative", zIndex: 1 }}>
             <div style={{ 
-              fontSize: isDesktop ? "12px" : "10px", 
+              fontSize: isSmallScreen ? "9px" : (isMobile ? "10px" : "12px"), 
               color: "#fbbf24", 
               fontWeight: "600",
               letterSpacing: "0.5px",
-              marginBottom: "2px"
+              marginBottom: isSmallScreen ? "0" : "2px"
             }}>
               {playerData.language === "zh" ? "当前进度" : "Progress"}
             </div>
-            <div style={{ color: "#fff", fontSize: isDesktop ? "18px" : "15px" }}>
+            <div style={{ 
+              color: "#fff", 
+              fontSize: isSmallScreen ? "11px" : (isMobile ? "13px" : "18px") 
+            }}>
               {playerData.language === "zh" ? `第 ${playerData.currentDay || 1} 天` : `Day ${playerData.currentDay || 1}`}
             </div>
           </div>
         </div>
 
-        {/* 饮食进度图标 - 游戏风格优化 */}
-        <div style={{ display: "flex", gap: isDesktop ? "12px" : "8px", marginTop: "4px" }}>
+        {/* 饮食进度图标 - 游戏风格优化 + 小屏幕适配 */}
+        <div style={{ 
+          display: "flex", 
+          gap: isSmallScreen ? "4px" : (isMobile ? "6px" : "12px"), 
+          marginTop: isSmallScreen ? "2px" : "4px" 
+        }}>
           {["breakfast", "lunch", "dinner"].map(m => {
             // 🔧 修复逻辑：只有明确获取到数据后，才根据数据判断
             // 如果还没加载，默认显示为待完成 (isDone = false)
@@ -312,17 +348,23 @@ const Control = memo(() => {
               dinner: playerData.language === "zh" ? "晚" : "D" 
             };
             
+            // 动态计算尺寸
+            const iconSize = isSmallScreen ? "28px" : (isMobile ? "36px" : "54px");
+            const iconFontSize = isSmallScreen ? "12px" : (isMobile ? "14px" : "22px");
+            const checkSize = isSmallScreen ? "12px" : (isMobile ? "14px" : "18px");
+            const borderWidth = isSmallScreen ? "2px" : "3px";
+            
             return (
               <div key={m} style={{
-                width: isDesktop ? "54px" : "44px",
-                height: isDesktop ? "54px" : "44px",
-                borderRadius: isDesktop ? "16px" : "12px",
+                width: iconSize,
+                height: iconSize,
+                borderRadius: isSmallScreen ? "8px" : (isMobile ? "10px" : "16px"),
                 background: isDone 
                   ? "linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(22, 163, 74, 0.3) 100%)"
                   : "linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%)",
-                border: isDone 
-                  ? "3px solid rgba(34, 197, 94, 0.8)"
-                  : "3px solid rgba(102, 126, 234, 0.3)",
+                border: `${borderWidth} solid ${isDone 
+                  ? "rgba(34, 197, 94, 0.8)"
+                  : "rgba(102, 126, 234, 0.3)"}`,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -331,8 +373,12 @@ const Control = memo(() => {
                 backdropFilter: "blur(12px)",
                 transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                 boxShadow: isDone 
-                  ? "0 0 20px rgba(34, 197, 94, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.1)" 
-                  : "0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.05)",
+                  ? (isSmallScreen 
+                    ? "0 0 10px rgba(34, 197, 94, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.1)"
+                    : "0 0 20px rgba(34, 197, 94, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.1)")
+                  : (isSmallScreen
+                    ? "0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.05)"
+                    : "0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.05)"),
                 position: "relative",
                 overflow: "hidden"
               }}>
@@ -350,7 +396,7 @@ const Control = memo(() => {
                 )}
                 
                 <span style={{ 
-                  fontSize: isDesktop ? "22px" : "18px", 
+                  fontSize: iconFontSize, 
                   opacity: isDone ? 1 : 0.5,
                   position: "relative",
                   zIndex: 1,
@@ -361,18 +407,18 @@ const Control = memo(() => {
                 {isDone && (
                   <div style={{
                     position: "absolute",
-                    bottom: "4px",
-                    right: "4px",
+                    bottom: isSmallScreen ? "2px" : "4px",
+                    right: isSmallScreen ? "2px" : "4px",
                     background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
                     color: "white",
                     borderRadius: "50%",
-                    width: isDesktop ? "18px" : "16px",
-                    height: isDesktop ? "18px" : "16px",
-                    fontSize: isDesktop ? "11px" : "10px",
+                    width: checkSize,
+                    height: checkSize,
+                    fontSize: isSmallScreen ? "8px" : (isMobile ? "9px" : "11px"),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: "2px solid rgba(30, 41, 59, 0.9)",
+                    border: `${isSmallScreen ? "1px" : "2px"} solid rgba(30, 41, 59, 0.9)`,
                     boxShadow: "0 2px 8px rgba(34, 197, 94, 0.4)",
                     zIndex: 2
                   }}>✓</div>
@@ -383,7 +429,7 @@ const Control = memo(() => {
         </div>
       </div>
 
-      {/* 🛠️ 调试：强制触发结局按钮 (仅玩家 002 可见) */}
+      {/* 🛠️ 调试：强制触发结局按钮 (仅玩家 002 可见) - 小屏幕适配 */}
       {playerId === '002' && (
         <button
           onClick={() => {
@@ -393,7 +439,7 @@ const Control = memo(() => {
             ...langButtonStyle,
             background: "rgba(239, 68, 68, 0.7)",
             borderColor: "#ef4444",
-            fontSize: "14px"
+            fontSize: isSmallScreen ? "16px" : (isMobile ? "18px" : "14px")
           }}
           title="Force Final Report (Debug)"
         >
@@ -446,27 +492,27 @@ const Control = memo(() => {
           src="/assets/elements/cluebook.png" 
           alt="Clue Book"
           style={{
-            width: isDesktop ? "40px" : "32px",
-            height: isDesktop ? "40px" : "32px",
+            width: isSmallScreen ? "20px" : (isMobile ? "26px" : "40px"),
+            height: isSmallScreen ? "20px" : (isMobile ? "26px" : "40px"),
             objectFit: "contain",
           }}
         />
-        {/* 线索数量badge */}
+        {/* 线索数量badge - 小屏幕适配 */}
         {clueCount > 0 && (
           <span
             style={{
               position: "absolute",
-              top: "-6px",
-              right: "-6px",
+              top: isSmallScreen ? "-4px" : "-6px",
+              right: isSmallScreen ? "-4px" : "-6px",
               backgroundColor: "#ef4444",
               color: "white",
               borderRadius: "50%",
-              width: isDesktop ? "24px" : "20px",
-              height: isDesktop ? "24px" : "20px",
+              width: isSmallScreen ? "14px" : (isMobile ? "18px" : "24px"),
+              height: isSmallScreen ? "14px" : (isMobile ? "18px" : "24px"),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: isDesktop ? "12px" : "10px",
+              fontSize: isSmallScreen ? "8px" : (isMobile ? "9px" : "12px"),
               fontWeight: "bold",
               border: "2px solid white",
               boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
