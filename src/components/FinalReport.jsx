@@ -251,7 +251,7 @@ ${report.wisdom[lang]}
           
           {/* Wisdom */}
           <div style={wisdomBoxStyle} className="wisdom-shine">
-            <h3 style={{ marginTop: 0, color: '#854d0e' }}>
+            <h3 style={{ marginTop: 0, color: '#fbbf24', textShadow: '0 0 10px rgba(251, 191, 36, 0.3)' }}>
               {lang === 'zh' ? '💡 厨师的智慧' : '💡 Chef\'s Wisdom'}
             </h3>
             <p className="wisdom-text">{report.wisdom[lang]}</p>
@@ -475,8 +475,8 @@ ${report.wisdom[lang]}
           font-style: italic;
           font-size: 1.15rem;
           font-weight: 600;
-          color: #92400e;
-          text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+          color: #fbbf24;  /* 🎮 金色文字 */
+          text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
         }
 
         /* 🎨 按钮弹跳交互 */
@@ -513,8 +513,8 @@ const overlayStyle = {
   left: 0,
   width: '100vw',
   height: '100vh',
-  backgroundColor: 'rgba(0,0,0,0.85)',
-  backdropFilter: 'blur(10px)',
+  backgroundColor: 'rgba(15, 15, 35, 0.92)',  // 🎮 游戏深色背景
+  backdropFilter: 'blur(15px)',
   zIndex: 9999,
   display: 'flex',
   justifyContent: 'center',
@@ -524,23 +524,23 @@ const overlayStyle = {
 };
 
 const cardStyle = {
-  backgroundColor: '#fefce8', // Cream parchment color
+  backgroundColor: '#1a1a2e',  // 🎮 游戏深色基调
   backgroundImage: `
-    url("https://www.transparenttextures.com/patterns/paper-fibers.png"),
-    radial-gradient(circle at top right, rgba(251, 191, 36, 0.1), transparent),
-    radial-gradient(circle at bottom left, rgba(202, 138, 4, 0.1), transparent)
+    linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%),
+    url("https://www.transparenttextures.com/patterns/stardust.png")
   `,
   width: '100%',
   maxWidth: '750px',
   maxHeight: '90vh',
   padding: '50px',
   borderRadius: '20px',
-  boxShadow: '0 30px 70px rgba(0,0,0,0.6), inset 0 0 100px rgba(133, 77, 14, 0.15)',
+  boxShadow: '0 30px 70px rgba(102, 126, 234, 0.4), 0 0 50px rgba(118, 75, 162, 0.3)',
   position: 'relative',
   overflowY: 'auto',
-  border: '3px solid #eab308',
+  border: '3px solid rgba(102, 126, 234, 0.6)',  // 🎮 紫蓝色边框
   scrollbarWidth: 'thin',
-  scrollbarColor: '#ca8a04 #fef3c7',
+  scrollbarColor: '#667eea #2d3748',
+  color: '#e2e8f0',  // 浅色文字
 };
 
 const sealStyle = {
@@ -549,30 +549,32 @@ const sealStyle = {
   right: '40px',
   width: '60px',
   height: '60px',
-  border: '3px solid #991b1b',
+  border: '3px solid #f59e0b',  // 🎮 金色印章
   borderRadius: '50%',
-  color: '#991b1b',
+  color: '#f59e0b',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   fontSize: '30px',
   fontWeight: 'bold',
-  opacity: 0.6,
+  opacity: 0.9,
   transform: 'rotate(-15deg)',
+  background: 'rgba(245, 158, 11, 0.1)',
 };
 
 const titleStyle = {
   textAlign: 'center',
-  color: '#451a03',
+  color: '#f0abfc',  // 🎮 明亮的紫色
   fontSize: '2.5rem',
   marginBottom: '30px',
-  borderBottom: '2px solid #eab308',
+  borderBottom: '2px solid rgba(102, 126, 234, 0.5)',
   paddingBottom: '10px',
+  textShadow: '0 0 20px rgba(240, 171, 252, 0.5)',
 };
 
 const contentStyle = {
   lineHeight: '1.8',
-  color: '#451a03',
+  color: '#cbd5e1',  // 🎮 柔和的浅灰色文字
   fontSize: '1.1rem',
 };
 
@@ -580,6 +582,7 @@ const bodyStyle = {
   whiteSpace: 'pre-wrap',
   marginBottom: '20px',
   lineHeight: '1.8',
+  color: '#e2e8f0',
 };
 
 const sectionStyle = {
@@ -591,17 +594,20 @@ const summaryStyle = {
   fontSize: '1.05rem',
   textAlign: 'center',
   padding: '15px',
-  backgroundColor: 'rgba(254, 249, 195, 0.3)',
-  borderRadius: '8px',
+  backgroundColor: 'rgba(102, 126, 234, 0.15)',  // 🎮 紫色背景
+  borderRadius: '12px',
+  border: '1px solid rgba(102, 126, 234, 0.3)',
+  color: '#e0e7ff',
 };
 
 const sectionTitleStyle = {
-  color: '#854d0e',
+  color: '#a78bfa',  // 🎮 明亮的紫色
   fontSize: '1.8rem',
   marginBottom: '15px',
   marginTop: '30px',
-  borderBottom: '2px solid #eab308',
+  borderBottom: '2px solid rgba(167, 139, 250, 0.4)',
   paddingBottom: '8px',
+  textShadow: '0 0 10px rgba(167, 139, 250, 0.3)',
 };
 
 const recipeContainerStyle = {
@@ -615,17 +621,18 @@ const recipeIntroStyle = {
 };
 
 const dishStyle = {
-  backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  backgroundColor: 'rgba(30, 41, 59, 0.6)',  // 🎮 深色半透明背景
   padding: '25px',
   borderRadius: '15px',
   marginBottom: '20px',
-  borderLeft: '5px solid #ca8a04',
-  boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+  borderLeft: '5px solid #8b5cf6',  // 🎮 紫色左边框
+  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)',
   backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(139, 92, 246, 0.3)',
 };
 
 const dishTitleStyle = {
-  color: '#854d0e',
+  color: '#c4b5fd',  // 🎮 亮紫色标题
   fontSize: '1.3rem',
   marginTop: 0,
   marginBottom: '12px',
@@ -633,34 +640,40 @@ const dishTitleStyle = {
 
 const tipStyle = {
   fontStyle: 'italic',
-  color: '#92400e',
+  color: '#fbbf24',  // 🎮 金色提示
   marginTop: '10px',
   fontSize: '0.95rem',
 };
 
 const healthBoxStyle = {
-  backgroundColor: 'rgba(187, 247, 208, 0.3)',
+  backgroundColor: 'rgba(5, 150, 105, 0.15)',  // 🎮 绿色半透明
   padding: '25px',
-  borderRadius: '10px',
-  borderLeft: '4px solid #16a34a',
+  borderRadius: '15px',
+  borderLeft: '5px solid #10b981',
   marginBottom: '30px',
+  border: '1px solid rgba(16, 185, 129, 0.3)',
+  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)',
 };
 
 const letterBoxStyle = {
-  backgroundColor: 'rgba(254, 249, 195, 0.4)',
+  backgroundColor: 'rgba(59, 130, 246, 0.15)',  // 🎮 蓝色半透明
   padding: '25px',
-  borderRadius: '10px',
-  borderLeft: '4px solid #dc2626',
+  borderRadius: '15px',
+  borderLeft: '5px solid #3b82f6',
   marginBottom: '30px',
+  border: '1px solid rgba(59, 130, 246, 0.3)',
+  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.2)',
 };
 
 const wisdomBoxStyle = {
-  backgroundColor: 'rgba(254, 249, 195, 0.5)',
+  backgroundColor: 'rgba(245, 158, 11, 0.15)',  // 🎮 金色半透明
   padding: '20px',
-  borderRadius: '8px',
-  borderLeft: '4px solid #eab308',
+  borderRadius: '12px',
+  borderLeft: '4px solid #f59e0b',
   marginBottom: '30px',
   fontStyle: 'italic',
+  border: '1px solid rgba(245, 158, 11, 0.3)',
+  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)',
 };
 
 const signatureStyle = {
@@ -690,9 +703,26 @@ const btnBase = {
   gap: '8px',
 };
 
-const btnPrimaryStyle = { ...btnBase, backgroundColor: '#ca8a04', color: 'white' };
-const btnSecondaryStyle = { ...btnBase, backgroundColor: '#e2e8f0', color: '#475569' };
-const btnDangerStyle = { ...btnBase, backgroundColor: '#991b1b', color: 'white' };
+const btnPrimaryStyle = { 
+  ...btnBase, 
+  backgroundColor: '#667eea',  // 🎮 紫蓝色
+  color: 'white',
+  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+};
+
+const btnSecondaryStyle = { 
+  ...btnBase, 
+  backgroundColor: '#374151',  // 🎮 深灰色
+  color: '#e2e8f0',
+  border: '1px solid rgba(102, 126, 234, 0.3)',
+};
+
+const btnDangerStyle = { 
+  ...btnBase, 
+  backgroundColor: '#764ba2',  // 🎮 深紫色
+  color: 'white',
+  boxShadow: '0 4px 15px rgba(118, 75, 162, 0.4)',
+};
 
 const loaderStyle = {
   textAlign: 'center',

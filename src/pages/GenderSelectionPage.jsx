@@ -92,6 +92,13 @@ function GenderSelectionPage() {
       height: '100%',
       objectFit: 'contain',
     },
+    // 🔧 女性角色专用：稍微放大以匹配男性角色
+    imageFemale: {
+      width: '120%',  // 放大 20%
+      height: '120%',
+      objectFit: 'contain',
+      transform: 'scale(1.2)',  // 额外缩放
+    },
     genderLabel: {
       fontSize: isDesktop ? '1.8rem' : '1.4rem',
       color: '#e2e8f0',
@@ -180,7 +187,7 @@ function GenderSelectionPage() {
           }}
         >
           <div style={styles.imageContainer}>
-            <img src="/assets/npc/girlnew.png" alt="Girl" style={styles.image} />
+            <img src="/assets/npc/girlnew.png" alt="Girl" style={styles.imageFemale} />
           </div>
           <div style={styles.genderLabel}>
             {playerData?.language === 'zh' ? '女生 👧' : 'Girl 👧'}
