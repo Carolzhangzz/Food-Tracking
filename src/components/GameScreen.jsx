@@ -271,7 +271,8 @@ function GameScreen() {
 
   return (
     <div style={styles(isDesktop).gameContainer}>
-      <Control />
+      {/* 🎮 只在游戏加载完成且不在过场动画时显示控制面板 */}
+      {!isLoading && <Control />}
 
       {/* 🔧 最终报告展示逻辑 */}
       {playerData?.gameCompleted && (
