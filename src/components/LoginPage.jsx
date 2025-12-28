@@ -86,7 +86,7 @@ function LoginPage() {
     setIsLoading(false);
 
     const cutsceneSeen = localStorage.getItem(`cutsceneSeen_v1_${playerIdInput}`);
-    
+
     if (cutsceneSeen === "1") {
       navigate("/loading");
     } else {

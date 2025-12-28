@@ -123,7 +123,15 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("📚 加载历史对话记录...");
     
     try {
-      const API_URL = process.env.REACT_APP_API_URL;
+      // 🔧 修复 API 地址：本地开发环境强制指向 3001
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const API_URL = (hostname === 'localhost' || hostname === '127.0.0.1' || window.location.port === '3000')
+        ? `${protocol}//${hostname}:3001/api`
+        : `${protocol}//${hostname}${window.location.port ? ':' + window.location.port : ''}/api`;
+
+      console.log(`📡 [DialogScene] 尝试获取历史记录: ${API_URL}/conversation-history`);
+      
       const response = await fetch(
         `${API_URL}/conversation-history?playerId=${this.playerId}&npcId=${this.currentNPC}&limit=1`
       );

@@ -1534,4 +1534,60 @@ router.get("/conversation-history", async (req, res) => {
   }
 });
 
+// ----------------------------------------------------------------
+// 🔧 终极报告生成接口 (从 geminiRoutes 迁移至此以确保路由 100% 通畅)
+// ----------------------------------------------------------------
+router.post("/generate-final-report", async (req, res) => {
+  const { playerId } = req.body;
+  console.log(`📜 [Backend] 正在为玩家 ${playerId} 生成总结报告...`);
+  
+  try {
+    // 1. 获取玩家所有餐食记录
+    const meals = await MealRecord.findAll({
+      where: { playerId },
+      order: [['day', 'ASC'], ['recordedAt', 'ASC']]
+    });
+
+    if (!meals || meals.length === 0) {
+      return res.status(404).json({ success: false, error: "未找到任何餐食记录，无法生成报告。" });
+    }
+
+    // 2. 准备数据
+    const mealSummary = meals.map(m => `Day ${m.day} - ${m.mealType}: ${m.mealContent || "No data"}`).join("\n");
+
+    // 3. 构建提示词 (Master Chef Hua 视角)
+    const prompt = `You are Master Chef Hua. Your apprentice has completed 7 days of food journaling.
+    Please write a final heartwarming and wise letter to them. 
+    Summarize their habits and give specific advice based on these records:
+    
+    DATA:
+    ${mealSummary}
+    
+    REQUIREMENTS:
+    - Language: Provide BOTH Chinese and English.
+    - Format: JSON
+    - Structure: { "title": {"en": "..", "zh": ".."}, "letterBody": {"en": "..", "zh": ".."}, "wisdom": {"en": "..", "zh": ".."}, "signature": {"en": "..", "zh": ".."} }`;
+
+    // 4. 初始化 Gemini (内部动态导入防止加载失败)
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    
+    // 清理并解析 JSON
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const report = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+
+    if (!report) throw new Error("AI 响应格式解析失败");
+
+    res.json({ success: true, report });
+
+  } catch (error) {
+    console.error("❌ 生成报告失败:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

@@ -11,28 +11,27 @@ const FinalReport = ({ onClose }) => {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        // 🔧 终极、稳健的 API 地址解析逻辑
-        let API_BASE = "";
+        // 🔧 终极兼容性请求方案
+        let finalUrl = "";
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
         
-        // 强制检测本地环境
-        const isLocalhost = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1' || 
-                           window.location.port === '3000';
-        
-        if (isLocalhost) {
-          // 本地开发：强制指向 3001
-          API_BASE = `http://${window.location.hostname}:3001/api`;
+        if (window.location.port === '3000') {
+          // 开发环境：强制 3001
+          finalUrl = `${protocol}//${hostname}:3001/api/generate-final-report`;
         } else {
-          // 生产环境：使用相对路径
-          API_BASE = "/api";
+          // 生产环境：使用相对路径（Heroku/Vercel 等会自动处理）
+          finalUrl = "/api/generate-final-report";
         }
         
-        const finalUrl = `${API_BASE}/generate-final-report`;
-        console.log(`📡 [FinalReport] 发送请求到: ${finalUrl} (Player: ${playerId})`);
+        console.log(`📡 [FinalReport] 发送请求: ${finalUrl}`);
 
         const response = await fetch(finalUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify({ playerId })
         });
         
@@ -57,22 +56,57 @@ const FinalReport = ({ onClose }) => {
   const downloadReport = () => {
     if (!report) return;
     
+    const recipeSection = report.recipe ? `
+${lang === 'zh' ? '=== 你的专属食谱 ===' : '=== Your Personal Recipe ==='}
+
+${lang === 'zh' ? '前菜' : 'Starter'}: ${report.recipe.starter?.name[lang]}
+${lang === 'zh' ? '食材' : 'Ingredients'}: ${report.recipe.starter?.ingredients[lang]}
+${lang === 'zh' ? '做法' : 'Method'}: ${report.recipe.starter?.method[lang]}
+${lang === 'zh' ? '小贴士' : 'Tip'}: ${report.recipe.starter?.tip[lang]}
+
+${lang === 'zh' ? '主菜' : 'Main Course'}: ${report.recipe.main?.name[lang]}
+${lang === 'zh' ? '食材' : 'Ingredients'}: ${report.recipe.main?.ingredients[lang]}
+${lang === 'zh' ? '做法' : 'Method'}: ${report.recipe.main?.method[lang]}
+${lang === 'zh' ? '小贴士' : 'Tip'}: ${report.recipe.main?.tip[lang]}
+
+${lang === 'zh' ? '配菜' : 'Side Dish'}: ${report.recipe.side?.name[lang]}
+${lang === 'zh' ? '食材' : 'Ingredients'}: ${report.recipe.side?.ingredients[lang]}
+${lang === 'zh' ? '做法' : 'Method'}: ${report.recipe.side?.method[lang]}
+${lang === 'zh' ? '小贴士' : 'Tip'}: ${report.recipe.side?.tip[lang]}
+
+${lang === 'zh' ? '甜点' : 'Dessert'}: ${report.recipe.dessert?.name[lang]}
+${lang === 'zh' ? '食材' : 'Ingredients'}: ${report.recipe.dessert?.ingredients[lang]}
+${lang === 'zh' ? '做法' : 'Method'}: ${report.recipe.dessert?.method[lang]}
+${lang === 'zh' ? '小贴士' : 'Tip'}: ${report.recipe.dessert?.tip[lang]}
+
+${lang === 'zh' ? '饮品' : 'Drink'}: ${report.recipe.drink?.name[lang]}
+${lang === 'zh' ? '食材' : 'Ingredients'}: ${report.recipe.drink?.ingredients[lang]}
+${lang === 'zh' ? '做法' : 'Method'}: ${report.recipe.drink?.method[lang]}
+` : '';
+
     const content = `
 ${report.title[lang]}
-----------------------------------------
-${report.letterBody[lang]}
+========================================
 
-Wisdom from the Chef:
+${report.mealSummary?.[lang] || ''}
+
+${recipeSection}
+
+${lang === 'zh' ? '=== 健康分析 ===' : '=== Health Analysis ==='}
+${report.healthAnalysis?.[lang] || ''}
+
+${lang === 'zh' ? '=== 师父的信 ===' : '=== Letter from Master ==='}
+${report.letterFromMaster?.[lang] || ''}
+
+${lang === 'zh' ? '智慧箴言' : 'Wisdom'}:
 ${report.wisdom[lang]}
-
-${report.signature[lang]}
     `;
     
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Chef_Hua_Letter_${lang}.txt`;
+    link.download = `Chef_Hua_Final_Report_${lang}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -111,16 +145,99 @@ ${report.signature[lang]}
         <h1 style={titleStyle}>{report.title[lang]}</h1>
         
         <div style={contentStyle}>
-          <p style={bodyStyle}>{report.letterBody[lang]}</p>
+          {/* Meal Summary */}
+          {report.mealSummary && (
+            <div style={sectionStyle}>
+              <p style={summaryStyle}>{report.mealSummary[lang]}</p>
+            </div>
+          )}
+
+          {/* Recipe Section */}
+          {report.recipe && (
+            <div style={recipeContainerStyle}>
+              <h2 style={sectionTitleStyle}>
+                {lang === 'zh' ? '🍽️ 你的专属食谱' : '🍽️ Your Personal Recipe'}
+              </h2>
+              <p style={recipeIntroStyle}>{report.recipe.intro?.[lang]}</p>
+              
+              {/* Starter */}
+              {report.recipe.starter && (
+                <div style={dishStyle}>
+                  <h3 style={dishTitleStyle}>{report.recipe.starter.name[lang]}</h3>
+                  <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.starter.ingredients[lang]}</p>
+                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.starter.method[lang]}</p>
+                  <p style={tipStyle}>💡 {report.recipe.starter.tip[lang]}</p>
+                </div>
+              )}
+              
+              {/* Main */}
+              {report.recipe.main && (
+                <div style={dishStyle}>
+                  <h3 style={dishTitleStyle}>{report.recipe.main.name[lang]}</h3>
+                  <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.main.ingredients[lang]}</p>
+                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.main.method[lang]}</p>
+                  <p style={tipStyle}>💡 {report.recipe.main.tip[lang]}</p>
+                </div>
+              )}
+              
+              {/* Side */}
+              {report.recipe.side && (
+                <div style={dishStyle}>
+                  <h3 style={dishTitleStyle}>{report.recipe.side.name[lang]}</h3>
+                  <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.side.ingredients[lang]}</p>
+                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.side.method[lang]}</p>
+                  <p style={tipStyle}>💡 {report.recipe.side.tip[lang]}</p>
+                </div>
+              )}
+              
+              {/* Dessert */}
+              {report.recipe.dessert && (
+                <div style={dishStyle}>
+                  <h3 style={dishTitleStyle}>{report.recipe.dessert.name[lang]}</h3>
+                  <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.dessert.ingredients[lang]}</p>
+                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.dessert.method[lang]}</p>
+                  <p style={tipStyle}>💡 {report.recipe.dessert.tip[lang]}</p>
+                </div>
+              )}
+              
+              {/* Drink */}
+              {report.recipe.drink && (
+                <div style={dishStyle}>
+                  <h3 style={dishTitleStyle}>{report.recipe.drink.name[lang]}</h3>
+                  <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.drink.ingredients[lang]}</p>
+                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.drink.method[lang]}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Health Analysis */}
+          {report.healthAnalysis && (
+            <div style={healthBoxStyle}>
+              <h2 style={sectionTitleStyle}>
+                {lang === 'zh' ? '🌱 健康分析' : '🌱 Health Analysis'}
+              </h2>
+              <p style={bodyStyle}>{report.healthAnalysis[lang]}</p>
+            </div>
+          )}
+
+          {/* Letter from Master */}
+          {report.letterFromMaster && (
+            <div style={letterBoxStyle}>
+              <h2 style={sectionTitleStyle}>
+                {lang === 'zh' ? '💌 师父的信' : '💌 Letter from Master'}
+              </h2>
+              <p style={bodyStyle}>{report.letterFromMaster[lang]}</p>
+            </div>
+          )}
           
+          {/* Wisdom */}
           <div style={wisdomBoxStyle}>
             <h3 style={{ marginTop: 0, color: '#854d0e' }}>
               {lang === 'zh' ? '💡 厨师的智慧' : '💡 Chef\'s Wisdom'}
             </h3>
             <p>{report.wisdom[lang]}</p>
           </div>
-          
-          <p style={signatureStyle}>{report.signature[lang]}</p>
         </div>
 
         <div style={footerStyle}>
@@ -128,7 +245,7 @@ ${report.signature[lang]}
             {lang === 'zh' ? 'Switch to English' : '切换至中文'}
           </button>
           <button onClick={downloadReport} style={btnPrimaryStyle}>
-            {lang === 'zh' ? '📂 下载报告' : '📂 Download Report'}
+            {lang === 'zh' ? '📂 下载完整报告' : '📂 Download Full Report'}
           </button>
           <button onClick={onClose} style={btnDangerStyle}>
             {lang === 'zh' ? '🏁 结束旅程' : '🏁 End Journey'}
@@ -218,6 +335,77 @@ const contentStyle = {
 
 const bodyStyle = {
   whiteSpace: 'pre-wrap',
+  marginBottom: '20px',
+  lineHeight: '1.8',
+};
+
+const sectionStyle = {
+  marginBottom: '30px',
+};
+
+const summaryStyle = {
+  fontStyle: 'italic',
+  fontSize: '1.05rem',
+  textAlign: 'center',
+  padding: '15px',
+  backgroundColor: 'rgba(254, 249, 195, 0.3)',
+  borderRadius: '8px',
+};
+
+const sectionTitleStyle = {
+  color: '#854d0e',
+  fontSize: '1.8rem',
+  marginBottom: '15px',
+  marginTop: '30px',
+  borderBottom: '2px solid #eab308',
+  paddingBottom: '8px',
+};
+
+const recipeContainerStyle = {
+  marginBottom: '40px',
+};
+
+const recipeIntroStyle = {
+  fontStyle: 'italic',
+  marginBottom: '20px',
+  fontSize: '1.05rem',
+};
+
+const dishStyle = {
+  backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  padding: '20px',
+  borderRadius: '8px',
+  marginBottom: '15px',
+  borderLeft: '4px solid #ca8a04',
+};
+
+const dishTitleStyle = {
+  color: '#854d0e',
+  fontSize: '1.3rem',
+  marginTop: 0,
+  marginBottom: '12px',
+};
+
+const tipStyle = {
+  fontStyle: 'italic',
+  color: '#92400e',
+  marginTop: '10px',
+  fontSize: '0.95rem',
+};
+
+const healthBoxStyle = {
+  backgroundColor: 'rgba(187, 247, 208, 0.3)',
+  padding: '25px',
+  borderRadius: '10px',
+  borderLeft: '4px solid #16a34a',
+  marginBottom: '30px',
+};
+
+const letterBoxStyle = {
+  backgroundColor: 'rgba(254, 249, 195, 0.4)',
+  padding: '25px',
+  borderRadius: '10px',
+  borderLeft: '4px solid #dc2626',
   marginBottom: '30px',
 };
 

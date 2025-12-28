@@ -394,14 +394,14 @@ export default class MainScene extends Phaser.Scene {
       }
     } else if (this.cursors) {
       // 🎮 键盘控制
-      let vx = 0, vy = 0;
-      if (this.cursors.left.isDown) vx = -speed;
-      else if (this.cursors.right.isDown) vx = speed;
-      if (this.cursors.up.isDown) vy = -speed;
-      else if (this.cursors.down.isDown) vy = speed;
+    let vx = 0, vy = 0;
+    if (this.cursors.left.isDown) vx = -speed;
+    else if (this.cursors.right.isDown) vx = speed;
+    if (this.cursors.up.isDown) vy = -speed;
+    else if (this.cursors.down.isDown) vy = speed;
 
-      this.player.setVelocity(vx, vy);
-      if (vx !== 0 || vy !== 0) {
+    this.player.setVelocity(vx, vy);
+    if (vx !== 0 || vy !== 0) {
         isMoving = true;
         if (vx < 0) this.player.setFlipX(true);
         else if (vx > 0) this.player.setFlipX(false);

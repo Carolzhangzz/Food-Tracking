@@ -196,7 +196,7 @@ router.post("/gemini-chat", async (req, res) => {
             topP: 0.9,
           },
         });
-        
+
         const result = await modelInstance.generateContent({
           contents: contents,
         });
@@ -208,11 +208,11 @@ router.post("/gemini-chat", async (req, res) => {
         } catch (e) {
           // 如果 text() 不是函数，尝试从 candidates 提取
           if (result.response && result.response.candidates) {
-            const candidate = result.response.candidates[0];
-            if (candidate && candidate.content && candidate.content.parts) {
-              text = candidate.content.parts
-                .map((part) => part.text || "")
-                .join("");
+          const candidate = result.response.candidates[0];
+          if (candidate && candidate.content && candidate.content.parts) {
+            text = candidate.content.parts
+              .map((part) => part.text || "")
+              .join("");
             }
           }
         }
@@ -349,17 +349,17 @@ function buildImprovedContents(
   let contextSummary = `User is recording their ${mealType}. `;
   if (mealAnswers && Object.keys(mealAnswers).length > 0) {
     contextSummary += "Previous answers: " + JSON.stringify(mealAnswers);
-  }
-  
-  contents.push({
-    role: "user",
+    }
+
+      contents.push({
+        role: "user",
     parts: [{ text: contextSummary }],
-  });
+      });
   
-  contents.push({
-    role: "model",
+      contents.push({
+        role: "model",
     parts: [{ text: "Acknowledged." }],
-  });
+    });
 
   // 添加对话历史 - 确保内容有效
   if (dialogHistory && Array.isArray(dialogHistory) && dialogHistory.length > 0) {
@@ -473,64 +473,7 @@ function getMealExample(mealType) {
   return examples[mealType] || examples.breakfast;
 }
 
-// 🔧 新增：生成最终总结报告
-router.post("/generate-final-report", async (req, res) => {
-  const { playerId } = req.body;
-  console.log(`📜 [API] 为玩家 ${playerId} 生成最终报告...`);
-  
-  try {
-    const { MealRecord } = require("../models");
-    
-    // 1. 获取该玩家所有的餐食记录
-    const meals = await MealRecord.findAll({
-      where: { playerId },
-      order: [['day', 'ASC'], ['recordedAt', 'ASC']]
-    });
-
-    if (meals.length === 0) {
-      return res.status(404).json({ success: false, error: "No meal records found" });
-    }
-
-    // 2. 格式化数据给 LLM
-    const mealSummary = meals.map(m => {
-      return `Day ${m.day} - ${m.mealType}: ${m.mealContent || "No description"}.`;
-    }).join("\n");
-
-    // 3. 构建提示词
-    const systemPrompt = `You are Master Chef Hua. Your apprentice has completed 7 days of food journaling to find you.
-    Write a final heartfelt letter summarizing their eating habits and offering health wisdom.
-    
-    DATA:
-    ${mealSummary}
-    
-    REQUIREMENTS:
-    - Tone: Wise, warm, encouraging.
-    - Format: JSON
-    - Structure: 
-      {
-        "title": {"en": "...", "zh": "..."},
-        "letterBody": {"en": "...", "zh": "..."},
-        "wisdom": {"en": "...", "zh": "..."},
-        "signature": {"en": "...", "zh": "..."}
-      }
-    `;
-
-    // 4. 调用 Gemini
-    const geminiAI = await initializeGeminiAI();
-    const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(systemPrompt);
-    const text = result.response.text();
-    
-    // 清理 JSON
-    const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
-    const report = JSON.parse(jsonStr);
-
-    res.json({ success: true, report });
-
-  } catch (error) {
-    console.error("❌ 生成最终报告失败:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// 🔧 已经迁移到 gameRoutes.js 以确保 100% 连通性
+// router.post("/generate-final-report", async (req, res) => { ... });
 
 module.exports = router;

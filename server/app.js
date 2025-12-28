@@ -31,29 +31,36 @@ MealRecord.belongsTo(Player, { foreignKey: "playerId", targetKey: "playerId", as
 Player.hasMany(GameSession, { foreignKey: "playerId", sourceKey: "playerId", as: "sessions" });
 GameSession.belongsTo(Player, { foreignKey: "playerId", targetKey: "playerId", as: "player" });
 
-// -------- 路由 --------
+// -------- 路由导入 --------
 const gameRoutes   = require("./routes/gameRoutes");
 const geminiRoutes = require("./routes/geminiRoutes");
 const convaiRoutes = require("./routes/convaiRoutes");
+const reportRoute = require("./routes/reportRoute"); // 🔧 独立报告路由
 
-// 静态资源（build 目录）
-// 对 hashed 静态文件允许长期缓存，index.html 的缓存在兜底路由里专门禁用
-const buildPath = path.join(__dirname, "..", "build");
-app.use(express.static(buildPath, {
-  // 让 /static/** 这种带 hash 的资源可以长缓存
-  maxAge: "1y",
-  etag: true,
-  lastModified: true,
-}));
+// 🔧 全局请求日志 - 帮助定位 404
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    console.log(`📡 [Incoming] ${req.method} ${req.url}`);
+  }
+  next();
+});
 
+// -------- API 路由注册 --------
 // API 都挂在 /api 前缀
+app.post("/api/ping", (req, res) => res.json({ status: "pong", body: req.body }));
+app.use("/api", reportRoute); // 🔧 报告路由放在第一位，确保优先级
 app.use("/api", gameRoutes);
 app.use("/api", geminiRoutes);
 app.use("/api", convaiRoutes);
 
 // 健康检查
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString(), database: "connected" });
+  res.json({ 
+    status: "ok", 
+    version: "FIX_V3", // 🔧 唯一标识
+    timestamp: new Date().toISOString(), 
+    database: "connected" 
+  });
 });
 
 // DB 连接测试
@@ -75,9 +82,16 @@ app.get("/api/test-db", async (_req, res) => {
   }
 });
 
-// -------- SPA 兜底：非 /api 的请求一律返回 index.html（并禁用缓存）--------
+// -------- 静态资源 & SPA 兜底 --------
+const buildPath = path.join(__dirname, "..", "build");
+app.use(express.static(buildPath, {
+  maxAge: "1y",
+  etag: true,
+  lastModified: true,
+}));
+
+// SPA 兜底：非 /api 的请求一律返回 index.html
 app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {
-  // 关键：禁止缓存 index.html，避免拿到旧的入口文件
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");

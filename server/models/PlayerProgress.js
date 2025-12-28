@@ -12,7 +12,7 @@ const PlayerProgress = sequelize.define('PlayerProgress', {
   completedAt:     { type: DataTypes.DATE, allowNull: true, field: 'completed_at' },
   mealsRecorded:   { type: DataTypes.INTEGER, defaultValue: 0, field: 'meals_recorded' },
   hasRecordedMeal: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'has_recorded_meal' },
-  
+
   // 🔧 新增：存储该天还剩哪些餐没吃
   availableMealTypes: { 
     type: DataTypes.TEXT, 
