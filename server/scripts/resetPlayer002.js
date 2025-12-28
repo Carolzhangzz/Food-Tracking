@@ -18,6 +18,9 @@ async function resetPlayer() {
     console.log(`✅ 删除了 ${clueCount} 条线索记录`);
     
     console.log('\n✅ 玩家 002 已重置，可以重新开始对话！\n');
+    console.log('💡 提示：前端 localStorage 中的线索需要手动清除：');
+    console.log('   打开浏览器开发者工具 -> Application -> Local Storage');
+    console.log('   删除键：clues_002\n');
     
     process.exit(0);
   } catch (error) {

@@ -391,7 +391,9 @@ function generateImprovedSystemPrompt(npcId, questionControl = {}, mealType = "b
   const progress = (questionControl.currentQuestionIndex || 0) + 1;
   
   const basePrompt = `You are playing the role of an NPC in an interactive game. 
-YOUR PRIMARY GOAL: Ask the player the CURRENT question specified below in your unique character voice.
+YOUR PRIMARY GOAL: 
+1. FIRST, give a very brief (3-5 words) acknowledgment of the player's last answer if they just answered a question.
+2. THEN, ask the player the CURRENT question specified below in your unique character voice.
 
 CURRENT TASK:
 - You MUST ask about: ${currentQ}
@@ -401,10 +403,10 @@ CURRENT TASK:
 STRICT RULES:
 1. DO NOT skip ahead. ONLY ask the current question (${currentQ}).
 2. DO NOT ask about Q5 or Q6 topics if current question is Q4.
-3. Keep your response CONCISE (max 20 words).
+3. Keep your total response CONCISE (max 25 words total, including acknowledgment + question).
 4. Do not expose inner thoughts.
-5. Share a tiny bit of your own meal or a master's memory if it fits your character.
-6. If the current question is Q1, Q2, or Q3, remember that the player will see BUTTONS to answer, so your question should lead naturally to those choices.
+5. Your acknowledgment should be warm and natural, showing you're listening.
+6. Example format: "I see. [brief acknowledgment]... [ask current question]"
 
 CHARACTER VOICE:
 `;
@@ -429,7 +431,17 @@ Background: Long-time friend of missing Chef Hua. Suggests player follows Hua's 
 
   const personality = npcPersonalities[npcId] || npcPersonalities.uncle_bo;
   
-  return basePrompt + personality + `\n\nJOURNALING CONTEXT:\n- Meal type: ${mealType}\n- Question definitions:\n  Q1: How did you obtain this meal?\n  Q2: What time did you eat?\n  Q3: How long did you eat?\n  Q4: What specific food items did you eat? (MUST BE ASKED!)\n  Q5: Portion size and physical feelings\n  Q6: Why did you choose this meal?\n\nREMEMBER: \n- You are CURRENTLY asking: ${currentQ}\n- DO NOT skip to Q5 or Q6 if you haven't asked Q4 yet!\n- Each question must be asked individually in sequence.`;
+  // 🔧 添加显式的问题模板
+  const questionTemplates = {
+    Q4: `Ask: "What did you have for ${mealType}?" or a character-appropriate variation of this question.`,
+    Q5: `Ask: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?" or a character-appropriate variation.`,
+    Q6: `Ask: "Why did you choose this particular food/meal?" or a character-appropriate variation.`,
+    Q_TIME_FOLLOWUP: `Ask: "Why did you eat at this time rather than earlier or later?" or a character-appropriate variation.`
+  };
+  
+  const currentTemplate = questionTemplates[currentQ] || `Ask about ${currentQ}.`;
+  
+  return basePrompt + personality + `\n\nJOURNALING CONTEXT:\n- Meal type: ${mealType}\n- Question definitions:\n  Q1: How did you obtain this meal?\n  Q2: What time did you eat?\n  Q3: How long did you eat?\n  Q4: What specific food items did you eat? (MUST BE ASKED!)\n  Q5: Portion size and physical feelings\n  Q6: Why did you choose this meal?\n\nCURRENT QUESTION TO ASK:\n${currentTemplate}\n\nREMEMBER: \n- You are CURRENTLY asking: ${currentQ}\n- DO NOT skip to Q5 or Q6 if you haven't asked Q4 yet!\n- Each question must be asked individually in sequence.\n- Do NOT assume the player has already answered this question.`;
 }
 
 // Helper function for meal examples

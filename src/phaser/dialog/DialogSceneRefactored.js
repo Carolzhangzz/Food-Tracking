@@ -355,27 +355,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log(`❓ 准备提问: ${this.currentQuestionId}, 类型: ${questionType}`);
 
     // ========================================
-    // 🔧 Q1-Q3：完全不调用Gemini，直接显示硬编码问题
-    // ========================================
-    if (questionType === "choice") {
-      const questionText = this.mealHandler.getQuestionText(this.currentQuestionId, lang, mealType);
-      const options = this.mealHandler.getQuestionOptions(this.currentQuestionId, lang);
-
-      console.log(`🔘 [硬编码Q1-Q3] 问题: ${questionText}`);
-      console.log(`🔘 [硬编码Q1-Q3] 选项:`, options);
-
-      // 直接显示问题文本和按钮
-      this.uiManager.addMessage("NPC", questionText);
-      await this.delay(300);
-      
-      this.uiManager.showButtons(options, (answer) => {
-        this.onQuestionAnswered(this.currentQuestionId, answer);
-      });
-      return;
-    }
-
-    // ========================================
-    // 🔧 Q_TIME_FOLLOWUP, Q4-Q6：调用Gemini生成符合角色性格的问题
+    // 🔧 全程调用 Gemini 获取 character-driven 的问题文本
     // ========================================
     const questionControl = {
       currentQuestionId: this.currentQuestionId,
@@ -407,7 +387,6 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 🔧 检查 Gemini 是否发出了结束信号（Q6 之后）
     if (geminiResult.success && geminiResult.isComplete) {
       console.log("🏁 Gemini 指示对话已完成，正在提交餐食记录以获取线索...");
-      // 先不要显示 Gemini 的最后一条消息，或者仅显示它，但随后立即提交
       if (geminiResult.message && !geminiResult.message.toLowerCase().includes("thanks for sharing")) {
         this.uiManager.addMessage("NPC", geminiResult.message);
       }
@@ -418,14 +397,23 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     
     const questionText = geminiResult.success ? geminiResult.message : this.mealHandler.getQuestionText(this.currentQuestionId, lang, mealType);
     
-    // 显示问题
+    // 显示问题文本
     this.uiManager.addMessage("NPC", questionText);
     await this.delay(300);
     
-    console.log(`⌨️ 显示输入框 (${this.currentQuestionId})`);
-    this.uiManager.showInputBox((answer) => {
-      this.onQuestionAnswered(this.currentQuestionId, answer);
-    });
+    // 🔧 根据问题类型显示交互组件
+    if (questionType === "choice") {
+      const options = this.mealHandler.getQuestionOptions(this.currentQuestionId, lang);
+      console.log(`🔘 显示按钮选项:`, options);
+      this.uiManager.showButtons(options, (answer) => {
+        this.onQuestionAnswered(this.currentQuestionId, answer);
+      });
+    } else {
+      console.log(`⌨️ 显示输入框 (${this.currentQuestionId})`);
+      this.uiManager.showInputBox((answer) => {
+        this.onQuestionAnswered(this.currentQuestionId, answer);
+      });
+    }
   }
 
   // 🔧 问题被回答
@@ -495,6 +483,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       // 🔧 直接从前端数据获取线索（更可靠！）
       const { getNPCClue, getNPCName } = await import('../../data/npcClues.js');
       
+      // 🔧 确保使用正确的NPC名字
+      const actualNPCName = getNPCName(this.currentNPC, lang);
+      
       // 判断应该给什么类型的线索
       let clueType, clueText, clueData;
       
@@ -529,7 +520,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         if (this.mainScene && this.mainScene.uiManager) {
           this.mainScene.uiManager.addClue({
             npcId: this.currentNPC,
-            npcName: npcNameStr,
+            npcName: actualNPCName,
             clue: clueText,
             clueType: clueType,
             day: this.currentDay,

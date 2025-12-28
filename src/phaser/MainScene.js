@@ -263,17 +263,10 @@ export default class MainScene extends Phaser.Scene {
 
       // 🔧 初始化 UI 元素（线索按钮、日期显示、餐食进度）
       console.log("📋 初始化 UI 元素...");
-      this.uiManager.init();
+      this.uiManager.init(); // 这会从 localStorage 加载线索
 
-      // 🔧 初始加载线索数据
-      console.log("📋 初始加载线索...");
-      if (this.uiManager && typeof this.uiManager.loadCluesFromAPI === 'function') {
-        this.uiManager.loadCluesFromAPI().catch(err => {
-          console.error("❌ 初始加载线索失败:", err);
-        });
-      } else {
-        console.warn("⚠️ UIManager.loadCluesFromAPI 未定义，可能是版本不匹配");
-      }
+      // 🔧 不再需要从API加载线索，因为现在使用 localStorage
+      console.log("📋 线索已从 localStorage 加载");
 
       this.setupAudio();
 

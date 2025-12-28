@@ -747,7 +747,8 @@ router.get("/clues/:playerId", async (req, res) => {
   }
 });
 
-// 保存对话历史
+// 🔧 旧的保存对话历史路由（已弃用，使用下面的新路由）
+/*
 router.post("/save-conversation", async (req, res) => {
   try {
     const { playerId, npcId, day, speaker, content, mealType, sessionId } =
@@ -786,6 +787,7 @@ router.post("/save-conversation", async (req, res) => {
     });
   }
 });
+*/
 
 // 记录餐食
 router.post("/record-meal", async (req, res) => {

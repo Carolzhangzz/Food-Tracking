@@ -17,6 +17,9 @@ export default class UIManager {
     this.createDateDisplay();
     this.createMealProgress();
     
+    // 🔧 从 localStorage 加载线索
+    this.loadCluesFromLocalStorage();
+    
     // 初始同步一次线索数量
     this.updateClueCountBadge();
   }
@@ -77,8 +80,8 @@ export default class UIManager {
       this.hideCluePanel();
     }
     
-    // 🔧 加载最新的线索数据
-    await this.loadCluesFromAPI();
+    // 🔧 从 localStorage 重新加载线索（确保最新）
+    this.loadCluesFromLocalStorage();
     
     // 显示面板
     this.showCluePanel();
@@ -88,20 +91,69 @@ export default class UIManager {
     // 检查是否重复
     const exists = this.clues.find(c => c.npcId === clueData.npcId && c.clue === (clueData.clue || clueData.clueText));
     if (!exists) {
-      this.clues.push({
+      const newClue = {
         npcId: clueData.npcId,
         npcName: clueData.npcName || clueData.npcId,
         clue: clueData.clue || clueData.clueText,
         clueType: clueData.clueType || 'vague',
+        day: clueData.day || 1,
+        mealType: clueData.mealType || 'unknown',
         timestamp: Date.now()
-      });
+      };
       
-      console.log("✅ UIManager: 已添加新线索:", clueData);
+      this.clues.push(newClue);
+      
+      // 🔧 保存到 localStorage（持久化）
+      this.saveClueToLocalStorage(newClue);
+      
+      console.log("✅ UIManager: 已添加新线索:", newClue);
       this.updateClueCountBadge();
       
       if (showNotification) {
         this.showNotification(`🎁 获得新线索！`);
       }
+    }
+  }
+  
+  // 🔧 保存线索到 localStorage
+  saveClueToLocalStorage(clue) {
+    const playerId = this.scene.playerData?.playerId || 'default';
+    const key = `clues_${playerId}`;
+    
+    try {
+      // 读取现有线索
+      const existingClues = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      // 检查是否重复
+      const isDuplicate = existingClues.some(c => 
+        c.npcId === clue.npcId && 
+        c.clue === clue.clue &&
+        c.clueType === clue.clueType
+      );
+      
+      if (!isDuplicate) {
+        existingClues.push(clue);
+        localStorage.setItem(key, JSON.stringify(existingClues));
+        console.log("💾 线索已保存到 localStorage:", clue);
+      }
+    } catch (error) {
+      console.error("❌ 保存线索到 localStorage 失败:", error);
+    }
+  }
+  
+  // 🔧 从 localStorage 加载线索
+  loadCluesFromLocalStorage() {
+    const playerId = this.scene.playerData?.playerId || 'default';
+    const key = `clues_${playerId}`;
+    
+    try {
+      const storedClues = JSON.parse(localStorage.getItem(key) || '[]');
+      this.clues = storedClues;
+      console.log(`📚 从 localStorage 加载了 ${this.clues.length} 条线索`);
+      this.updateClueCountBadge();
+    } catch (error) {
+      console.error("❌ 从 localStorage 加载线索失败:", error);
+      this.clues = [];
     }
   }
 

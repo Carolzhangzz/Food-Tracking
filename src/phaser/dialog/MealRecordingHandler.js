@@ -160,28 +160,76 @@ export default class MealRecordingHandler {
   // 🔧 检查餐食时间是否不合常理
   checkUnusualMealTime(answer, mealType) {
     // 这里的answer可能是字符串文本，也可能是对象 {text, value}
-    const timeText = typeof answer === 'object' ? answer.text : answer;
+    const timeText = typeof answer === 'object' ? answer.text || answer.value : answer;
+    
+    console.log(`⏰ 检查时间: mealType=${mealType}, answer=`, answer);
+    console.log(`⏰ 时间文本: "${timeText}"`);
     
     // 获取问题的选项列表（英文，用于稳定判断）
     const options = this.questions.Q2.options.en;
-    const index = options.findIndex(opt => timeText.includes(opt) || opt.includes(timeText));
+    console.log(`⏰ 可用选项:`, options);
     
-    // 如果找不到索引，说明是自定义输入（通过"其他"选项），默认认为不寻常
-    if (index === -1) return true;
-
-    // 索引从0开始：0:Before 7AM, 1:7-11AM, 2:11AM-2PM, 3:2-5PM, 4:5-9PM, 5:After 9PM
-    if (mealType === "breakfast") {
-      // 早餐：除了 7-11AM (索引1) 以外都是不寻常
-      return index !== 1;
-    } else if (mealType === "lunch") {
-      // 午餐：除了 11AM-2PM (索引2) 以外都是不寻常
-      return index !== 2;
-    } else if (mealType === "dinner") {
-      // 晚餐：除了 5-9PM (索引4) 和 After 9PM (索引5) 以外都是不寻常
-      return index < 4;
+    // 尝试多种匹配方式
+    let index = -1;
+    
+    // 方法1：完全匹配
+    index = options.findIndex(opt => opt === timeText);
+    
+    // 方法2：包含匹配
+    if (index === -1) {
+      index = options.findIndex(opt => 
+        timeText.toLowerCase().includes(opt.toLowerCase()) || 
+        opt.toLowerCase().includes(timeText.toLowerCase())
+      );
     }
     
-    return false;
+    // 方法3：提取时间段关键词
+    if (index === -1) {
+      const keywords = [
+        'before 7', 'early morning',  // 0
+        '7', '11', 'morning',         // 1
+        '11', '2', 'midday', 'noon',  // 2
+        '2', '5', 'afternoon',        // 3
+        '5', '9', 'evening',          // 4
+        'after 9', 'night'            // 5
+      ];
+      
+      const lowerTime = timeText.toLowerCase();
+      if (lowerTime.includes('before 7') || lowerTime.includes('early')) index = 0;
+      else if (lowerTime.includes('7') && lowerTime.includes('11')) index = 1;
+      else if (lowerTime.includes('11') && lowerTime.includes('2')) index = 2;
+      else if (lowerTime.includes('2') && lowerTime.includes('5')) index = 3;
+      else if (lowerTime.includes('5') && lowerTime.includes('9')) index = 4;
+      else if (lowerTime.includes('after 9') || (lowerTime.includes('night') && !lowerTime.includes('midday'))) index = 5;
+    }
+    
+    console.log(`⏰ 匹配到的索引: ${index}`);
+    
+    // 如果找不到索引，说明是自定义输入（通过"其他"选项），默认认为不寻常
+    if (index === -1) {
+      console.log(`⏰ 未找到匹配，认为时间不寻常`);
+      return true;
+    }
+
+    // 索引从0开始：0:Before 7AM, 1:7-11AM, 2:11AM-2PM, 3:2-5PM, 4:5-9PM, 5:After 9PM
+    let isUnusual = false;
+    
+    if (mealType === "breakfast") {
+      // 早餐：除了索引0(Before 7AM)和索引1(7-11AM)以外都是不寻常
+      isUnusual = (index !== 0 && index !== 1);
+      console.log(`⏰ 早餐时间检查: index=${index}, isUnusual=${isUnusual}`);
+    } else if (mealType === "lunch") {
+      // 午餐：除了 11AM-2PM (索引2) 以外都是不寻常
+      isUnusual = (index !== 2);
+      console.log(`⏰ 午餐时间检查: index=${index}, isUnusual=${isUnusual}`);
+    } else if (mealType === "dinner") {
+      // 晚餐：除了 5-9PM (索引4) 和 After 9PM (索引5) 以外都是不寻常
+      isUnusual = (index < 4);
+      console.log(`⏰ 晚餐时间检查: index=${index}, isUnusual=${isUnusual}`);
+    }
+    
+    console.log(`⏰ 最终结果: ${isUnusual ? '需要' : '不需要'}follow-up问题`);
+    return isUnusual;
   }
 
   // 保存答案并检查是否需要时间follow-up
