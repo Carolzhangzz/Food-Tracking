@@ -17,3 +17,8 @@ node_modules/
 .env
 .env
 build/
+
+# Ignore documentation files
+*.md
+server/scripts/*.js
+!server/scripts/initDatabase.js

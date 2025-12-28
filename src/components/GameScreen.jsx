@@ -7,6 +7,7 @@ import { PlayerContext } from "../context/PlayerContext";
 import { useNavigate } from "react-router-dom";
 import { updateUserContext } from "../utils/update";
 import Control from "./Control";
+import FinalReport from "./FinalReport";
 
 function GameScreen() {
   const [isLoading, setIsLoading] = useState(true);
@@ -271,6 +272,16 @@ function GameScreen() {
   return (
     <div style={styles(isDesktop).gameContainer}>
       <Control />
+
+      {/* 🔧 最终报告展示逻辑 */}
+      {playerData?.gameCompleted && (
+        <FinalReport 
+          onClose={() => {
+            // 结束后回到登录页或重置状态
+            window.location.reload(); 
+          }} 
+        />
+      )}
 
       {isLoading && (
         <div style={styles(isDesktop).loadingOverlay}>

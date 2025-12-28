@@ -434,27 +434,45 @@ router.post("/login", async (req, res) => {
         unlockedAt: now,
       });
     } else {
-      // 再次登录：根据客户端日期计算是第几天
-      const calculatedDay = calculateDayNumber(player.firstLoginDate, clientDate);
-      
-      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前客户端日期: ${JSON.stringify(clientDate)}, 计算出的天数: ${calculatedDay}`);
+      // 再次登录：进阶逻辑优化
+      const calendarDay = calculateDayNumber(player.firstLoginDate, clientDate);
+      let targetDay = player.currentDay;
 
-      // 如果计算出的天数大于数据库存储的天数，更新它
-      if (calculatedDay > player.currentDay) {
-        await player.update({ currentDay: calculatedDay });
-        
-        // 确保新天数的进度记录存在
-        const progressExists = await PlayerProgress.findOne({
-          where: { playerId, day: calculatedDay }
+      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前日历天数: ${calendarDay}, 数据库存储天数: ${player.currentDay}`);
+
+      // 🔧 关键改进：如果玩家还没记录过任何餐食，不自动进阶天数
+      // 只有当 (日历天数 > 当前存储天数) 且 (当前存储天数至少有一餐记录) 时，才进阶
+      if (calendarDay > player.currentDay) {
+        const recordedMealsOnCurrentDay = await MealRecord.count({
+          where: { playerId, day: player.currentDay }
         });
+
+        if (recordedMealsOnCurrentDay > 0) {
+          // 进阶到日历当前天，或逐天增加
+          targetDay = calendarDay;
+          console.log(`🚀 玩家在第 ${player.currentDay} 天有 ${recordedMealsOnCurrentDay} 条记录，允许进阶到第 ${targetDay} 天`);
+        } else {
+          console.log(`⏳ 玩家在第 ${player.currentDay} 天没有记录，保持在第 ${player.currentDay} 天，虽然日历已经是第 ${calendarDay} 天`);
+        }
+      }
+
+      if (targetDay > player.currentDay) {
+        await player.update({ currentDay: targetDay });
         
-        if (!progressExists) {
-          await PlayerProgress.create({
-            playerId,
-            day: calculatedDay,
-            npcId: dayToNpcId(calculatedDay),
-            unlockedAt: new Date(),
+        // 确保进阶后所有缺失天数的进度记录都存在
+        for (let d = player.currentDay; d <= targetDay; d++) {
+          const progressExists = await PlayerProgress.findOne({
+            where: { playerId, day: d }
           });
+          
+          if (!progressExists) {
+            await PlayerProgress.create({
+              playerId,
+              day: d,
+              npcId: dayToNpcId(d),
+              unlockedAt: new Date(),
+            });
+          }
         }
       }
     }
@@ -994,6 +1012,14 @@ router.post("/record-meal", async (req, res) => {
     
     console.log(`📊 餐食记录完成 - 今日已记: ${Array.from(recordedTypes).join(",")}, 剩余: ${remainingMeals.join(",")}`);
 
+    // 🔧 新增：检查游戏是否最终完成 (第7天且无剩余餐食)
+    let finalGameCompleted = false;
+    if (day >= 7 && remainingMeals.length === 0) {
+      console.log(`🎉 玩家 ${playerId} 已完成全周任务！`);
+      await player.update({ gameCompleted: true }, { transaction: t });
+      finalGameCompleted = true;
+    }
+
     await t.commit();
 
     return res.json({
@@ -1021,6 +1047,7 @@ router.post("/record-meal", async (req, res) => {
       nextDayUnlocked,
       shouldUnlockNextDay,
       currentDay: day,
+      gameCompleted: finalGameCompleted, // 🔧 返回给前端
     });
   } catch (error) {
     await t.rollback();
@@ -1416,33 +1443,42 @@ router.post("/dev/skip-to-day7", async (req, res) => {
 
 // 保存对话历史
 router.post("/save-conversation", async (req, res) => {
-  console.log("💾 [API] POST /save-conversation");
+  console.log("💾 [API] POST /save-conversation - 批量保存对话");
   
   try {
     const { playerId, npcId, conversationType, conversationData } = req.body;
     
-    if (!playerId || !npcId || !conversationData) {
+    if (!playerId || !npcId || !conversationData || !conversationData.history) {
       return res.status(400).json({
         success: false,
-        error: "Missing required fields: playerId, npcId, conversationData"
+        error: "Missing required fields: playerId, npcId, conversationData.history"
       });
     }
+
+    const { history, day, mealType } = conversationData;
     
-    // 保存到数据库
-    const conversation = await ConversationHistory.create({
-      playerId: playerId,
-      npcId: npcId,
-      conversationType: conversationType || "meal_recording",
-      conversationData: conversationData,
-      timestamp: new Date()
-    });
+    // 🔧 关键改进：将对话历史逐条保存，以便于数据分析
+    const savedRecords = [];
+    for (const entry of history) {
+      // entry 格式: { type: 'npc'|'user', content: '...', speakerName: '...' }
+      const record = await ConversationHistory.create({
+        playerId: playerId,
+        npcId: npcId,
+        day: day || 1,
+        speaker: entry.type === 'user' ? 'player' : 'npc',
+        content: entry.content,
+        mealType: mealType || null,
+        timestamp: new Date()
+      });
+      savedRecords.push(record.id);
+    }
     
-    console.log(`✅ 对话历史保存成功: ${conversation.id}`);
+    console.log(`✅ 成功保存了 ${savedRecords.length} 条对话记录`);
     
     res.json({
       success: true,
-      conversationId: conversation.id,
-      message: "Conversation saved successfully"
+      count: savedRecords.length,
+      message: "Full conversation history saved successfully"
     });
     
   } catch (error) {

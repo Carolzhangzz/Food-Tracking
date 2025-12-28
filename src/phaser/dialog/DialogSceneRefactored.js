@@ -540,11 +540,19 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
         console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
         
+        // 🔧 关键：检查是否完成所有 7 天任务
+        const isGameComplete = this.currentDay >= 7 && remaining.length === 0;
+        
+        if (isGameComplete) {
+          console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！");
+        }
+
         // 🔧 必须先更新本地的 playerData，否则后续逻辑使用的是旧数据
         this.playerData = {
           ...this.playerData,
           currentDayMealsRemaining: remaining,
-          availableMealTypes: remaining
+          availableMealTypes: remaining,
+          gameCompleted: isGameComplete // 🔧 标记游戏已完成
         };
         
         this.mainScene.updatePlayerdata(this.playerData);

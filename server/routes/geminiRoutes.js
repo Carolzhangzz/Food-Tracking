@@ -454,4 +454,64 @@ function getMealExample(mealType) {
   return examples[mealType] || examples.breakfast;
 }
 
+// 🔧 新增：生成最终总结报告
+router.post("/generate-final-report", async (req, res) => {
+  const { playerId } = req.body;
+  console.log(`📜 [API] 为玩家 ${playerId} 生成最终报告...`);
+  
+  try {
+    const { MealRecord } = require("../models");
+    
+    // 1. 获取该玩家所有的餐食记录
+    const meals = await MealRecord.findAll({
+      where: { playerId },
+      order: [['day', 'ASC'], ['recordedAt', 'ASC']]
+    });
+
+    if (meals.length === 0) {
+      return res.status(404).json({ success: false, error: "No meal records found" });
+    }
+
+    // 2. 格式化数据给 LLM
+    const mealSummary = meals.map(m => {
+      return `Day ${m.day} - ${m.mealType}: ${m.mealContent || "No description"}.`;
+    }).join("\n");
+
+    // 3. 构建提示词
+    const systemPrompt = `You are Master Chef Hua. Your apprentice has completed 7 days of food journaling to find you.
+    Write a final heartfelt letter summarizing their eating habits and offering health wisdom.
+    
+    DATA:
+    ${mealSummary}
+    
+    REQUIREMENTS:
+    - Tone: Wise, warm, encouraging.
+    - Format: JSON
+    - Structure: 
+      {
+        "title": {"en": "...", "zh": "..."},
+        "letterBody": {"en": "...", "zh": "..."},
+        "wisdom": {"en": "...", "zh": "..."},
+        "signature": {"en": "...", "zh": "..."}
+      }
+    `;
+
+    // 4. 调用 Gemini
+    const geminiAI = await initializeGeminiAI();
+    const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(systemPrompt);
+    const text = result.response.text();
+    
+    // 清理 JSON
+    const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
+    const report = JSON.parse(jsonStr);
+
+    res.json({ success: true, report });
+
+  } catch (error) {
+    console.error("❌ 生成最终报告失败:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;
