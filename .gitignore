@@ -22,3 +22,6 @@ build/
 *.md
 server/scripts/*.js
 !server/scripts/initDatabase.js
+
+# But keep README
+!README.md
