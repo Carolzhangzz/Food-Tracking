@@ -13,13 +13,13 @@ export default class ConvAIHandler {
   // 初始化NPC到ConvAI Character ID的映射
   initializeNPCMap() {
     return new Map([
-      ["uncle_bo", "425d25d4-73a6-11f0-8dad-42010a7be01f"],           // Day 1 - 阿桂(杂货铺)
-      ["village_head", "37c1ea8e-4aec-11f0-a14e-42010a7be01f"],        // Day 2 - 村长
-      ["spice_granny", "a425409e-73a6-11f0-a309-42010a7be01f"],        // Day 3 - 香料奶奶
-      ["restaurant_owner", "6c4ed624-4b26-11f0-854d-42010a7be01f"],    // Day 4 - 餐厅老板
-      ["little_girl", "2e287d62-4b28-11f0-b155-42010a7be01f"],         // Day 5 - 小女孩
-      ["mysterious_person", "0443174e-73a7-11f0-b26c-42010a7be01f"],   // Day 6 - 神秘人
-      ["final_npc", "a9394c0e-4d88-11f0-b18a-42010a7be01f"],           // Day 7 - 最终NPC
+      ["uncle_bo", "37c1ea8e-4aec-11f0-a14e-42010a7be01f"],           // Day 1 - 村长 (Uncle Bo)
+      ["shop_owner", "425d25d4-73a6-11f0-8dad-42010a7be01f"],         // Day 2 - 阿桂 (Grace)
+      ["spice_granny", "a425409e-73a6-11f0-a309-42010a7be01f"],       // Day 3 - 香料奶奶 (Alice)
+      ["restaurant_owner", "6c4ed624-4b26-11f0-854d-42010a7be01f"],   // Day 4 - 餐厅老板 (Han)
+      ["fisherman", "2e287d62-4b28-11f0-b155-42010a7be01f"],          // Day 5 - 渔夫 (Leon)
+      ["old_friend", "0443174e-73a7-11f0-b26c-42010a7be01f"],         // Day 6 - 旧友 (Rowan)
+      ["secret_apprentice", "a9394c0e-4d88-11f0-b18a-42010a7be01f"],  // Day 7 - 秘密学徒 (Mira)
     ]);
   }
 

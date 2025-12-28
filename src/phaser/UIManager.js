@@ -70,6 +70,20 @@ export default class UIManager {
     }
   }
 
+  // 🔧 语言切换支持
+  updateLanguage() {
+    const lang = this.scene.playerData?.language || "zh";
+    console.log(`🌐 [UIManager] 正在同步语言: ${lang}`);
+    
+    // 如果之后有在 Phaser 侧显示的文字（如进度条标题），可以在这里更新
+    // 目前大部分 UI 已移至 React
+  }
+
+  // 供以后扩展使用
+  updateProgress() {
+    // 占位符，防止 MainScene 报错
+  }
+
   // 🔧 供 React 或其他场景调用的接口
   async showClueJournal() {
     console.log("📖 UIManager: 打开线索本面板");
@@ -150,10 +164,10 @@ export default class UIManager {
       const storedClues = JSON.parse(localStorage.getItem(key) || '[]');
       this.clues = storedClues;
       console.log(`📚 从 localStorage 加载了 ${this.clues.length} 条线索`);
-      this.updateClueCountBadge();
+    this.updateClueCountBadge();
     } catch (error) {
       console.error("❌ 从 localStorage 加载线索失败:", error);
-      this.clues = [];
+    this.clues = [];
     }
   }
 

@@ -11,8 +11,26 @@ const FinalReport = ({ onClose }) => {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-        const response = await fetch(`${API_URL}/generate-final-report`, {
+        // 🔧 终极、稳健的 API 地址解析逻辑
+        let API_BASE = "";
+        
+        // 强制检测本地环境
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' || 
+                           window.location.port === '3000';
+        
+        if (isLocalhost) {
+          // 本地开发：强制指向 3001
+          API_BASE = `http://${window.location.hostname}:3001/api`;
+        } else {
+          // 生产环境：使用相对路径
+          API_BASE = "/api";
+        }
+        
+        const finalUrl = `${API_BASE}/generate-final-report`;
+        console.log(`📡 [FinalReport] 发送请求到: ${finalUrl} (Player: ${playerId})`);
+
+        const response = await fetch(finalUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId })

@@ -191,12 +191,19 @@ export default class NPCManager {
     this.npcData.forEach((npcData, index) => {
       const npcName = npcData.name[lang] || npcData.name.zh;
 
+      // 🔧 调整NPC缩放比例：
+      // 大幅缩小 NPC 比例
+      let npcScale = 0.08; // 基础缩放（男NPC）
+      if (npcData.id === 'shop_owner' || npcData.id === 'spice_granny' || npcData.id === 'secret_apprentice') {
+        npcScale = 0.09; // 女NPC稍微放大一点点
+      }
+
       // 创建NPC精灵 - 🔧 使用单独NPC图片
       const npcSprite = this.scene.physics.add
         .sprite(npcData.position.x, npcData.position.y, npcData.imageKey)  // 🔧 使用imageKey而不是characters+frame
         .setOrigin(0.5)
         .setDepth(5)
-        .setScale(0.10)  // 🔧 缩小NPC到0.10倍，让角色更精致
+        .setScale(npcScale)  // 🔧 动态缩放
         .setInteractive({ useHandCursor: true });
 
       // 添加NPC名字标签
@@ -313,8 +320,13 @@ export default class NPCManager {
       // 🔧 解锁逻辑：
       // - 第1天：直接解锁
       // - 第2+天：前一天至少记录1餐才能解锁
+      // - 🛠️ 调试模式：如果是玩家 002，强制解锁所有 NPC 以便测试结局
       let isUnlocked = false;
-      if (unlockDay === 1) {
+      const isDebugPlayer = this.scene.playerId === '002';
+
+      if (isDebugPlayer) {
+        isUnlocked = true;
+      } else if (unlockDay === 1) {
         isUnlocked = true;
       } else if (unlockDay <= currentDay) {
         // 检查前一天是否至少记录了1餐
@@ -322,7 +334,11 @@ export default class NPCManager {
         isUnlocked = prevDayMeals.length >= 1;
       }
 
-      const isCurrentDay = unlockDay === currentDay;
+      // 如果是调试玩家，且还没到第7天，我们在逻辑上认为它是第7天
+      const effectiveCurrentDay = isDebugPlayer ? 7 : currentDay;
+      const isCurrentDay = unlockDay === effectiveCurrentDay;
+      
+      // 如果是调试玩家，我们允许与任何 NPC 对话，但为了触发结局，通常去 Mira (Day 7)
       const isActive = isCurrentDay && todayMeals.length < 3 && isUnlocked;
       
       // 🔧 计算可用的餐食类型（剩余未记录的）
@@ -371,6 +387,29 @@ export default class NPCManager {
     });
   }
 
+  // 🔧 强制更新所有 NPC 的语言显示（名字、提示语等）
+  updateLanguage() {
+    const lang = this.scene.playerData?.language || "zh";
+    console.log(`🌐 [NPCManager] 正在同步语言: ${lang}`);
+    
+    this.npcSprites.forEach(npc => {
+      // 1. 更新名字标签
+      const newName = npc.data.name[lang] || npc.data.name.zh;
+      if (npc.nameText) {
+        npc.nameText.setText(newName);
+      }
+      
+      // 2. 更新天数标签 (Day 1 -> 第1天)
+      if (npc.dayLabel) {
+        const dayLabelText = lang === 'zh' ? `第 ${npc.data.unlockDay} 天` : `Day ${npc.data.unlockDay}`;
+        npc.dayLabel.setText(dayLabelText);
+      }
+    });
+    
+    // 3. 刷新状态（比如解锁提示语）
+    this.updateNPCStates();
+  }
+
   handleNPCClick(npcData, sprite) {
     const lang = this.scene.playerData?.language || "zh";
     const npcName = npcData.name[lang];
@@ -399,9 +438,10 @@ export default class NPCManager {
     });
     
     // 检查前一天餐食记录
+    const isDebugPlayer = this.scene.playerId === '002';
     const prevDayMeals = this.getMealsForDay(unlockDay - 1);
-    const isUnlocked = unlockDay === 1 || (unlockDay <= currentDay && prevDayMeals.length >= 1);
-    const isCurrentDay = unlockDay === currentDay;
+    const isUnlocked = isDebugPlayer || unlockDay === 1 || (unlockDay <= currentDay && prevDayMeals.length >= 1);
+    const isCurrentDay = isDebugPlayer || unlockDay === currentDay;
 
     // 🔒 未解锁
     if (!isUnlocked) {

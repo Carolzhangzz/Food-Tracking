@@ -90,37 +90,36 @@ const Control = memo(() => {
             }
 
             if (mainScene.npcManager) {
-              mainScene.npcManager.scene.playerData = updatedPlayerData;
-              
-              if (mainScene.npcManager.clueRecords) {
-                mainScene.npcManager.clueRecords = mainScene.npcManager.clueRecords.map(clue => ({
-                  ...clue,
-                  clue: mainScene.npcManager.getNPCClue(clue.npcId),
-                  npcName: mainScene.npcManager.getNPCNameByLanguage(clue.npcId)
-                }));
-              }
-
-              mainScene.npcManager.updateNPCStates();
-            }
-
-            if (mainScene.uiManager) {
-              if (mainScene.npcManager && mainScene.npcManager.clueRecords) {
-                mainScene.uiManager.clues = [];
-                mainScene.npcManager.clueRecords.forEach(clue => {
-                  mainScene.uiManager.addClue(clue);
-                });
+              // 🔧 调用新的语言更新方法
+              if (typeof mainScene.npcManager.updateLanguage === "function") {
+                mainScene.npcManager.updateLanguage();
+              } else {
+                mainScene.npcManager.updateNPCStates();
               }
             }
 
-            const dialogScene = gameRef.current.scene.getScene("DialogScene");
+            if (mainScene.uiManager && typeof mainScene.uiManager.updateLanguage === "function") {
+              mainScene.uiManager.updateLanguage();
+            }
+
+            // 🔧 兼容两种可能的对话场景名
+            const dialogScene = gameRef.current.scene.getScene("DialogSceneRefactored") || gameRef.current.scene.getScene("DialogScene");
             if (dialogScene && dialogScene.scene.isActive()) {
               dialogScene.playerData = updatedPlayerData;
+              // 强制刷新对话框内容
+              if (typeof dialogScene.refreshLanguage === "function") {
+                dialogScene.refreshLanguage();
+              } else if (dialogScene.uiManager && typeof dialogScene.uiManager.updateNPCName === "function") {
+                const lang = updatedPlayerData.language || "zh";
+                const name = dialogScene.npcData?.name[lang] || dialogScene.npcData?.name.zh;
+                dialogScene.uiManager.updateNPCName(name);
+              }
             }
           }
         } catch (error) {
           console.error("Error updating game language:", error);
         }
-      }, 100);
+      }, 50);
     }
   }, [playerId, playerData, setPlayerData, gameRef]);
 
@@ -329,9 +328,27 @@ const Control = memo(() => {
         </div>
       </div>
 
+      {/* 🛠️ 调试：强制触发结局按钮 (仅玩家 002 可见) */}
+      {playerId === '002' && (
+        <button
+          onClick={() => {
+            setPlayerData(prev => ({ ...prev, gameCompleted: true }));
+          }}
+          style={{
+            ...langButtonStyle,
+            background: "rgba(239, 68, 68, 0.7)",
+            borderColor: "#ef4444",
+            fontSize: "14px"
+          }}
+          title="Force Final Report (Debug)"
+        >
+          🏆
+        </button>
+      )}
+
       {/* 语言切换按钮 */}
-      <button 
-        style={langButtonStyle} 
+      <button
+        style={langButtonStyle}
         onClick={toggleLanguage}
         onMouseEnter={() => isDesktop && setIsHoveringLang(true)}
         onMouseLeave={() => setIsHoveringLang(false)}

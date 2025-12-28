@@ -363,11 +363,13 @@ export default class MainScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(time, delta) {
     if (!this.player) return;
 
     const speed = 200;
-    const stopDistance = 10; // 到达目标的距离阈值
+    const stopDistance = 10; 
+
+    let isMoving = false;
 
     // 🎯 处理点击移动
     if (this.isMovingToTarget && this.targetX !== null && this.targetY !== null) {
@@ -376,43 +378,60 @@ export default class MainScene extends Phaser.Scene {
       const distance = Math.sqrt(dx * dx + dy * dy);
 
       if (distance < stopDistance) {
-        // 到达目标，停止移动
         this.player.setVelocity(0, 0);
         this.isMovingToTarget = false;
         this.targetX = null;
         this.targetY = null;
-        if (this.player.anims) {
-          this.player.anims.stop();
-        }
       } else {
-        // 计算归一化的方向向量
         const vx = (dx / distance) * speed;
         const vy = (dy / distance) * speed;
-
         this.player.setVelocity(vx, vy);
-
-        // 🔧 单张图片Player，无动画，只移动
+        isMoving = true;
+        
+        // 🔧 移动时根据方向翻转图片
+        if (vx < 0) this.player.setFlipX(true);
+        else if (vx > 0) this.player.setFlipX(false);
       }
-      return;
+    } else if (this.cursors) {
+      // 🎮 键盘控制
+      let vx = 0, vy = 0;
+      if (this.cursors.left.isDown) vx = -speed;
+      else if (this.cursors.right.isDown) vx = speed;
+      if (this.cursors.up.isDown) vy = -speed;
+      else if (this.cursors.down.isDown) vy = speed;
+
+      this.player.setVelocity(vx, vy);
+      if (vx !== 0 || vy !== 0) {
+        isMoving = true;
+        if (vx < 0) this.player.setFlipX(true);
+        else if (vx > 0) this.player.setFlipX(false);
+      }
     }
 
-    // 🎮 键盘控制（保留作为备用，主要用点击）
-    if (!this.cursors) return;
+    // 🔧 模拟走路动画：降低频率和幅度，让动作更平滑
+    const baseScale = 0.08; 
+    
+    if (isMoving) {
+      // 1. 左右摇摆效果 - 调慢频率 (300) 和幅度 (0.05)
+      const wobble = Math.sin(time / 300) * 0.05;
+      this.player.setRotation(wobble);
 
-    let vx = 0, vy = 0;
-    if (this.cursors.left.isDown) vx = -speed;
-    else if (this.cursors.right.isDown) vx = speed;
-    if (this.cursors.up.isDown) vy = -speed;
-    else if (this.cursors.down.isDown) vy = speed;
-
-    this.player.setVelocity(vx, vy);
-
-    // 🔧 单张图片Player，无动画
+      // 2. 上下弹跳效果 - 调慢频率 (400) 和幅度 (0.03)
+      const bounce = Math.abs(Math.sin(time / 400)) * 0.03;
+      this.player.setScale(baseScale + bounce, baseScale - bounce);
+    } else {
+      // 停止移动时恢复原状
+      this.player.setRotation(0);
+      this.player.setScale(baseScale, baseScale);
+    }
   }
 
   setPlayerData(newPlayerData) {
     this.playerData = newPlayerData;
-    this.uiManager?.updateProgress();
+    // 🔧 安全调用 UIManager 方法
+    if (this.uiManager && typeof this.uiManager.updateProgress === 'function') {
+      this.uiManager.updateProgress();
+    }
   }
 
   async onMealRecorded() {
@@ -420,7 +439,9 @@ export default class MainScene extends Phaser.Scene {
 
     try {
       await this.npcManager.refreshAvailableNPCs();
-      this.uiManager?.updateProgress();
+      if (this.uiManager && typeof this.uiManager.updateProgress === 'function') {
+        this.uiManager.updateProgress();
+      }
 
       const progress = this.npcManager?.getDailyProgress();
       if (progress && progress.isComplete) {
@@ -433,7 +454,9 @@ export default class MainScene extends Phaser.Scene {
       });
     } catch (error) {
       console.error("❌ 刷新NPC状态失败:", error);
-      this.uiManager?.updateProgress();
+      if (this.uiManager && typeof this.uiManager.updateProgress === 'function') {
+        this.uiManager.updateProgress();
+      }
     }
   }
 
@@ -571,7 +594,9 @@ export default class MainScene extends Phaser.Scene {
     console.log("🔄 强制刷新游戏状态");
     try {
       await this.npcManager?.refreshAvailableNPCs();
-      this.uiManager?.updateProgress();
+      if (this.uiManager && typeof this.uiManager.updateProgress === 'function') {
+        this.uiManager.updateProgress();
+      }
       this.npcManager?.rebindClickAreasForCurrentDay?.();
       this.emergencyCleanupFloatingTexts();
       console.log("✅ 游戏状态强制刷新完成");

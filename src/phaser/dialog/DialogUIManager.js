@@ -573,6 +573,14 @@ export default class DialogUIManager {
     return this.messageHistory;
   }
 
+  // 🔧 动态更新 NPC 名字显示 (用于切换语言)
+  updateNPCName(name) {
+    const nameElem = document.getElementById("dialog-npc-name");
+    if (nameElem) {
+      nameElem.textContent = name;
+    }
+  }
+
   // 获取NPC的显示名称
   getNPCDisplayName() {
     const lang = this.scene.playerData?.language || "zh";

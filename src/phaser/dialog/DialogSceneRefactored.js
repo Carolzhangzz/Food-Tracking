@@ -541,10 +541,21 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
         
         // 🔧 关键：检查是否完成所有 7 天任务
-        const isGameComplete = this.currentDay >= 7 && remaining.length === 0;
+        const isDebugPlayer = this.playerId === '002';
+        const isGameComplete = (this.currentDay >= 7 && remaining.length === 0) || (isDebugPlayer && this.currentDay >= 7 && mealType === 'dinner');
         
         if (isGameComplete) {
-          console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！");
+          console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！强制触发报告...");
+          this.mainScene.updatePlayerdata({
+            ...this.playerData,
+            gameCompleted: true,
+            currentDayMealsRemaining: []
+          });
+        } else {
+          this.mainScene.updatePlayerdata({
+            ...this.playerData,
+            currentDayMealsRemaining: remaining
+          });
         }
 
         // 🔧 必须先更新本地的 playerData，否则后续逻辑使用的是旧数据
@@ -726,26 +737,36 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   createBackground() {
     const { width, height } = this.scale;
     
-    // NPC ID到背景图的映射
+    // 🔧 修复 NPC ID 到背景图的映射，确保与 NPCManager 一致
     const npcBgMapping = {
       "uncle_bo": "npc1bg",
-      "village_head": "npc2bg",
+      "shop_owner": "npc2bg",
       "spice_granny": "npc3bg",
       "restaurant_owner": "npc4bg",
-      "little_girl": "npc5bg",
-      "mysterious_person": "npc6bg",
-      "final_npc": "npc7bg"
+      "fisherman": "npc5bg",
+      "old_friend": "npc6bg",
+      "secret_apprentice": "npc7bg",
+      // 兼容可能出现的数字 ID 格式
+      "npc1": "npc1bg",
+      "npc2": "npc2bg",
+      "npc3": "npc3bg",
+      "npc4": "npc4bg",
+      "npc5": "npc5bg",
+      "npc6": "npc6bg",
+      "npc7": "npc7bg"
     };
 
     const bgKey = npcBgMapping[this.currentNPC] || "npc1bg";
+    console.log(`🖼️ [DialogScene] NPC: ${this.currentNPC}, 选择背景: ${bgKey}`);
     
     if (this.textures.exists(bgKey)) {
       const bg = this.add.image(width / 2, height / 2, bgKey);
       bg.setDepth(1);
       const scale = Math.max(width / bg.width, height / bg.height);
       bg.setScale(scale);
-      console.log(`🎨 使用背景: ${bgKey}`);
+      console.log(`✅ [DialogScene] 背景贴图已显示: ${bgKey}`);
     } else {
+      console.warn(`⚠️ [DialogScene] 背景贴图不存在: ${bgKey}, 使用默认深色背景`);
       this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e).setDepth(1);
     }
   }
@@ -782,6 +803,28 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   }
 
   // ==================== 场景生命周期 ====================
+  async refreshLanguage() {
+    const lang = this.playerData?.language || "zh";
+    console.log(`🌐 [DialogScene] 刷新对话界面语言: ${lang}`);
+    
+    // 1. 更新 UI 标题和状态
+    if (this.uiManager) {
+      const npcName = this.npcData?.name[lang] || this.npcData?.name.zh;
+      this.uiManager.updateNPCName(npcName);
+    }
+    
+    // 2. 如果正在显示选项，重新渲染选项
+    if (this.stateManager.currentState === 'meal_selection') {
+      this.showMealSelection();
+    } else if (this.stateManager.currentState === 'meal_recording') {
+      const currentQuestionId = this.stateManager.currentQuestionId;
+      if (currentQuestionId && (currentQuestionId === 'Q1' || currentQuestionId === 'Q2' || currentQuestionId === 'Q3')) {
+        this.askNextQuestion(); // 重新触发当前问题的渲染
+      }
+    }
+  }
+
+  // ... 现有的其他方法 ...
   shutdown() {
     console.log("🛑 DialogScene关闭");
     if (this.uiManager) {
