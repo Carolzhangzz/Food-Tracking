@@ -138,31 +138,49 @@ ${report.wisdom[lang]}
 
   return (
     <div style={overlayStyle}>
-      <div style={cardStyle}>
-        {/* Decorative Seal */}
-        <div style={sealStyle}>華</div>
+      {/* 🎨 飘落的食材特效 */}
+      <div className="floating-ingredients">
+        <span className="ingredient">🍅</span>
+        <span className="ingredient">🥬</span>
+        <span className="ingredient">🥕</span>
+        <span className="ingredient">🍄</span>
+        <span className="ingredient">🌽</span>
+        <span className="ingredient">🥦</span>
+      </div>
+
+      <div style={cardStyle} className="report-card">
+        {/* Decorative Seal with pulse animation */}
+        <div style={sealStyle} className="seal-pulse">華</div>
         
-        <h1 style={titleStyle}>{report.title[lang]}</h1>
+        {/* Sparkling stars */}
+        <div className="stars">
+          <span className="star">✨</span>
+          <span className="star">⭐</span>
+          <span className="star">✨</span>
+        </div>
+        
+        <h1 style={titleStyle} className="title-rainbow">{report.title[lang]}</h1>
         
         <div style={contentStyle}>
           {/* Meal Summary */}
           {report.mealSummary && (
-            <div style={sectionStyle}>
+            <div style={sectionStyle} className="fade-in">
               <p style={summaryStyle}>{report.mealSummary[lang]}</p>
             </div>
           )}
 
           {/* Recipe Section */}
           {report.recipe && (
-            <div style={recipeContainerStyle}>
-              <h2 style={sectionTitleStyle}>
+            <div style={recipeContainerStyle} className="fade-in-up">
+              <h2 style={sectionTitleStyle} className="section-title-bounce">
                 {lang === 'zh' ? '🍽️ 你的专属食谱' : '🍽️ Your Personal Recipe'}
               </h2>
               <p style={recipeIntroStyle}>{report.recipe.intro?.[lang]}</p>
               
-              {/* Starter */}
+              {/* Recipe Cards with hover effects */}
               {report.recipe.starter && (
-                <div style={dishStyle}>
+                <div style={dishStyle} className="dish-card dish-hover">
+                  <div className="dish-icon">🥗</div>
                   <h3 style={dishTitleStyle}>{report.recipe.starter.name[lang]}</h3>
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.starter.ingredients[lang]}</p>
                   <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.starter.method[lang]}</p>
@@ -170,9 +188,9 @@ ${report.wisdom[lang]}
                 </div>
               )}
               
-              {/* Main */}
               {report.recipe.main && (
-                <div style={dishStyle}>
+                <div style={dishStyle} className="dish-card dish-hover">
+                  <div className="dish-icon">🍚</div>
                   <h3 style={dishTitleStyle}>{report.recipe.main.name[lang]}</h3>
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.main.ingredients[lang]}</p>
                   <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.main.method[lang]}</p>
@@ -180,9 +198,9 @@ ${report.wisdom[lang]}
                 </div>
               )}
               
-              {/* Side */}
               {report.recipe.side && (
-                <div style={dishStyle}>
+                <div style={dishStyle} className="dish-card dish-hover">
+                  <div className="dish-icon">🥦</div>
                   <h3 style={dishTitleStyle}>{report.recipe.side.name[lang]}</h3>
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.side.ingredients[lang]}</p>
                   <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.side.method[lang]}</p>
@@ -190,9 +208,9 @@ ${report.wisdom[lang]}
                 </div>
               )}
               
-              {/* Dessert */}
               {report.recipe.dessert && (
-                <div style={dishStyle}>
+                <div style={dishStyle} className="dish-card dish-hover">
+                  <div className="dish-icon">🍨</div>
                   <h3 style={dishTitleStyle}>{report.recipe.dessert.name[lang]}</h3>
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.dessert.ingredients[lang]}</p>
                   <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.dessert.method[lang]}</p>
@@ -200,9 +218,9 @@ ${report.wisdom[lang]}
                 </div>
               )}
               
-              {/* Drink */}
               {report.recipe.drink && (
-                <div style={dishStyle}>
+                <div style={dishStyle} className="dish-card dish-hover">
+                  <div className="dish-icon">🍵</div>
                   <h3 style={dishTitleStyle}>{report.recipe.drink.name[lang]}</h3>
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.drink.ingredients[lang]}</p>
                   <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.drink.method[lang]}</p>
@@ -213,8 +231,8 @@ ${report.wisdom[lang]}
 
           {/* Health Analysis */}
           {report.healthAnalysis && (
-            <div style={healthBoxStyle}>
-              <h2 style={sectionTitleStyle}>
+            <div style={healthBoxStyle} className="fade-in-up health-pulse">
+              <h2 style={sectionTitleStyle} className="section-title-bounce">
                 {lang === 'zh' ? '🌱 健康分析' : '🌱 Health Analysis'}
               </h2>
               <p style={bodyStyle}>{report.healthAnalysis[lang]}</p>
@@ -223,8 +241,8 @@ ${report.wisdom[lang]}
 
           {/* Letter from Master */}
           {report.letterFromMaster && (
-            <div style={letterBoxStyle}>
-              <h2 style={sectionTitleStyle}>
+            <div style={letterBoxStyle} className="fade-in-up letter-glow">
+              <h2 style={sectionTitleStyle} className="section-title-bounce">
                 {lang === 'zh' ? '💌 师父的信' : '💌 Letter from Master'}
               </h2>
               <p style={bodyStyle}>{report.letterFromMaster[lang]}</p>
@@ -232,28 +250,29 @@ ${report.wisdom[lang]}
           )}
           
           {/* Wisdom */}
-          <div style={wisdomBoxStyle}>
+          <div style={wisdomBoxStyle} className="wisdom-shine">
             <h3 style={{ marginTop: 0, color: '#854d0e' }}>
               {lang === 'zh' ? '💡 厨师的智慧' : '💡 Chef\'s Wisdom'}
             </h3>
-            <p>{report.wisdom[lang]}</p>
+            <p className="wisdom-text">{report.wisdom[lang]}</p>
           </div>
         </div>
 
         <div style={footerStyle}>
-          <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} style={btnSecondaryStyle}>
-            {lang === 'zh' ? 'Switch to English' : '切换至中文'}
+          <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} style={btnSecondaryStyle} className="btn-bounce">
+            🌐 {lang === 'zh' ? 'English' : '中文'}
           </button>
-          <button onClick={downloadReport} style={btnPrimaryStyle}>
-            {lang === 'zh' ? '📂 下载完整报告' : '📂 Download Full Report'}
+          <button onClick={downloadReport} style={btnPrimaryStyle} className="btn-bounce">
+            📂 {lang === 'zh' ? '下载完整报告' : 'Download Full Report'}
           </button>
-          <button onClick={onClose} style={btnDangerStyle}>
-            {lang === 'zh' ? '🏁 结束旅程' : '🏁 End Journey'}
+          <button onClick={onClose} style={btnDangerStyle} className="btn-bounce">
+            🏁 {lang === 'zh' ? '结束旅程' : 'End Journey'}
           </button>
         </div>
       </div>
 
       <style>{`
+        /* 🎨 Loading Spinner */
         .spinner {
           width: 50px;
           height: 50px;
@@ -263,7 +282,225 @@ ${report.wisdom[lang]}
           animation: spin 1s linear infinite;
           margin: 0 auto 20px;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
+
+        /* 🎨 飘落的食材特效 */
+        .floating-ingredients {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 10000;
+          overflow: hidden;
+        }
+        .ingredient {
+          position: absolute;
+          font-size: 2rem;
+          opacity: 0.6;
+          animation: float-down 15s infinite;
+        }
+        .ingredient:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 12s; }
+        .ingredient:nth-child(2) { left: 25%; animation-delay: 2s; animation-duration: 15s; }
+        .ingredient:nth-child(3) { left: 45%; animation-delay: 4s; animation-duration: 18s; }
+        .ingredient:nth-child(4) { left: 60%; animation-delay: 1s; animation-duration: 14s; }
+        .ingredient:nth-child(5) { left: 75%; animation-delay: 3s; animation-duration: 16s; }
+        .ingredient:nth-child(6) { left: 90%; animation-delay: 5s; animation-duration: 13s; }
+
+        @keyframes float-down {
+          0% { 
+            transform: translateY(-100px) rotate(0deg); 
+            opacity: 0;
+          }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { 
+            transform: translateY(100vh) rotate(360deg); 
+            opacity: 0;
+          }
+        }
+
+        /* 🎨 报告卡片进场动画 */
+        .report-card {
+          animation: slide-in-up 0.8s ease-out;
+        }
+        @keyframes slide-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(50px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* 🎨 印章脉冲动画 */
+        .seal-pulse {
+          animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { transform: rotate(-15deg) scale(1); }
+          50% { transform: rotate(-15deg) scale(1.1); }
+        }
+
+        /* 🎨 闪烁的星星 */
+        .stars {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          z-index: 1;
+        }
+        .star {
+          display: inline-block;
+          margin: 0 5px;
+          animation: twinkle 2s ease-in-out infinite;
+        }
+        .star:nth-child(1) { animation-delay: 0s; }
+        .star:nth-child(2) { animation-delay: 0.7s; }
+        .star:nth-child(3) { animation-delay: 1.4s; }
+
+        @keyframes twinkle {
+          0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+          50% { opacity: 0.3; transform: scale(1.3) rotate(180deg); }
+        }
+
+        /* 🎨 彩虹标题效果 */
+        .title-rainbow {
+          background: linear-gradient(90deg, #ff6b6b, #f59e42, #fbbf24, #10b981, #3b82f6, #8b5cf6);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: rainbow-flow 3s linear infinite;
+        }
+        @keyframes rainbow-flow {
+          to { background-position: 200% center; }
+        }
+
+        /* 🎨 淡入动画 */
+        .fade-in {
+          animation: fade-in 0.8s ease-out;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .fade-in-up {
+          animation: fade-in-up 0.8s ease-out backwards;
+        }
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* 🎨 章节标题弹跳 */
+        .section-title-bounce {
+          animation: bounce-in 0.6s ease-out;
+        }
+        @keyframes bounce-in {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 🎨 菜品卡片图标 */
+        .dish-icon {
+          font-size: 3rem;
+          text-align: center;
+          margin-bottom: 10px;
+          animation: rotate-in 0.6s ease-out;
+        }
+        @keyframes rotate-in {
+          from { transform: rotate(-180deg) scale(0); }
+          to { transform: rotate(0deg) scale(1); }
+        }
+
+        /* 🎨 菜品卡片悬停效果 */
+        .dish-card {
+          transition: all 0.3s ease;
+        }
+        .dish-hover:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 10px 30px rgba(202, 138, 4, 0.3);
+        }
+
+        /* 🎨 健康分析脉冲 */
+        .health-pulse {
+          animation: health-pulse 3s ease-in-out infinite;
+        }
+        @keyframes health-pulse {
+          0%, 100% { box-shadow: 0 0 0 rgba(16, 163, 74, 0.4); }
+          50% { box-shadow: 0 0 20px rgba(16, 163, 74, 0.8); }
+        }
+
+        /* 🎨 师父的信发光效果 */
+        .letter-glow {
+          animation: letter-glow 4s ease-in-out infinite;
+        }
+        @keyframes letter-glow {
+          0%, 100% { box-shadow: 0 0 0 rgba(220, 38, 38, 0.3); }
+          50% { box-shadow: 0 0 25px rgba(220, 38, 38, 0.6); }
+        }
+
+        /* 🎨 智慧闪光效果 */
+        .wisdom-shine {
+          position: relative;
+          overflow: hidden;
+        }
+        .wisdom-shine::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          animation: shine 3s infinite;
+        }
+        @keyframes shine {
+          to { left: 100%; }
+        }
+
+        .wisdom-text {
+          font-style: italic;
+          font-size: 1.15rem;
+          font-weight: 600;
+          color: #92400e;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* 🎨 按钮弹跳交互 */
+        .btn-bounce {
+          transition: all 0.2s ease;
+        }
+        .btn-bounce:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .btn-bounce:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* 🎨 延迟动画（错开显示） */
+        .fade-in-up:nth-of-type(2) { animation-delay: 0.1s; }
+        .fade-in-up:nth-of-type(3) { animation-delay: 0.2s; }
+        .fade-in-up:nth-of-type(4) { animation-delay: 0.3s; }
+        .dish-card:nth-of-type(1) { animation-delay: 0.1s; }
+        .dish-card:nth-of-type(2) { animation-delay: 0.2s; }
+        .dish-card:nth-of-type(3) { animation-delay: 0.3s; }
+        .dish-card:nth-of-type(4) { animation-delay: 0.4s; }
+        .dish-card:nth-of-type(5) { animation-delay: 0.5s; }
       `}</style>
     </div>
   );
@@ -288,16 +525,22 @@ const overlayStyle = {
 
 const cardStyle = {
   backgroundColor: '#fefce8', // Cream parchment color
-  backgroundImage: 'url("https://www.transparenttextures.com/patterns/paper-fibers.png")',
+  backgroundImage: `
+    url("https://www.transparenttextures.com/patterns/paper-fibers.png"),
+    radial-gradient(circle at top right, rgba(251, 191, 36, 0.1), transparent),
+    radial-gradient(circle at bottom left, rgba(202, 138, 4, 0.1), transparent)
+  `,
   width: '100%',
-  maxWidth: '700px',
+  maxWidth: '750px',
   maxHeight: '90vh',
-  padding: '40px',
-  borderRadius: '4px',
-  boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 0 100px rgba(133, 77, 14, 0.1)',
+  padding: '50px',
+  borderRadius: '20px',
+  boxShadow: '0 30px 70px rgba(0,0,0,0.6), inset 0 0 100px rgba(133, 77, 14, 0.15)',
   position: 'relative',
   overflowY: 'auto',
-  border: '1px solid #eab308',
+  border: '3px solid #eab308',
+  scrollbarWidth: 'thin',
+  scrollbarColor: '#ca8a04 #fef3c7',
 };
 
 const sealStyle = {
@@ -372,11 +615,13 @@ const recipeIntroStyle = {
 };
 
 const dishStyle = {
-  backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  padding: '20px',
-  borderRadius: '8px',
-  marginBottom: '15px',
-  borderLeft: '4px solid #ca8a04',
+  backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  padding: '25px',
+  borderRadius: '15px',
+  marginBottom: '20px',
+  borderLeft: '5px solid #ca8a04',
+  boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+  backdropFilter: 'blur(10px)',
 };
 
 const dishTitleStyle = {

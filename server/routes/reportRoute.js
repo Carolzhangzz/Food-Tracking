@@ -7,8 +7,11 @@ router.post("/generate-final-report", async (req, res) => {
   const { playerId } = req.body;
   console.log(`📜 [Backend] 正在使用最新 GenAI SDK 为玩家 ${playerId} 生成报告...`);
   
+  // 🔧 将 meals 移到外部作用域，以便 catch 块也能访问
+  let meals = null;
+  
   try {
-    const meals = await MealRecord.findAll({
+    meals = await MealRecord.findAll({
       where: { playerId },
       order: [['day', 'ASC'], ['recordedAt', 'ASC']]
     });
@@ -195,12 +198,140 @@ Remember: Return ONLY the JSON object. No markdown, no code blocks, no extra tex
     res.json({ success: true, report });
   } catch (error) {
     console.error("❌ 报告生成失败 (GenAI SDK):", error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      detail: "Please check if your GEMINI_API_KEY is valid and has access to gemini-1.5-flash."
-    });
+    
+    // 🔧 任何错误都使用后备报告（确保玩家总能看到报告）
+    console.log("⚠️ AI 生成失败，使用后备报告模板...");
+    
+    try {
+      // 如果 meals 未定义（数据库查询失败），尝试重新获取
+      if (!meals) {
+        console.log("🔄 重新获取餐食数据...");
+        meals = await MealRecord.findAll({
+          where: { playerId },
+          order: [['day', 'ASC'], ['recordedAt', 'ASC']]
+        });
+      }
+      
+      // 如果还是没有数据，使用空数组生成基础报告
+      if (!meals || meals.length === 0) {
+        console.log("⚠️ 没有餐食数据，生成基础模板报告");
+        meals = [];
+      }
+      
+      const fallbackReport = generateFallbackReport(meals);
+      return res.json({ 
+        success: true, 
+        report: fallbackReport, 
+        isFallback: true,
+        message: "AI 暂时不可用，为您生成了标准报告"
+      });
+    } catch (fallbackError) {
+      console.error("❌ 后备报告也失败:", fallbackError);
+      return res.status(500).json({ 
+        success: false, 
+        error: "报告生成系统暂时不可用",
+        detail: fallbackError.message
+      });
+    }
   }
 });
+
+// 🔧 后备报告生成函数（当 AI 不可用时使用）
+function generateFallbackReport(meals) {
+  // 处理空数据的情况
+  if (!meals || meals.length === 0) {
+    return {
+      title: {
+        en: "Your Culinary Journey - Final Report",
+        zh: "你的美食之旅 - 最终报告"
+      },
+      mealSummary: {
+        en: "Welcome to your final report. Start recording your meals to receive a personalized analysis!",
+        zh: "欢迎查看你的最终报告。开始记录你的餐食以获得个性化分析！"
+      },
+      recipe: generateDefaultRecipe(),
+      healthAnalysis: {
+        en: "Begin your food journaling journey to receive personalized health insights and recommendations based on your eating patterns.",
+        zh: "开始你的饮食日记之旅，根据你的饮食模式获得个性化的健康见解和建议。"
+      },
+      letterFromMaster: {
+        en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nThough your journey is just beginning, I want you to know that the path to mindful eating starts with a single meal, a single moment of awareness.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you for starting. Until we meet again.\n\n– Master Hua`,
+        zh: `亲爱的徒弟，\n\n我就知道你会找到这里。\n\n虽然你的旅程才刚刚开始，但我想让你知道，通往正念饮食的道路始于一顿饭、一刻觉知。\n\n我做了一个决定——我想与更多人分享我的烹饪方式。它反映了人们的口味，忠于这个村庄的根源，也是经典菜式的更健康诠释。\n\n祝你好运。我为你的开始感到骄傲。后会有期。\n\n——华主厨`
+      },
+      wisdom: {
+        en: "True flavor comes not from rare ingredients, but from paying attention to what you eat, why you eat, and who you become through it.",
+        zh: "真正的美味不在于稀有的食材，而在于关注你吃什么、为何而吃，以及通过它你成为了怎样的人。"
+      }
+    };
+  }
+  
+  const mealTypes = [...new Set(meals.map(m => m.mealType))];
+  const dayCount = [...new Set(meals.map(m => m.day))].length;
+  
+  return {
+    title: {
+      en: "Your Culinary Journey - Final Report",
+      zh: "你的美食之旅 - 最终报告"
+    },
+    mealSummary: {
+      en: `Over ${dayCount} day${dayCount > 1 ? 's' : ''}, you recorded ${meals.length} meal${meals.length > 1 ? 's' : ''}, showing dedication to mindful eating.`,
+      zh: `在 ${dayCount} 天里，你记录了 ${meals.length} 顿餐食，展现了对正念饮食的坚持。`
+    },
+    recipe: generateDefaultRecipe(),
+    healthAnalysis: {
+      en: `Your ${dayCount}-day food journal shows commitment to tracking your eating habits. Key observations: You recorded a variety of meal types${mealTypes.length > 0 ? ` (${mealTypes.join(', ')})` : ''}, which is excellent for understanding your eating patterns. For continued health: aim for balanced meals with vegetables, whole grains, and lean proteins; stay hydrated; and maintain regular meal times. Remember, every meal is an opportunity to nourish both body and mind.`,
+      zh: `你的 ${dayCount} 天饮食日记显示了你对记录饮食习惯的投入。主要观察：你记录了多种餐食类型${mealTypes.length > 0 ? `（${mealTypes.join('、')}）` : ''}，这对于了解你的饮食模式非常好。为了持续健康：争取摄入均衡的餐食，包括蔬菜、全谷物和瘦肉蛋白；保持水分充足；维持规律的进餐时间。记住，每一餐都是滋养身心的机会。`
+    },
+    letterFromMaster: {
+      en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nCongratulations on completing your ${dayCount}-day journey. Though I couldn't generate a fully personalized analysis today, know that the act of recording itself is transformative. You've taken important steps toward mindful eating.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you. Until we meet again.\n\n– Master Hua`,
+      zh: `亲爱的徒弟，\n\n我就知道你会找到这里。\n\n恭喜你完成了 ${dayCount} 天的旅程。虽然今天我无法生成完全个性化的分析，但要知道，记录本身就是变革性的。你已经迈出了通往正念饮食的重要步伐。\n\n我做了一个决定——我想与更多人分享我的烹饪方式。它反映了人们的口味，忠于这个村庄的根源，也是经典菜式的更健康诠释。\n\n祝你好运。我为你感到骄傲。后会有期。\n\n——华主厨`
+    },
+    wisdom: {
+      en: "True flavor comes not from rare ingredients, but from paying attention to what you eat, why you eat, and who you become through it.",
+      zh: "真正的美味不在于稀有的食材，而在于关注你吃什么、为何而吃，以及通过它你成为了怎样的人。"
+    }
+  };
+}
+
+// 生成默认食谱
+function generateDefaultRecipe() {
+  return {
+    intro: {
+      en: "Here's a balanced meal plan inspired by healthy eating principles:",
+      zh: "这是一份受健康饮食原则启发的均衡膳食计划："
+    },
+    starter: {
+      name: { en: "Fresh Garden Salad", zh: "新鲜田园沙拉" },
+      ingredients: { en: "Mixed greens, cherry tomatoes, cucumber, olive oil, lemon", zh: "混合蔬菜、樱桃番茄、黄瓜、橄榄油、柠檬" },
+      method: { en: "Toss all ingredients together and dress with olive oil and lemon.", zh: "将所有食材混合，用橄榄油和柠檬调味。" },
+      tip: { en: "Add protein like grilled chicken or tofu for a complete meal.", zh: "加入烤鸡肉或豆腐作为蛋白质，让餐食更完整。" }
+    },
+    main: {
+      name: { en: "Balanced Bowl", zh: "均衡碗" },
+      ingredients: { en: "Brown rice, grilled protein, steamed vegetables, sesame seeds", zh: "糙米、烤制蛋白质、蒸蔬菜、芝麻" },
+      method: { en: "Arrange all components in a bowl. Drizzle with your favorite sauce.", zh: "将所有成分摆放在碗中，淋上你喜欢的酱汁。" },
+      tip: { en: "Vary your protein sources throughout the week.", zh: "每周变换不同的蛋白质来源。" }
+    },
+    side: {
+      name: { en: "Roasted Seasonal Vegetables", zh: "烤时令蔬菜" },
+      ingredients: { en: "Seasonal vegetables, olive oil, herbs, garlic", zh: "时令蔬菜、橄榄油、香草、大蒜" },
+      method: { en: "Roast vegetables with olive oil and herbs at 200°C for 25 minutes.", zh: "将蔬菜与橄榄油和香草一起在 200°C 烤 25 分钟。" },
+      tip: { en: "Roasting brings out natural sweetness in vegetables.", zh: "烤制能带出蔬菜的天然甜味。" }
+    },
+    dessert: {
+      name: { en: "Fruit & Yogurt Parfait", zh: "水果酸奶杯" },
+      ingredients: { en: "Greek yogurt, mixed berries, honey, granola", zh: "希腊酸奶、混合浆果、蜂蜜、格兰诺拉麦片" },
+      method: { en: "Layer yogurt, berries, and granola. Drizzle with honey.", zh: "分层放入酸奶、浆果和格兰诺拉麦片，淋上蜂蜜。" },
+      tip: { en: "Prepare the night before for a quick breakfast.", zh: "前一晚准备好，作为快速早餐。" }
+    },
+    drink: {
+      name: { en: "Herbal Infusion", zh: "草本茶" },
+      ingredients: { en: "Your favorite herbal tea, hot water, optional honey", zh: "你喜欢的草本茶、热水、可选蜂蜜" },
+      method: { en: "Steep tea in hot water for 5 minutes. Add honey if desired.", zh: "将茶叶在热水中浸泡 5 分钟，根据需要加入蜂蜜。" }
+    }
+  };
+}
+
+module.exports = router;
 
 module.exports = router;
