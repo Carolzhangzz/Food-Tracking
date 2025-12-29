@@ -46,13 +46,11 @@ const Button = ({
         minWidth: isDesktop ? '220px' : '180px',
     };
 
-    const handlePressStart = (e) => {
-        e.preventDefault();
+    const handlePressStart = () => {
         setIsPressed(true);
     };
 
-    const handlePressEnd = (e) => {
-        e.preventDefault();
+    const handlePressEnd = () => {
         setIsPressed(false);
     };
 

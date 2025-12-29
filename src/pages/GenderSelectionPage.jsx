@@ -38,15 +38,16 @@ function GenderSelectionPage() {
       width: '100vw',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: isMobile ? 'flex-start' : 'center',
+      justifyContent: 'flex-start', // 🔧 始终从顶部开始
       alignItems: 'center',
       background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
-      padding: isMobile ? '10px 10px 70px' : '20px', // 🔧 手机更紧凑
+      padding: isMobile ? '15px 10px 100px' : '40px 20px', // 🔧 底部留更多空间给按钮
       position: 'fixed',
       top: 0,
       left: 0,
       overflowY: 'auto', // 🔧 允许滚动
       WebkitOverflowScrolling: 'touch', // 🔧 iOS 平滑滚动
+      boxSizing: 'border-box',
     },
     title: {
       fontSize: isMobile ? '1.2rem' : '2.5rem', // 🔧 手机标题更小
@@ -137,8 +138,8 @@ function GenderSelectionPage() {
       lineHeight: 1.4,
     },
     confirmButton: {
-      padding: isMobile ? '10px 30px' : '18px 60px',
-      fontSize: isMobile ? '0.9rem' : '1.3rem',
+      padding: isMobile ? '14px 40px' : '18px 60px',
+      fontSize: isMobile ? '1.1rem' : '1.3rem',
       background: selectedGender ? '#667eea' : '#4a5568',
       color: '#fff',
       border: 'none',
@@ -148,9 +149,11 @@ function GenderSelectionPage() {
       transition: 'all 0.3s ease',
       boxShadow: selectedGender ? '0 6px 20px rgba(102, 126, 234, 0.4)' : 'none',
       opacity: selectedGender ? 1 : 0.6,
-      width: isMobile ? '90%' : 'auto', // 🔧 手机90%宽
-      maxWidth: isMobile ? '250px' : 'none',
+      width: isMobile ? '85%' : 'auto',
+      maxWidth: isMobile ? '280px' : 'none',
       flexShrink: 0,
+      marginTop: isMobile ? '20px' : '0', // 🔧 手机版增加顶部间距
+      position: 'relative', // 🔧 确保按钮可见
     },
   };
 
