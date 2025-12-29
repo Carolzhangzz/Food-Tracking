@@ -13,6 +13,7 @@ const Control = memo(() => {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerHeight < 500); // 手机横屏检测
+  const [isPortrait, setIsPortrait] = useState(window.innerHeight > window.innerWidth); // 竖屏检测
   
   const [isHoveringLang, setIsHoveringLang] = useState(false);
   const [isHoveringMusic, setIsHoveringMusic] = useState(false);
@@ -28,16 +29,19 @@ const Control = memo(() => {
         setIsDesktop(window.innerWidth >= 1024);
         setIsMobile(window.innerWidth < 768);
         setIsSmallScreen(window.innerHeight < 500); // 手机横屏
+        setIsPortrait(window.innerHeight > window.innerWidth); // 竖屏
       }, 100);
     };
     
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize); // 监听屏幕旋转
     // 初始化时也执行一次
     handleResize();
     
     return () => {
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
     };
   }, []);
 
@@ -169,11 +173,12 @@ const Control = memo(() => {
     return () => clearInterval(interval);
   }, [gameRef]);
 
-  // 响应式按钮样式 - 游戏风格优化 + 小屏幕适配
+  // 响应式按钮样式 - 游戏风格优化 + 小屏幕适配 + 竖屏支持
   const buttonStyle = useMemo(() => {
-    // 根据屏幕大小动态调整尺寸
+    // 根据屏幕大小和方向动态调整尺寸
     const getSize = () => {
       if (isSmallScreen) return { padding: '6px', minSize: '36px', fontSize: '18px', border: '2px' };
+      if (isPortrait && isMobile) return { padding: '8px', minSize: '44px', fontSize: '22px', border: '2px' }; // 竖屏稍大
       if (isMobile) return { padding: '8px', minSize: '42px', fontSize: '20px', border: '2px' };
       return { padding: '14px', minSize: '60px', fontSize: '28px', border: '3px' };
     };
@@ -204,7 +209,7 @@ const Control = memo(() => {
       position: "relative",
       overflow: "hidden",
     };
-  }, [isDesktop, isMobile, isSmallScreen]);
+  }, [isDesktop, isMobile, isSmallScreen, isPortrait]);
 
   const langButtonStyle = useMemo(() => ({
     ...buttonStyle,

@@ -123,8 +123,10 @@ export default class MainScene extends Phaser.Scene {
       console.log('✅ 加载完成:', key);
     });
     
-    // 🎯 使用横向地图图片（手机游戏适配）
+    // 🎯 强制使用横屏地图（游戏只支持横屏）
     this.load.image("bigmap", "/assets/map_horizontal.JPG");
+    this.isPortraitMode = false; // 始终横屏模式
+    console.log(`📐 使用横屏地图: /assets/map_horizontal.JPG`);
 
     // 🔧 加载Player用的单张图片 - boynew和girlnew（不是雪碧图，就是正面图）
     this.load.image("player_boy", "/assets/npc/boynew.png");
@@ -195,16 +197,16 @@ export default class MainScene extends Phaser.Scene {
 
       console.log(`👤 玩家性别: ${gender}, 使用图片: ${playerImageKey}`);
 
-      // 🔧 横向地图：玩家起始位置在左下角区域
+      // 🔧 横屏地图：玩家起始位置在左下角区域
       const startX = mapW * 0.15;  // 地图左侧15%位置
       const startY = mapH * 0.7;   // 地图下方70%位置
       
       this.player = this.physics.add
-        .sprite(startX, startY, playerImageKey)  // 🔧 使用单张图片，不需要frame参数
+        .sprite(startX, startY, playerImageKey)
         .setOrigin(0.5)
         .setDepth(10)
         .setCollideWorldBounds(true)
-        .setScale(0.12);  // 🔧 单张图片较大，缩小到0.12倍
+        .setScale(0.12);
 
       // 初始化点击移动变量
       this.isMovingToTarget = false;

@@ -16,105 +16,63 @@ export default class NPCManager {
 
     console.log(`📱 设备类型: ${this.isMobile ? '移动端' : '桌面'}, 点击防抖: ${this.clickDebounceTime}ms`);
 
-    // 🎯 7个NPC配置 - 使用单独NPC图片 + 精确坐标
+    // 🎯 7个NPC配置 - 横屏地图坐标（游戏只支持横屏）
     this.npcData = [
       {
-        id: "uncle_bo",  // Village Head / 村长 - Day 1
-        name: {
-          zh: "村长",
-          en: "Village Head"
-        },
+        id: "uncle_bo",
+        name: { zh: "村长", en: "Village Head" },
         position: { x: 135, y: 463 },  
         imageKey: "npc1",  
         unlockDay: 1,
-        description: {
-          zh: "师父的老友",
-          en: "Old friend of the master"
-        }
+        description: { zh: "师父的老友", en: "Old friend of the master" }
       },
       {
-        id: "shop_owner",  // Shop Owner / 阿桂 - Day 2
-        name: {
-          zh: "杂货铺老板",
-          en: "Shop Owner Grace"
-        },
+        id: "shop_owner",
+        name: { zh: "杂货铺老板", en: "Shop Owner Grace" },
         position: { x: 666, y: 138 },  
         imageKey: "npc2",  
         unlockDay: 2,
-        description: {
-          zh: "杂货铺的经营者",
-          en: "Shop owner"
-        }
+        description: { zh: "杂货铺的经营者", en: "Shop owner" }
       },
       {
-        id: "spice_granny",  // Spice Granny / 香料奶奶 - Day 3
-        name: {
-          zh: "香料奶奶",
-          en: "Spice Granny"
-        },
-        position: { x: 243, y: 141 },  // 📍 用户提供的精确坐标
-        imageKey: "npc3",  // 🔧 使用单独NPC图片
+        id: "spice_granny",
+        name: { zh: "香料奶奶", en: "Spice Granny" },
+        position: { x: 243, y: 141 },
+        imageKey: "npc3",
         unlockDay: 3,
-        description: {
-          zh: "知道greenwood seeds的秘密",
-          en: "Knows about greenwood seeds"
-        }
+        description: { zh: "知道greenwood seeds的秘密", en: "Knows about greenwood seeds" }
       },
       {
-        id: "restaurant_owner",  // Restaurant Owner / 餐厅老板 - Day 4
-        name: {
-          zh: "餐厅老板",
-          en: "Restaurant Owner"
-        },
-        position: { x: 866, y: 469 },  // 📍 用户提供的精确坐标
-        imageKey: "npc4",  // 🔧 使用单独NPC图片
+        id: "restaurant_owner",
+        name: { zh: "餐厅老板", en: "Restaurant Owner" },
+        position: { x: 866, y: 469 },
+        imageKey: "npc4",
         unlockDay: 4,
-        description: {
-          zh: "经营村里的餐厅",
-          en: "Runs the village restaurant"
-        }
+        description: { zh: "经营村里的餐厅", en: "Runs the village restaurant" }
       },
       {
-        id: "fisherman",  // Fisherman / 渔夫 - Day 5
-        name: {
-          zh: "渔夫",
-          en: "Fisherman"
-        },
+        id: "fisherman",
+        name: { zh: "渔夫", en: "Fisherman" },
         position: { x: 625, y: 431 },
         imageKey: "npc5",
         unlockDay: 5,
-        description: {
-          zh: "河边的沉默渔夫",
-          en: "Silent fisherman by the river"
-        }
+        description: { zh: "河边的沉默渔夫", en: "Silent fisherman by the river" }
       },
       {
-        id: "old_friend",  // Old Friend / Rowan - Day 6
-        name: {
-          zh: "旧友Rowan",
-          en: "Old Friend Rowan"
-        },
+        id: "old_friend",
+        name: { zh: "旧友Rowan", en: "Old Friend Rowan" },
         position: { x: 914, y: 95 },
         imageKey: "npc6",
         unlockDay: 6,
-        description: {
-          zh: "师父的徒弟之一",
-          en: "One of the master's apprentices"
-        }
+        description: { zh: "师父的徒弟之一", en: "One of the master's apprentices" }
       },
       {
-        id: "secret_apprentice",  // Secret Apprentice / Mira - Day 7
-        name: {
-          zh: "秘密学徒Mira",
-          en: "Secret Apprentice Mira"
-        },
+        id: "secret_apprentice",
+        name: { zh: "秘密学徒Mira", en: "Secret Apprentice Mira" },
         position: { x: 363, y: 492 },
         imageKey: "npc7",
         unlockDay: 7,
-        description: {
-          zh: "最后一位学徒",
-          en: "The last apprentice"
-        }
+        description: { zh: "最后一位学徒", en: "The last apprentice" }
       },
     ];
 

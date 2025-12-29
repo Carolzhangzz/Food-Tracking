@@ -13,7 +13,7 @@
   <title>Lure of Returning to the Village: Finding the Secret Recipe</title>
 
   <style>
-    /* 横屏提示样式 */
+    /* 强制横屏提示 */
     #rotate-tip {
       position: fixed;
       top: 0;
@@ -23,13 +23,25 @@
       display: none;
       align-items: center;
       justify-content: center;
-      background-color: rgba(0, 0, 0, 0.9);
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
       color: #fff;
       font-family: 'Montserrat', sans-serif;
       font-size: 1.2rem;
       z-index: 9999;
       text-align: center;
       padding: 20px;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #rotate-tip .icon {
+      font-size: 4rem;
+      animation: rotate-phone 2s ease-in-out infinite;
+    }
+
+    @keyframes rotate-phone {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
     }
 
     /* 当屏幕竖着时显示提示 */
@@ -38,69 +50,28 @@
         display: flex;
       }
     }
-  </style>
 
-  <script>
-    // 尝试锁定横屏（支持的浏览器）
-    window.addEventListener('load', () => {
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(() => {
-          console.log('Orientation lock not supported, using CSS fallback');
-        });
-      } else {
-        console.log('Orientation lock not available on this device.');
-      }
-    });
-
-    // Fallback: 如果是 iOS 或不支持 orientation.lock，就用 CSS rotate 方案
-    function applyOrientationFallback() {
-      const isPortrait = window.innerHeight > window.innerWidth;
-      const body = document.body;
-      if (isPortrait) {
-        body.style.transform = 'rotate(90deg)';
-        body.style.transformOrigin = 'left top';
-        body.style.width = '100vh';
-        body.style.height = '100vw';
-        body.style.overflow = 'hidden';
-      } else {
-        body.style.transform = '';
-        body.style.width = '';
-        body.style.height = '';
-        body.style.overflow = '';
-      }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
-
-    window.addEventListener('resize', applyOrientationFallback);
-    window.addEventListener('orientationchange', applyOrientationFallback);
-  </script>
+  </style>
 </head>
 
 <body>
-  <div id="rotate-tip">📱 请横屏体验游戏<br />Please rotate your device to landscape</div>
-
-
-  <script type="text/javascript">
-    // GitHub Pages SPA 路由修复脚本（保留）
-    (function (l) {
-      if (l.search[1] === '/') {
-        var decoded = l.search
-          .slice(1)
-          .split('&')
-          .map(function (s) {
-            return s.replace(/~and~/g, '&');
-          })
-          .join('?');
-        window.history.replaceState(
-          null,
-          null,
-          l.pathname.slice(0, -1) + decoded + l.hash
-        );
-      }
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(() => { });
-      }
-    })(window.location);
-  </script>
+  <!-- 横屏提示 -->
+  <div id="rotate-tip">
+    <div class="icon">📱</div>
+    <div>
+      <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;">
+        请横屏体验游戏
+      </div>
+      <div style="font-size: 1rem; opacity: 0.8;">
+        Please rotate your device to landscape
+      </div>
+    </div>
+  </div>
 
   <div id="root"></div>
   <!-- React 会自动挂载在这里 -->
