@@ -907,70 +907,69 @@ router.post("/record-meal", async (req, res) => {
     const playerLanguage = player.language || "en";
     let clueType = null;
     let clueText = null;
-    let clueData = null;
     let shouldGiveClue = true; // 每次都给线索（vague或true）
     
-    // 获取该NPC当前的vague计数（第几次vague）
-    const previousVagueCount = await Clue.count({
-      where: { playerId, npcId, clueType: 'vague' },
-      transaction: t
-    });
-    
-    console.log(`🎯 [线索判定] NPC: ${npcId}, 餐食: ${mealType}, 已有vague数: ${previousVagueCount}`);
-    
-    if (mealType === "dinner") {
-      // 🌙 晚餐 = 给真实线索 (Stage 3)
-      clueType = "true";
-      clueText = getClueForNPCStage(npcId, playerLanguage, 3);
-      console.log(`✅ [晚餐] 给予真实线索 (${typeof clueText}):`, clueText);
-    } else {
-      // 🌞 早餐/午餐 = 给模糊线索 (Stage 1 或 2)
-      clueType = "vague";
-      const stage = previousVagueCount === 0 ? 1 : 2;
-      clueText = getClueForNPCStage(npcId, playerLanguage, stage);
-      console.log(`ℹ️ [${mealType}] 给予模糊线索 (阶段 ${stage}, ${typeof clueText}):`, clueText);
-    }
-    
-    // 统一 ID 映射
-    const idMapping = {
-      "village_head": "uncle_bo",
-      "spice_woman": "spice_granny",
-      "npc1": "uncle_bo",
-      "npc2": "shop_owner",
-      "npc3": "spice_granny",
-      "npc4": "restaurant_owner",
-      "npc5": "fisherman",
-      "npc6": "old_friend",
-      "npc7": "secret_apprentice"
-    };
-    const actualNpcId = idMapping[npcId] || npcId;
-
-    // 保存线索到数据库
-    if (clueText && typeof clueText === 'string') {
-      try {
-        const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
-        console.log(`📝 正在保存线索: npcName=${actualNPCName}, clueType=${clueType}, text=${cleanText.substring(0, 30)}...`);
-        
-        await Clue.create({
-          playerId,
-          npcId: actualNpcId, // 使用统一的 ID
-          npcName: actualNPCName, 
-          clueType,
-          clueText: cleanText,
-          keywords: JSON.stringify(keywords),
-          shortVersion,
-          day,
-          mealType,
-          nextNPC: npcClues[actualNpcId]?.nextNPC || null
-        }, { transaction: t });
-        
-        console.log(`✅ 线索保存成功！`);
-      } catch (clueError) {
-        console.error("⚠️ 保存线索失败:", clueError.message);
-        console.error("⚠️ 错误详情:", clueError);
+    try {
+      // 获取该NPC当前的vague计数（第次数vague）
+      const previousVagueCount = await Clue.count({
+        where: { playerId, npcId, clueType: 'vague' }
+      });
+      
+      console.log(`🎯 [线索判定] NPC: ${npcId}, 餐食: ${mealType}, 已有vague数: ${previousVagueCount}`);
+      
+      if (mealType === "dinner") {
+        // 🌙 晚餐 = 给真实线索 (Stage 3)
+        clueType = "true";
+        clueText = getClueForNPCStage(npcId, playerLanguage, 3);
+        console.log(`✅ [晚餐] 给予真实线索:`, clueText?.substring(0, 30));
+      } else {
+        // 🌞 早餐/午餐 = 给模糊线索 (Stage 1 或 2)
+        clueType = "vague";
+        const stage = previousVagueCount === 0 ? 1 : 2;
+        clueText = getClueForNPCStage(npcId, playerLanguage, stage);
+        console.log(`ℹ️ [${mealType}] 给予模糊线索 (阶段 ${stage}):`, clueText?.substring(0, 30));
       }
-    } else {
-      console.error(`❌ clueText 不是字符串或为空: ${typeof clueText}`, clueText);
+      
+      // 统一 ID 映射
+      const idMapping = {
+        "village_head": "uncle_bo",
+        "spice_woman": "spice_granny",
+        "npc1": "uncle_bo",
+        "npc2": "shop_owner",
+        "npc3": "spice_granny",
+        "npc4": "restaurant_owner",
+        "npc5": "fisherman",
+        "npc6": "old_friend",
+        "npc7": "secret_apprentice"
+      };
+      const actualNpcId = idMapping[npcId] || npcId;
+
+      // 保存线索到数据库
+      if (clueText && typeof clueText === 'string') {
+        try {
+          const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+          
+          await Clue.create({
+            playerId,
+            npcId: actualNpcId,
+            npcName: actualNPCName, 
+            clueType,
+            clueText: cleanText,
+            keywords: JSON.stringify(keywords),
+            shortVersion,
+            day,
+            mealType,
+            nextNPC: npcClues[actualNpcId]?.nextNPC || null
+          }, { transaction: t });
+          
+          console.log(`✅ 线索保存成功！`);
+        } catch (clueError) {
+          console.error("⚠️ 保存线索记录失败 (可能是数据库字段未迁移):", clueError.message);
+          // 这里的错误不回滚事务，允许玩家继续保存餐食记录
+        }
+      }
+    } catch (clueLogicError) {
+      console.error("⚠️ 获取线索逻辑出错 (允许继续保存餐食):", clueLogicError.message);
     }
 
     // 预创建下一天的 progress
