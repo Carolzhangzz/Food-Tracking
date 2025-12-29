@@ -434,19 +434,33 @@ const Control = memo(() => {
         </div>
       </div>
 
-      {/* 🛠️ 调试：强制触发结局按钮 (仅玩家 002 可见) - 小屏幕适配 */}
-      {playerId === '002' && (
+      {/* 🏆 查看最终报告按钮 - 第7天可见 */}
+      {playerData?.currentDay >= 7 && (
         <button
           onClick={() => {
+            console.log("🏆 手动触发 Final Report");
             setPlayerData(prev => ({ ...prev, gameCompleted: true }));
           }}
           style={{
             ...langButtonStyle,
-            background: "rgba(239, 68, 68, 0.7)",
-            borderColor: "#ef4444",
-            fontSize: isSmallScreen ? "16px" : (isMobile ? "18px" : "14px")
+            background: "linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(245, 158, 11, 0.9) 100%)",
+            borderColor: "#f59e0b",
+            borderWidth: "3px",
+            fontSize: isSmallScreen ? "20px" : (isMobile ? "22px" : "18px"),
+            boxShadow: "0 6px 20px rgba(251, 191, 36, 0.6), 0 0 30px rgba(251, 191, 36, 0.3)",
+            fontWeight: "bold",
+            transform: "scale(1)",
+            transition: "all 0.3s ease"
           }}
-          title="Force Final Report (Debug)"
+          onMouseEnter={(e) => {
+            e.target.style.transform = "scale(1.1)";
+            e.target.style.boxShadow = "0 8px 30px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.5)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = "scale(1)";
+            e.target.style.boxShadow = "0 6px 20px rgba(251, 191, 36, 0.6), 0 0 30px rgba(251, 191, 36, 0.3)";
+          }}
+          title={playerData.language === "zh" ? "🎉 查看最终报告" : "🎉 View Final Report"}
         >
           🏆
         </button>
