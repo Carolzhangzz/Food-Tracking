@@ -45,7 +45,7 @@ html {
 
 /* ===== Body 样式 ===== */
 body {
-  font-family: 'Courier New', monospace;
+  font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
   width: 100vw;
   height: 100vh;

@@ -165,13 +165,13 @@ function CutScenePlayer() {
       fontFamily: "system-ui, -apple-system, sans-serif",
     },
     title: {
-      fontSize: isDesktop ? "2.8rem" : "clamp(1.2rem, 4vw, 1.8rem)",
+      fontSize: isDesktop ? "2.8rem" : "clamp(1.5rem, 5vw, 2.2rem)", // 🔧 手机版标题放大
       color: "#ffd700",
       marginBottom: isDesktop ? "2.5rem" : "1.5rem",
       marginTop: isDesktop ? "3.5rem" : "2rem",
       textAlign: "center",
       textShadow: "2px 2px 6px rgba(0,0,0,0.8)",
-      fontWeight: "600",
+      fontWeight: "700",
     },
     content: {
       flex: 1,
@@ -229,14 +229,14 @@ function CutScenePlayer() {
               <p 
                 key={index} 
                 style={{
-                  fontSize: isDesktop ? "1.6rem" : "clamp(0.95rem, 2.5vw, 1.2rem)",
-                  lineHeight: isDesktop ? 2.2 : 1.7,
-                  margin: isDesktop ? "2rem 0" : "1rem 0",
+                  fontSize: isDesktop ? "1.6rem" : "clamp(1.1rem, 3.5vw, 1.4rem)", // 🔧 手机版内容放大
+                  lineHeight: isDesktop ? 2.2 : 1.8,
+                  margin: isDesktop ? "2rem 0" : "1.2rem 0",
                   opacity: 0,
                   animation: `fadeIn 0.8s ease-in-out ${index * 0.25}s forwards`,
                   textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
                   textAlign: "center",
-                  fontWeight: isDesktop ? "400" : "300",
+                  fontWeight: isDesktop ? "400" : "400",
                 }}
               >
                 {line}

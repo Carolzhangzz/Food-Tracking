@@ -203,16 +203,17 @@ export default class UIManager {
 
     // 标题
     const title = this.scene.add.text(x, y - height / 2 + 35, lang === "zh" ? "📖 线索本" : "📖 Clue Book", {
-      fontSize: isMobile ? "22px" : "28px",
-      fontFamily: "monospace",
+      fontSize: isMobile ? "24px" : "28px",
+      fontFamily: "Arial, sans-serif",
       fill: "#a78bfa",
-        fontStyle: "bold",
+      fontStyle: "bold",
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
 
     // 关闭按钮
     const closeBtn = this.scene.add.text(x + width / 2 - 35, y - height / 2 + 35, "✕", {
-      fontSize: "28px",
+      fontSize: isMobile ? "32px" : "28px",
       fill: "#ef4444",
+      fontStyle: "bold",
     }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive({ useHandCursor: true });
     
     // 🔧 确保关闭按钮只绑定一次事件
@@ -238,23 +239,29 @@ export default class UIManager {
 
     // 内容渲染
     const clueTexts = [];
+    const itemFontSize = isMobile ? "18px" : "14px";
+    const itemSpacing = isMobile ? 30 : 20;
+
     if (this.clues.length === 0) {
       const empty = this.scene.add.text(x, y, lang === "zh" ? "暂无收集线索..." : "No clues yet...", {
-        fontSize: "16px",
+        fontSize: isMobile ? "20px" : "16px",
+        fontFamily: "Arial, sans-serif",
         fill: "#64748b",
         align: "center"
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
       clueTexts.push(empty);
     } else {
-      let currentY = y - height / 2 + 90;
+      let currentY = y - height / 2 + 100;
       this.clues.forEach(clue => {
         const text = this.scene.add.text(x - width / 2 + 25, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
-          fontSize: "14px",
+          fontSize: itemFontSize,
+          fontFamily: "Arial, sans-serif",
           fill: clue.clueType === 'true' ? "#fbbf24" : "#e2e8f0",
-          wordWrap: { width: width - 50 }
+          wordWrap: { width: width - 50 },
+          lineSpacing: 6
         }).setScrollFactor(0).setDepth(201);
         clueTexts.push(text);
-        currentY += text.height + 20;
+        currentY += text.height + itemSpacing;
       });
     }
 
@@ -297,14 +304,22 @@ export default class UIManager {
   }
 
   showNotification(message) {
-    const txt = this.scene.add.text(this.scene.cameras.main.centerX, 100, message, {
-      fontSize: "20px",
+    const isMobile = this.scene.isMobile;
+    const txt = this.scene.add.text(this.scene.cameras.main.centerX, isMobile ? 60 : 100, message, {
+      fontSize: isMobile ? "24px" : "20px",
+      fontFamily: "Arial, sans-serif",
       fill: "#fbbf24",
-      backgroundColor: "#000000aa",
-      padding: { x: 15, y: 10 }
+      backgroundColor: "#000000cc",
+      padding: { x: 20, y: 12 },
+      stroke: "#000000",
+      strokeThickness: 2,
+      align: "center",
+      wordWrap: { width: this.scene.cameras.main.width - 40 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
     
-    this.scene.time.delayedCall(3000, () => txt.destroy());
+    this.scene.time.delayedCall(3000, () => {
+      if (txt && txt.destroy) txt.destroy();
+    });
   }
 
   createDateDisplay() {

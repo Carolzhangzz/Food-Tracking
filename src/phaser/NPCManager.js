@@ -166,8 +166,8 @@ export default class NPCManager {
         .setInteractive({ useHandCursor: true });
 
       // 添加NPC名字标签（手机版放大字体）
-      const nameFontSize = isMobile ? "16px" : "11px"; // 手机版字体放大
-      const nameYOffset = isMobile ? -40 : -28; // 手机版名字位置上移
+      const nameFontSize = isMobile ? "18px" : "11px"; // 手机版字体进一步放大
+      const nameYOffset = isMobile ? -45 : -28; // 手机版名字位置进一步上移
       
       const nameText = this.scene.add.text(
         npcData.position.x,
@@ -175,12 +175,13 @@ export default class NPCManager {
         npcName,
         {
           fontSize: nameFontSize,
-          fontFamily: "Arial, sans-serif", // 使用更清晰的字体
+          fontFamily: "Arial, sans-serif",
           fill: "#ffffff",
           backgroundColor: "#000000dd",
-          padding: { x: 6, y: 4 },
-          stroke: "#000000", // 添加描边
-          strokeThickness: 2, // 描边厚度
+          padding: { x: 10, y: 6 }, // 增加 padding
+          stroke: "#000000",
+          strokeThickness: 4, // 加粗描边
+          fontStyle: "bold", // 设置为粗体
         }
       );
       nameText.setOrigin(0.5).setDepth(6);
@@ -207,8 +208,8 @@ export default class NPCManager {
       activeIndicator.setOrigin(0.5).setDepth(6).setVisible(false);
 
       // 天数标签（显示第X天，手机版放大）
-      const dayFontSize = isMobile ? "14px" : "10px";
-      const dayYOffset = isMobile ? 45 : 32;
+      const dayFontSize = isMobile ? "16px" : "10px";
+      const dayYOffset = isMobile ? 50 : 32;
       const dayLabel = this.scene.add.text(
         npcData.position.x,
         npcData.position.y + dayYOffset,
@@ -218,9 +219,10 @@ export default class NPCManager {
           fontFamily: "Arial, sans-serif",
           fill: "#fbbf24",
           backgroundColor: "#00000099",
-          padding: { x: 5, y: 3 },
+          padding: { x: 8, y: 5 }, // 增加 padding
           stroke: "#000000",
-          strokeThickness: 1,
+          strokeThickness: 3, // 加粗描边
+          fontStyle: "bold", // 设置为粗体
         }
       );
       dayLabel.setOrigin(0.5).setDepth(6);
