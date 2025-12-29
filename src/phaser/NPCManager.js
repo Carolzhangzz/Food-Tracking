@@ -149,12 +149,13 @@ export default class NPCManager {
     this.npcData.forEach((npcData, index) => {
       const npcName = npcData.name[lang] || npcData.name.zh;
 
-      // 🔧 调整NPC缩放比例：
-      // 大幅缩小 NPC 比例
-      let npcScale = 0.08; // 基础缩放（男NPC）
+      // 🔧 调整NPC缩放比例（手机版放大）
+      const isMobile = window.innerWidth < 768;
+      let npcScale = isMobile ? 0.13 : 0.08; // 手机版放大60%
       if (npcData.id === 'shop_owner' || npcData.id === 'spice_granny' || npcData.id === 'secret_apprentice') {
-        npcScale = 0.09; // 女NPC稍微放大一点点
+        npcScale = isMobile ? 0.14 : 0.09; // 女NPC稍微放大一点
       }
+      console.log(`📱 NPC ${npcData.id} 缩放: ${npcScale} (${isMobile ? '手机版' : '桌面版'})`);
 
       // 创建NPC精灵 - 🔧 使用单独NPC图片
       const npcSprite = this.scene.physics.add
@@ -164,50 +165,62 @@ export default class NPCManager {
         .setScale(npcScale)  // 🔧 动态缩放
         .setInteractive({ useHandCursor: true });
 
-      // 添加NPC名字标签
+      // 添加NPC名字标签（手机版放大字体）
+      const nameFontSize = isMobile ? "16px" : "11px"; // 手机版字体放大
+      const nameYOffset = isMobile ? -40 : -28; // 手机版名字位置上移
+      
       const nameText = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y - 28,  // 🔧 缩小NPC后调整：名字位置更近
+        npcData.position.y + nameYOffset,
         npcName,
         {
-          fontSize: "11px",  // 🔧 缩小NPC后调整：字体稍小
-          fontFamily: "monospace",
+          fontSize: nameFontSize,
+          fontFamily: "Arial, sans-serif", // 使用更清晰的字体
           fill: "#ffffff",
           backgroundColor: "#000000dd",
-          padding: { x: 5, y: 3 },
+          padding: { x: 6, y: 4 },
+          stroke: "#000000", // 添加描边
+          strokeThickness: 2, // 描边厚度
         }
       );
       nameText.setOrigin(0.5).setDepth(6);
 
-      // 创建锁定图标 🔒
+      // 创建锁定图标 🔒（手机版放大）
+      const lockIconSize = isMobile ? "28px" : "20px";
       const lockIcon = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y,  // 🔧 缩小NPC后：放在中心
+        npcData.position.y,
         "🔒",
-        { fontSize: "20px" }  // 🔧 缩小NPC后调整：图标稍小
+        { fontSize: lockIconSize }
       );
-      lockIcon.setOrigin(0.5).setDepth(7).setVisible(false);  // depth=7高于NPC
+      lockIcon.setOrigin(0.5).setDepth(7).setVisible(false);
 
-      // 创建当前可交互指示器 ⬇️
+      // 创建当前可交互指示器 ⬇️（手机版放大）
+      const indicatorSize = isMobile ? "26px" : "18px";
+      const indicatorYOffset = isMobile ? -55 : -40;
       const activeIndicator = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y - 40,  // 🔧 缩小NPC后调整：箭头位置更近
+        npcData.position.y + indicatorYOffset,
         "⬇️",
-        { fontSize: "18px" }  // 🔧 缩小NPC后调整：箭头稍小
+        { fontSize: indicatorSize }
       );
       activeIndicator.setOrigin(0.5).setDepth(6).setVisible(false);
 
-      // 天数标签（显示第X天）
+      // 天数标签（显示第X天，手机版放大）
+      const dayFontSize = isMobile ? "14px" : "10px";
+      const dayYOffset = isMobile ? 45 : 32;
       const dayLabel = this.scene.add.text(
         npcData.position.x,
-        npcData.position.y + 32,  // 🔧 缩小NPC后调整：标签位置更近
+        npcData.position.y + dayYOffset,
         `${lang === "zh" ? "第" : "Day "}${npcData.unlockDay}${lang === "zh" ? "天" : ""}`,
         {
-          fontSize: "10px",  // 🔧 缩小NPC后调整：字体稍小
-          fontFamily: "monospace",
+          fontSize: dayFontSize,
+          fontFamily: "Arial, sans-serif",
           fill: "#fbbf24",
           backgroundColor: "#00000099",
-          padding: { x: 4, y: 2 },
+          padding: { x: 5, y: 3 },
+          stroke: "#000000",
+          strokeThickness: 1,
         }
       );
       dayLabel.setOrigin(0.5).setDepth(6);

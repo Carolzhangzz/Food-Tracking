@@ -201,12 +201,18 @@ export default class MainScene extends Phaser.Scene {
       const startX = mapW * 0.15;  // 地图左侧15%位置
       const startY = mapH * 0.7;   // 地图下方70%位置
       
+      // 🔧 根据屏幕大小调整玩家缩放（手机版放大）
+      const isMobile = window.innerWidth < 768;
+      const playerScale = isMobile ? 0.18 : 0.12; // 手机版放大50%
+      
       this.player = this.physics.add
         .sprite(startX, startY, playerImageKey)
         .setOrigin(0.5)
         .setDepth(10)
         .setCollideWorldBounds(true)
-        .setScale(0.12);
+        .setScale(playerScale);
+      
+      console.log(`📱 玩家缩放: ${playerScale} (${isMobile ? '手机版' : '桌面版'})`);
 
       // 初始化点击移动变量
       this.isMovingToTarget = false;
@@ -215,14 +221,14 @@ export default class MainScene extends Phaser.Scene {
 
       console.log(`🎮 玩家位置: (${startX}, ${startY}), 静态图片（无动画）`);
 
-      // === 3️⃣ 摄像机设置（手机游戏：横向铺满屏幕）===
+      // === 3️⃣ 摄像机设置（显示完整地图）===
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
 
-      // 🔧 计算缩放：横向铺满，让地图宽度完全填充屏幕宽度
+      // 🔧 计算缩放：使用较小的缩放值，确保地图完整显示
       const zoomX = screenW / mapW;
       const zoomY = screenH / mapH;
-      const zoom = Math.max(zoomX, zoomY); // 使用较大的缩放值，确保铺满屏幕
+      const zoom = Math.min(zoomX, zoomY) * 0.95; // 使用较小值，并留5%边距
 
       this.cameras.main.setZoom(zoom);
       this.cameras.main.setBounds(0, 0, mapW, mapH);
@@ -230,11 +236,12 @@ export default class MainScene extends Phaser.Scene {
       // 🎯 居中地图（不跟随玩家）
       this.cameras.main.centerOn(mapW / 2, mapH / 2);
 
-      console.log(`📷 摄像机设置: zoom=${zoom.toFixed(2)}, 横向铺满屏幕`, {
+      console.log(`📷 摄像机设置: zoom=${zoom.toFixed(2)}, 完整显示地图`, {
         地图尺寸: `${mapW}x${mapH}`,
         屏幕尺寸: `${screenW}x${screenH}`,
         zoomX: zoomX.toFixed(2),
-        zoomY: zoomY.toFixed(2)
+        zoomY: zoomY.toFixed(2),
+        选用zoom: '较小值以显示完整地图'
       });
 
       // 🎯 添加点击移动功能
