@@ -5,7 +5,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 
 // 🔧 版本控制：强制清除旧版本缓存
-const APP_VERSION = '2.0.0'; // 每次部署更新这个版本号
+const APP_VERSION = '2.0.1'; // 每次部署更新这个版本号
 const VERSION_KEY = 'app_version';
 
 try {
