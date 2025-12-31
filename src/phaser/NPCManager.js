@@ -207,7 +207,7 @@ export default class NPCManager {
       );
       activeIndicator.setOrigin(0.5).setDepth(6).setVisible(false);
 
-      // 天数标签（显示第X天，手机版放大）
+      // 天数标签（显示第X天，手机版放大） - 🔧 隐藏以增加解谜感
       const dayFontSize = isMobile ? "16px" : "10px";
       const dayYOffset = isMobile ? 50 : 32;
       const dayLabel = this.scene.add.text(
@@ -225,7 +225,7 @@ export default class NPCManager {
           fontStyle: "bold", // 设置为粗体
         }
       );
-      dayLabel.setOrigin(0.5).setDepth(6);
+      dayLabel.setOrigin(0.5).setDepth(6).setVisible(false); // 🔧 默认隐藏天数标签
 
       // 点击事件
       npcSprite.on("pointerdown", () => {
@@ -381,6 +381,9 @@ export default class NPCManager {
     
     // 3. 刷新状态（比如解锁提示语）
     this.updateNPCStates();
+    
+    // 🔧 额外延迟刷新一次，确保所有数据加载完成后 UI 正确
+    this.scene.time.delayedCall(500, () => this.updateNPCStates());
   }
 
   handleNPCClick(npcData, sprite) {

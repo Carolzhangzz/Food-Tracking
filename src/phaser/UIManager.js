@@ -17,8 +17,8 @@ export default class UIManager {
     this.createDateDisplay();
     this.createMealProgress();
     
-    // 🔧 从 localStorage 加载线索
-    this.loadCluesFromLocalStorage();
+    // 🔧 优先从 API 加载（实现跨设备同步）
+    this.loadCluesFromAPI();
     
     // 初始同步一次线索数量
     this.updateClueCountBadge();
@@ -305,8 +305,10 @@ export default class UIManager {
 
   showNotification(message) {
     const isMobile = this.scene.isMobile;
-    const txt = this.scene.add.text(this.scene.cameras.main.centerX, isMobile ? 60 : 100, message, {
-      fontSize: isMobile ? "24px" : "20px",
+    const centerX = this.scene.scale.width / 2; // 🔧 使用当前 canvas 宽度的一半，更准确
+    
+    const txt = this.scene.add.text(centerX, isMobile ? 60 : 80, message, {
+      fontSize: isMobile ? "24px" : "22px",
       fontFamily: "Arial, sans-serif",
       fill: "#fbbf24",
       backgroundColor: "#000000cc",
@@ -314,7 +316,7 @@ export default class UIManager {
       stroke: "#000000",
       strokeThickness: 2,
       align: "center",
-      wordWrap: { width: this.scene.cameras.main.width - 40 }
+      wordWrap: { width: this.scene.scale.width - 40 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
     
     this.scene.time.delayedCall(3000, () => {
