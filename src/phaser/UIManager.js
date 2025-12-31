@@ -27,34 +27,23 @@ export default class UIManager {
   // 🔧 从 API 加载所有线索
   async loadCluesFromAPI() {
     const playerId = this.scene.playerId;
-    if (!playerId) {
-      console.warn("⚠️ UIManager: loadCluesFromAPI 失败 - 未找到 playerId");
-      return;
-    }
+    if (!playerId) return;
 
     try {
-      console.log(`📥 UIManager: 正在从后端加载线索数据 (PlayerID: ${playerId})...`);
+      console.log(`📥 UIManager: 正在从数据库拉取线索 (PlayerID: ${playerId})...`);
       
-      // 🔧 改进 API 地址获取逻辑
       let API_URL = this.scene.API_URL || process.env.REACT_APP_API_URL || window.location.origin + "/api";
-      
-      // 确保如果是 localhost:3000 则映射到 5000 (针对本地开发)
-      if (API_URL.includes('localhost:3000')) {
-        API_URL = API_URL.replace('3000', '5000');
-      }
+      if (API_URL.includes('localhost:3000')) API_URL = API_URL.replace('3000', '5000');
       
       const fetchURL = API_URL.endsWith('/api') ? `${API_URL}/clues/${playerId}` : `${API_URL}/api/clues/${playerId}`;
-      
       const response = await fetch(fetchURL);
       
-      if (!response.ok) {
-        throw new Error(`HTTP 错误: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP 错误: ${response.status}`);
 
       const data = await response.json();
       if (data.success && Array.isArray(data.clues)) {
-        // 映射后端字段到前端格式
-        this.clues = data.clues.map(c => ({
+        // 1. 映射后端字段
+        const syncedClues = data.clues.map(c => ({
           npcId: c.npcId,
           npcName: c.npcName || c.npcId,
           clue: c.clueText || c.clue,
@@ -62,11 +51,18 @@ export default class UIManager {
           timestamp: new Date(c.receivedAt).getTime()
         }));
         
-        console.log(`✅ UIManager: 成功加载了 ${this.clues.length} 条线索`);
+        // 2. 更新内存
+        this.clues = syncedClues;
+        
+        // 3. ⚠️ 关键：同步回 localStorage，防止被旧手机的空数据覆盖
+        const key = `clues_${playerId}`;
+        localStorage.setItem(key, JSON.stringify(this.clues));
+        
+        console.log(`✅ UIManager: 已同步 ${this.clues.length} 条线索到设备存储`);
         this.updateClueCountBadge();
       }
     } catch (error) {
-      console.error("❌ UIManager: 加载线索过程中出错:", error);
+      console.error("❌ UIManager: 同步线索失败:", error);
     }
   }
 
@@ -94,8 +90,8 @@ export default class UIManager {
       this.hideCluePanel();
     }
     
-    // 🔧 从 localStorage 重新加载线索（确保最新）
-    this.loadCluesFromLocalStorage();
+    // 🔧 关键：打开前强制同步一次 API，而不是依赖本地存储
+    await this.loadCluesFromAPI();
     
     // 显示面板
     this.showCluePanel();
