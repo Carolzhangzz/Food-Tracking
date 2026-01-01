@@ -42,7 +42,10 @@ coverage/
 *.md
 !README.md
 !DEPLOYMENT_GUIDE.md
-server/scripts/
+!QUICK_DEPLOY.md
+!DEPLOYMENT_CHECKLIST.md
+!DEPLOYMENT_SUMMARY.md
+!MOBILE_FIX_GUIDE.md
 
 # Backup files
 *.backup

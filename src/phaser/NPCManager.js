@@ -166,8 +166,8 @@ export default class NPCManager {
         .setInteractive({ useHandCursor: true });
 
       // 添加NPC名字标签（手机版放大字体）
-      const nameFontSize = isMobile ? "18px" : "11px"; // 手机版字体进一步放大
-      const nameYOffset = isMobile ? -45 : -28; // 手机版名字位置进一步上移
+      const nameFontSize = isMobile ? "22px" : "11px"; // 🔧 手机版进一步加大
+      const nameYOffset = isMobile ? -55 : -28; // 🔧 手机版名字位置进一步上移
       
       const nameText = this.scene.add.text(
         npcData.position.x,
@@ -177,17 +177,17 @@ export default class NPCManager {
           fontSize: nameFontSize,
           fontFamily: "Arial, sans-serif",
           fill: "#ffffff",
-          backgroundColor: "#000000dd",
-          padding: { x: 10, y: 6 }, // 增加 padding
+          backgroundColor: "#000000cc", // 稍微透明一点但依然清晰
+          padding: { x: 12, y: 8 }, // 🔧 增加 padding 让背景黑框更大更醒目
           stroke: "#000000",
-          strokeThickness: 4, // 加粗描边
-          fontStyle: "bold", // 设置为粗体
+          strokeThickness: 5, // 🔧 加粗描边
+          fontStyle: "bold",
         }
       );
       nameText.setOrigin(0.5).setDepth(6);
 
       // 创建锁定图标 🔒（手机版放大）
-      const lockIconSize = isMobile ? "28px" : "20px";
+      const lockIconSize = isMobile ? "36px" : "20px"; // 🔧 锁图标加大
       const lockIcon = this.scene.add.text(
         npcData.position.x,
         npcData.position.y,
@@ -197,8 +197,8 @@ export default class NPCManager {
       lockIcon.setOrigin(0.5).setDepth(7).setVisible(false);
 
       // 创建当前可交互指示器 ⬇️（手机版放大）
-      const indicatorSize = isMobile ? "26px" : "18px";
-      const indicatorYOffset = isMobile ? -55 : -40;
+      const indicatorSize = isMobile ? "32px" : "18px"; // 🔧 指示器加大
+      const indicatorYOffset = isMobile ? -65 : -40; // 🔧 随名字上移
       const activeIndicator = this.scene.add.text(
         npcData.position.x,
         npcData.position.y + indicatorYOffset,

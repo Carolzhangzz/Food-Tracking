@@ -23,7 +23,8 @@ export default class DialogUIManager {
     this.dialogContainer = document.createElement("div");
     this.dialogContainer.id = "dialog-container";
     const isSmallScreen = width < 600;
-    const margin = isSmallScreen ? "8px" : (isMobile ? "15px" : "40px");
+    // 🔧 针对手机横屏优化：减少边距，增加紧凑度
+    const margin = isSmallScreen ? "4px" : (isMobile ? "10px" : "40px");
     this.dialogContainer.style.cssText = `
       position: fixed;
       left: ${margin};
@@ -32,15 +33,14 @@ export default class DialogUIManager {
       bottom: ${margin};
       width: auto;
       height: auto;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.92) 100%);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.94) 100%);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 2px solid rgba(99, 102, 241, 0.4);
-      border-radius: ${isSmallScreen ? "12px" : (isMobile ? "16px" : "24px")};
+      border: 1.5px solid rgba(99, 102, 241, 0.4);
+      border-radius: ${isSmallScreen ? "8px" : (isMobile ? "12px" : "24px")};
       box-shadow: 
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-        0 0 60px rgba(99, 102, 241, 0.3);
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -51,39 +51,37 @@ export default class DialogUIManager {
     // 创建标题栏
     const header = document.createElement("div");
     header.style.cssText = `
-      padding: ${isMobile ? "12px 16px" : "24px 32px"};
+      padding: ${isMobile ? "8px 12px" : "24px 32px"};
       background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(129, 140, 248, 0.15) 100%);
-      border-bottom: 2px solid rgba(99, 102, 241, 0.3);
+      border-bottom: 1.5px solid rgba(99, 102, 241, 0.3);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      height: ${isMobile ? "32px" : "auto"};
     `;
 
     const npcName = document.createElement("div");
     npcName.id = "dialog-npc-name";
-    // 🔧 修复：使用getNPCDisplayName()获取正确的名字
     npcName.textContent = this.getNPCDisplayName();
     npcName.style.cssText = `
-      font-size: ${isMobile ? "20px" : "32px"};
+      font-size: ${isMobile ? "16px" : "32px"};
       font-weight: 700;
       color: #e0e7ff;
       text-shadow: 0 2px 10px rgba(99, 102, 241, 0.6);
-      letter-spacing: 0.5px;
     `;
 
     const closeBtn = document.createElement("button");
     closeBtn.innerHTML = "✕";
     closeBtn.style.cssText = `
-      width: ${isMobile ? "32px" : "44px"};
-      height: ${isMobile ? "32px" : "44px"};
+      width: ${isMobile ? "24px" : "44px"};
+      height: ${isMobile ? "24px" : "44px"};
       border-radius: 50%;
-      border: 2px solid rgba(239, 68, 68, 0.4);
-      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      background: rgba(239, 68, 68, 0.15);
       color: #fca5a5;
-      font-size: ${isMobile ? "18px" : "24px"};
+      font-size: ${isMobile ? "14px" : "24px"};
       cursor: pointer;
-      transition: all 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -109,10 +107,10 @@ export default class DialogUIManager {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: ${isMobile ? "12px 16px" : "32px 40px"};
+      padding: ${isMobile ? "8px 12px" : "32px 40px"};
       display: flex;
       flex-direction: column;
-      gap: ${isMobile ? "8px" : "20px"};
+      gap: ${isMobile ? "6px" : "20px"};
       scroll-behavior: smooth;
       min-height: 0;
     `;
@@ -275,15 +273,15 @@ export default class DialogUIManager {
       const bubble = document.createElement("div");
       const isSmallScreen = width < 600; // 🔧 特别小的屏幕（如手机横屏）
       bubble.style.cssText = `
-        max-width: ${isSmallScreen ? "75%" : (isMobile ? "80%" : "80%")};
-        padding: ${isSmallScreen ? "8px 12px" : (isMobile ? "10px 14px" : "16px 24px")};
-        border-radius: ${isNPC ? "16px 16px 16px 4px" : "16px 16px 4px 16px"};
+        max-width: ${isSmallScreen ? "85%" : (isMobile ? "80%" : "80%")};
+        padding: ${isSmallScreen ? "6px 10px" : (isMobile ? "10px 14px" : "16px 24px")};
+        border-radius: ${isNPC ? "12px 12px 12px 4px" : "12px 12px 4px 12px"};
         background: ${
           isNPC
             ? "linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)"
             : "linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(74, 222, 128, 0.2) 100%)"
         };
-        border: 1.5px solid ${
+        border: 1px solid ${
           isNPC ? "rgba(99, 102, 241, 0.4)" : "rgba(34, 197, 94, 0.4)"
         };
         box-shadow: ${
@@ -303,10 +301,10 @@ export default class DialogUIManager {
         speakerLabel.textContent = isNPC ? npcDisplayName : (this.scene.playerData?.language === "zh" ? "你" : "You");
       }
       speakerLabel.style.cssText = `
-        font-size: ${isMobile ? "18px" : "16px"};
+        font-size: ${isMobile ? "15px" : "16px"};
         color: ${isNPC ? "rgba(165, 180, 252, 0.9)" : "rgba(134, 239, 172, 0.9)"};
         font-weight: 700;
-        margin-bottom: 8px;
+        margin-bottom: ${isMobile ? "4px" : "8px"};
         letter-spacing: 0.5px;
       `;
 
@@ -319,9 +317,9 @@ export default class DialogUIManager {
       }
       // 🔧 使用已声明的 isSmallScreen 变量
       textContent.style.cssText = `
-        font-size: ${isSmallScreen ? "14px" : (isMobile ? "15px" : "22px")};
+        font-size: ${isSmallScreen ? "13px" : (isMobile ? "15px" : "22px")};
         color: #f1f5f9;
-        line-height: 1.5;
+        line-height: ${isMobile ? "1.4" : "1.5"};
         word-wrap: break-word;
         word-break: break-word;
       `;
@@ -361,20 +359,20 @@ export default class DialogUIManager {
 
     const bubble = document.createElement("div");
     bubble.style.cssText = `
-      padding: ${isMobile ? "12px 20px" : "14px 24px"};
+      padding: ${isMobile ? "6px 12px" : "14px 24px"};
       border-radius: 20px 20px 20px 4px;
       background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(129, 140, 248, 0.1) 100%);
       border: 1px solid rgba(99, 102, 241, 0.25);
       display: flex;
-      gap: 6px;
+      gap: ${isMobile ? "4px" : "6px"};
       align-items: center;
     `;
 
     for (let i = 0; i < 3; i++) {
       const dot = document.createElement("div");
       dot.style.cssText = `
-        width: 8px;
-        height: 8px;
+        width: ${isMobile ? "6px" : "8px"};
+        height: ${isMobile ? "6px" : "8px"};
         border-radius: 50%;
         background: rgba(165, 180, 252, 0.8);
         animation: pulse 1.4s ease-in-out infinite;
@@ -417,10 +415,12 @@ export default class DialogUIManager {
     buttonsWrapper.style.cssText = `
       display: flex;
       flex-direction: column;
-      gap: ${isSmallScreen ? "8px" : (isMobile ? "10px" : "14px")};
+      gap: ${isSmallScreen ? "6px" : (isMobile ? "8px" : "14px")};
       width: 100%;
       max-width: ${isMobile ? "100%" : "1200px"};
       margin: 0 auto;
+      max-height: ${isSmallScreen ? "120px" : "auto"};
+      overflow-y: auto;
     `;
 
     options.forEach((option) => {
@@ -429,21 +429,21 @@ export default class DialogUIManager {
       button.textContent = option.text;
       button.style.cssText = `
         width: 100%;
-        padding: ${isSmallScreen ? "10px 14px" : (isMobile ? "12px 16px" : "20px 28px")};
-        font-size: ${isSmallScreen ? "14px" : (isMobile ? "15px" : "22px")};
+        padding: ${isSmallScreen ? "8px 12px" : (isMobile ? "12px 16px" : "20px 28px")};
+        font-size: ${isSmallScreen ? "13px" : (isMobile ? "15px" : "22px")};
         font-weight: 600;
         color: #ffffff;
         background: linear-gradient(135deg, rgba(99, 102, 241, 0.7) 0%, rgba(129, 140, 248, 0.6) 100%);
-        border: 2px solid rgba(99, 102, 241, 0.5);
-        border-radius: ${isSmallScreen ? "10px" : "14px"};
+        border: 1.5px solid rgba(99, 102, 241, 0.5);
+        border-radius: ${isSmallScreen ? "8px" : "14px"};
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         white-space: normal;
         text-align: left;
-        line-height: 1.3;
+        line-height: 1.2;
       `;
 
       button.onclick = () => {
@@ -490,12 +490,12 @@ export default class DialogUIManager {
     input.placeholder = this.scene.playerData?.language === "zh" ? "输入您的回答..." : "Type your answer...";
     input.style.cssText = `
       flex: 1;
-      padding: ${isMobile ? "18px 20px" : "20px 24px"};
-      font-size: ${isMobile ? "20px" : "22px"};
+      padding: ${isMobile ? "12px 16px" : "20px 24px"};
+      font-size: ${isMobile ? "16px" : "22px"};
       color: #f1f5f9;
       background: rgba(15, 23, 42, 0.7);
-      border: 2px solid rgba(99, 102, 241, 0.4);
-      border-radius: 14px;
+      border: 1.5px solid rgba(99, 102, 241, 0.4);
+      border-radius: ${isMobile ? "10px" : "14px"};
       transition: all 0.3s;
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -504,16 +504,16 @@ export default class DialogUIManager {
     const submitBtn = document.createElement("button");
     submitBtn.textContent = this.scene.playerData?.language === "zh" ? "发送" : "Send";
     submitBtn.style.cssText = `
-      padding: ${isMobile ? "18px 32px" : "20px 40px"};
-      font-size: ${isMobile ? "20px" : "22px"};
+      padding: ${isMobile ? "12px 20px" : "20px 40px"};
+      font-size: ${isMobile ? "16px" : "22px"};
       font-weight: 700;
       color: #ffffff;
       background: linear-gradient(135deg, rgba(34, 197, 94, 0.8) 0%, rgba(74, 222, 128, 0.7) 100%);
-      border: 2px solid rgba(34, 197, 94, 0.6);
-      border-radius: 14px;
+      border: 1.5px solid rgba(34, 197, 94, 0.6);
+      border-radius: ${isMobile ? "10px" : "14px"};
       cursor: pointer;
       transition: all 0.3s;
-      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
       white-space: nowrap;
       flex-shrink: 0;
     `;

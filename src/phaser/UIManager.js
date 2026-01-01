@@ -235,14 +235,14 @@ export default class UIManager {
 
     // 内容渲染
     const clueTexts = [];
-    const itemFontSize = isMobile ? "18px" : "14px";
-    const itemSpacing = isMobile ? 30 : 20;
+    const itemFontSize = isMobile ? "20px" : "14px";
+    const itemSpacing = isMobile ? 35 : 20;
 
     if (this.clues.length === 0) {
       const empty = this.scene.add.text(x, y, lang === "zh" ? "暂无收集线索..." : "No clues yet...", {
-        fontSize: isMobile ? "20px" : "16px",
+        fontSize: isMobile ? "24px" : "16px",
         fontFamily: "Arial, sans-serif",
-        fill: "#64748b",
+        fill: "#94a3b8", // 亮一点的灰色
         align: "center"
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
       clueTexts.push(empty);
@@ -252,9 +252,10 @@ export default class UIManager {
         const text = this.scene.add.text(x - width / 2 + 25, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
           fontSize: itemFontSize,
           fontFamily: "Arial, sans-serif",
-          fill: clue.clueType === 'true' ? "#fbbf24" : "#e2e8f0",
+          fontWeight: isMobile ? "bold" : "normal",
+          fill: clue.clueType === 'true' ? "#fbbf24" : "#ffffff", // 普通线索改白色，高对比
           wordWrap: { width: width - 50 },
-          lineSpacing: 6
+          lineSpacing: isMobile ? 10 : 6 // 手机端增加行距
         }).setScrollFactor(0).setDepth(201);
         clueTexts.push(text);
         currentY += text.height + itemSpacing;
