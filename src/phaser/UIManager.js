@@ -242,24 +242,75 @@ export default class UIManager {
       const empty = this.scene.add.text(x, y, lang === "zh" ? "暂无收集线索..." : "No clues yet...", {
         fontSize: isMobile ? "24px" : "16px",
         fontFamily: "Arial, sans-serif",
-        fill: "#94a3b8", // 亮一点的灰色
+        fill: "#94a3b8",
         align: "center"
       }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
       clueTexts.push(empty);
     } else {
-      let currentY = y - height / 2 + 100;
-      this.clues.forEach(clue => {
-        const text = this.scene.add.text(x - width / 2 + 25, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
+      // 🔧 增加滚动容器逻辑
+      const contentX = x - width / 2 + 25;
+      const contentTop = y - height / 2 + 100;
+      const contentHeight = height - 150;
+      
+      // 创建一个容器来存放所有线索
+      const cluesContainer = this.scene.add.container(0, 0);
+      clueTexts.push(cluesContainer); // 方便销毁
+
+      let currentY = 0;
+      this.clues.forEach((clue, index) => {
+        const text = this.scene.add.text(contentX, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
           fontSize: itemFontSize,
           fontFamily: "Arial, sans-serif",
           fontWeight: isMobile ? "bold" : "normal",
-          fill: clue.clueType === 'true' ? "#fbbf24" : "#ffffff", // 普通线索改白色，高对比
+          fill: clue.clueType === 'true' ? "#fbbf24" : "#ffffff",
           wordWrap: { width: width - 50 },
-          lineSpacing: isMobile ? 10 : 6 // 手机端增加行距
-        }).setScrollFactor(0).setDepth(201);
-        clueTexts.push(text);
+          lineSpacing: isMobile ? 10 : 6
+        }).setOrigin(0).setDepth(201);
+        
+        cluesContainer.add(text);
         currentY += text.height + itemSpacing;
       });
+
+      // 设置容器位置
+      cluesContainer.setPosition(0, contentTop);
+      cluesContainer.setScrollFactor(0);
+
+      // 🔧 创建遮罩，只显示中间区域
+      const maskShape = this.scene.add.graphics()
+        .fillStyle(0xffffff)
+        .fillRect(x - width / 2, contentTop, width, contentHeight)
+        .setScrollFactor(0);
+      const mask = maskShape.createGeometryMask();
+      cluesContainer.setMask(mask);
+      clueTexts.push(maskShape); // 方便销毁
+
+      // 🔧 添加滚动交互 (滚轮和拖拽)
+      const maxScroll = Math.max(0, currentY - contentHeight);
+      let targetY = contentTop;
+
+      const updateScroll = (delta) => {
+        // 🔧 使用原生 Math 替代 Phaser.Math.Clamp 避免报错
+        targetY = Math.max(contentTop - maxScroll, Math.min(contentTop, targetY + delta));
+        cluesContainer.y = targetY;
+      };
+
+      // 滚轮支持
+      this.scene.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+        if (this.cluePanel) updateScroll(-deltaY);
+      });
+
+      // 手机滑动支持
+      let isDragging = false;
+      let startY = 0;
+      bg.on('pointerdown', (pointer) => { isDragging = true; startY = pointer.y; });
+      this.scene.input.on('pointermove', (pointer) => {
+        if (isDragging && this.cluePanel) {
+          const deltaY = pointer.y - startY;
+          startY = pointer.y;
+          updateScroll(deltaY);
+        }
+      });
+      this.scene.input.on('pointerup', () => { isDragging = false; });
     }
 
     this.cluePanel = { bg, title, closeBtn, clueTexts };

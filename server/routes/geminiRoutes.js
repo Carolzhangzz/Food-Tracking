@@ -450,11 +450,14 @@ Background: Taught to cook by instinct. Master left a box with her for the playe
 
   const personality = npcPersonalities[npcId] || npcPersonalities.uncle_bo;
   
-  // 🔧 添加显式的问题模板
+  // 🔧 添加显式的问题模板，整合用户提供的固定话术
   const questionTemplates = {
     Q4: `Ask: "What did you have for ${mealType}?" or a character-appropriate variation of this question.`,
     Q5: `Ask: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?" or a character-appropriate variation.`,
-    Q6: `Ask: "Why did you choose this particular food/meal?" or a character-appropriate variation.`,
+    Q6: `This is the FINAL question. You MUST ask: 
+      - If you are Uncle Bo: "Why did you choose this meal, my child? You've always had your reasons—wise ones, I'm sure." or "What made you choose this meal, my child? Chef Hua always believed our cravings have stories to tell." or "And why that dish tonight? Sometimes what we choose to eat tells us what we're missing in spirit."
+      - If you are other NPCs: Ask a character-driven version of "Why did you choose this particular food/meal?" 
+      IMPORTANT: After asking this question, you MUST end with "Thanks for sharing your meal with me."`,
     Q_TIME_FOLLOWUP: `Ask: "Why did you eat at this time rather than earlier or later?" or a character-appropriate variation.`
   };
   
