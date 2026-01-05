@@ -300,7 +300,6 @@ export default class NPCManager {
       // 🔧 解锁逻辑优化：
       // 1. 第1天NPC始终解锁
       // 2. 后续NPC解锁条件：(当前日期天数 >= NPC解锁天数) 且 (前一个NPC对应的日期至少记录了1餐)
-      // 🛠️ 增加容错：如果玩家在第一天记录了多餐，只要有记录，第二天就应该准时解锁
       let isUnlocked = false;
       const isDebugPlayer = this.scene.playerId === '002';
 
@@ -309,12 +308,21 @@ export default class NPCManager {
       } else if (unlockDay === 1) {
         isUnlocked = true;
       } else {
-        // 核心逻辑：当前日期达到了解锁天数，且“前一阶段”的任务已完成
+        // 核心逻辑：当前日期达到了解锁天数，且"前一阶段"的任务已完成
         const reachedRequiredDay = currentDay >= unlockDay;
         const prevDayMeals = this.getMealsForDay(unlockDay - 1);
         const completedPrevTask = prevDayMeals.length >= 1;
         
         isUnlocked = reachedRequiredDay && completedPrevTask;
+        
+        // 🔧 调试日志
+        console.log(`🔍 [NPC解锁检查] NPC: ${npc.data.id}, Day: ${unlockDay}`, {
+          当前天数: currentDay,
+          是否到达天数: reachedRequiredDay,
+          前一天餐数: prevDayMeals.length,
+          是否完成前置: completedPrevTask,
+          最终解锁: isUnlocked
+        });
         
         if (reachedRequiredDay && !completedPrevTask) {
           console.log(`🔒 NPC ${npc.data.id} 未解锁: 已到第 ${unlockDay} 天，但前一天无记录`);

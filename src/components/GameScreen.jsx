@@ -183,11 +183,13 @@ function GameScreen() {
           console.log("✅ Scene fully initialized");
         } else if (checkCount >= maxChecks) {
           clearInterval(sceneCheckIntervalRef.current);
+          console.error("❌ MainScene 初始化超时，强制完成加载");
+          
+          // 🔧 即使超时也要完成加载，让玩家能进入游戏
           setLoadingProgress(100);
           setTimeout(() => {
             setIsLoading(false);
           }, 300);
-          console.warn("⚠️ Scene initialization timeout, forcing load complete");
         }
       }, 100);
 

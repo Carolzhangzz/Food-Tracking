@@ -221,14 +221,12 @@ export default class UIManager {
     
     // 🔧 背景点击也可以关闭（可选）
     bg.on("pointerdown", (pointer) => {
-      // 只有点击背景空白处才关闭，不要点击内容区域就关闭
       const clickX = pointer.x;
       const clickY = pointer.y;
       
       const isOutside = clickX < x - width / 2 + 20 || clickX > x + width / 2 - 20 ||
                         clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
       
-      // 暂时禁用背景点击关闭
       if (isOutside) {
         console.log("🖱️ 点击了外部区域");
       }
@@ -238,6 +236,9 @@ export default class UIManager {
     const clueTexts = [];
     const itemFontSize = isMobile ? "20px" : "14px";
     const itemSpacing = isMobile ? 35 : 20;
+
+    // 🔧 调试：输出当前线索数组
+    console.log(`📚 [UIManager] 当前线索数量: ${this.clues.length}`, this.clues);
 
     if (this.clues.length === 0) {
       const empty = this.scene.add.text(x, y, lang === "zh" ? "暂无收集线索..." : "No clues yet...", {
