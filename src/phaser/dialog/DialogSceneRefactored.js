@@ -73,17 +73,25 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
   // ==================== 场景创建 ====================
   async create() {
-    const { width, height } = this.scale;
+    console.log("🎬 DialogScene create() 开始");
+    
+    try {
+      const { width, height } = this.scale;
 
-    // 🔧 修复：彻底禁用 Phaser 的键盘捕捉，确保 HTML 输入框可以正常按空格、退格等
-    if (this.input && this.input.keyboard) {
-      console.log("⌨️ 正在禁用 Phaser 键盘监听 (对话模式)...");
-      // 禁用整个键盘插件
-      this.input.keyboard.enabled = false;
-      // 清除所有按键捕获（防止冒泡被阻止）
-      if (typeof this.input.keyboard.clearCaptures === 'function') {
-        this.input.keyboard.clearCaptures();
+      // 🔧 修复：彻底禁用 Phaser 的键盘捕捉，确保 HTML 输入框可以正常按空格、退格等
+      if (this.input && this.input.keyboard) {
+        console.log("⌨️ 正在禁用 Phaser 键盘监听 (对话模式)...");
+        // 禁用整个键盘插件
+        this.input.keyboard.enabled = false;
+        // 清除所有按键捕获（防止冒泡被阻止）
+        if (typeof this.input.keyboard.clearCaptures === 'function') {
+          this.input.keyboard.clearCaptures();
+        }
       }
+    } catch (error) {
+      console.error("❌ DialogScene create() 出错:", error);
+      console.error("❌ 错误堆栈:", error.stack);
+      throw error;
     }
 
     // 监听场景关闭或停止，恢复键盘捕捉
@@ -98,24 +106,39 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.events.on('destroy', restoreKeyboard);
 
     // 检查横屏
+    const { width, height } = this.scale;
     if (height > width) {
+      console.warn("⚠️ 检测到竖屏，显示旋转提示");
       this.showRotationMessage();
       return;
     }
 
-    // 1. 创建背景
-    this.createBackground();
+    try {
+      // 1. 创建背景
+      console.log("🖼️ 创建对话背景...");
+      this.createBackground();
 
-    // 2. 创建现代化UI
-    this.uiManager.createDialogBox();
+      // 2. 创建现代化UI
+      console.log("🖥️ 创建对话UI盒子...");
+      this.uiManager.createDialogBox();
 
-    // 🔧 3. 加载并显示历史对话记录
-    await this.loadAndDisplayHistory();
+      // 🔧 3. 加载并显示历史对话记录 (不阻塞后续流程)
+      console.log("📚 加载历史记录...");
+      this.loadAndDisplayHistory().then(() => {
+        console.log("✅ 历史记录加载完成");
+      }).catch(err => {
+        console.error("❌ 历史记录加载失败:", err);
+      });
 
-    // 4. 开始对话流程
-    this.startDialogFlow();
+      // 4. 开始对话流程
+      console.log("🎤 启动对话流...");
+      this.startDialogFlow();
 
-    console.log("✅ DialogScene创建完成");
+      console.log("✅ DialogScene 逻辑执行完毕");
+    } catch (error) {
+      console.error("❌ DialogScene create() 核心逻辑报错:", error);
+      alert("对话加载出错，请刷新页面");
+    }
   }
   
   // 🔧 新增：加载并显示历史对话记录

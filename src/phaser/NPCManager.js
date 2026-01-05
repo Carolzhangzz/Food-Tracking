@@ -410,9 +410,12 @@ export default class NPCManager {
 
   handleNPCClick(npcData, sprite) {
     const lang = this.scene.playerData?.language || "zh";
-    const npcName = npcData.name[lang];
+    const npcName = npcData.name[lang] || npcData.name.zh;
     
     console.log(`🎯 处理NPC点击: ${npcName} (${npcData.id})`);
+
+    // 🔧 诊断用的临时 alert
+    // alert(`点击了 NPC: ${npcName}`);
 
     // 🔧 手机游戏：点击NPC时停止玩家移动
     if (this.scene.player) {
@@ -437,8 +440,16 @@ export default class NPCManager {
     
     // 检查前一天餐食记录
     const isDebugPlayer = this.scene.playerId === '002';
+    
+    // 🔧 核心解锁逻辑：
+    // 1. 调试账号 (002) 始终解锁
+    // 2. 第1天 NPC 始终解锁
+    // 3. 正常逻辑：当前天 >= NPC解锁天，且前一天至少记录了一餐
     const prevDayMeals = this.getMealsForDay(unlockDay - 1);
-    const isUnlocked = isDebugPlayer || unlockDay === 1 || (unlockDay <= currentDay && prevDayMeals.length >= 1);
+    const completedPrevTask = prevDayMeals.length >= 1;
+    const reachedRequiredDay = currentDay >= unlockDay;
+    
+    const isUnlocked = isDebugPlayer || unlockDay === 1 || (reachedRequiredDay && completedPrevTask);
     const isCurrentDay = isDebugPlayer || unlockDay === currentDay;
 
     // 🔒 未解锁
@@ -468,13 +479,15 @@ export default class NPCManager {
 
   startDialogWithNPC(npcData) {
     const lang = this.scene.playerData?.language || "zh";
-    const npcName = npcData.name[lang];
+    const npcName = npcData.name[lang] || npcData.name.zh;
     
     console.log(`💬 开始对话: ${npcName} (${npcData.id})`);
 
     try {
-      // 暂停主场景
-      this.scene.scene.pause();
+      // 🔧 关键修复：确保主场景真的被暂停，并且使用 start 而不是 launch 来测试是否能成功打开
+      // 之前用 launch 可能因为场景已经在后台运行而没反应
+      console.log("⏸️ 正在暂停 MainScene...");
+      this.scene.scene.pause("MainScene");
 
       const dialogData = {
         npcId: npcData.id,
@@ -482,23 +495,24 @@ export default class NPCManager {
         playerId: this.scene.playerId,
         playerData: this.scene.playerData,
         currentDay: this.getCurrentDay(),
-        todayMeals: this.getTodayMeals(), // ['breakfast', 'lunch']
+        todayMeals: this.getTodayMeals(),
         hasTalkedBefore: this.hasCompletedNPC(npcData.id),
-        npcManager: this, // 🔧 传递 NPCManager 实例
-        useConvAI: true, // 🔧 关键：启用ConvAI API进行开场白
-        mainScene: this.scene, // 🔧 传递主场景引用
+        npcManager: this,
+        useConvAI: true,
+        mainScene: this.scene,
       };
 
-      console.log(`📦 对话数据:`, dialogData);
-      console.log(`🎯 useConvAI: true - 将调用ConvAI API`);
+      console.log(`📦 准备启动 DialogSceneRefactored，数据:`, dialogData);
 
-      // 🔧 启动新的重构版对话场景
+      // 🔧 强制启动（如果已存在则重启）
       this.scene.scene.launch("DialogSceneRefactored", dialogData);
+      this.scene.scene.bringToTop("DialogSceneRefactored");
 
-      console.log("✅ DialogSceneRefactored 已启动");
+      console.log("✅ DialogSceneRefactored 已指令启动");
     } catch (error) {
       console.error("❌ 启动对话场景失败:", error);
-      this.scene.scene.resume();
+      alert("启动对话失败，请检查控制台: " + error.message);
+      this.scene.scene.resume("MainScene");
     }
   }
 
