@@ -401,7 +401,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const npcId = this.currentNPC || "uncle_bo";
 
     // 🔧 获取核心问题意图，传给 Gemini
-    const coreQuestion = this.mealHandler.questions[this.currentQuestionId]?.coreQuestion;
+    const coreQuestion = this.mealHandler.getCoreQuestion(this.currentQuestionId, lang, mealType);
 
     // 🔧 调用 Gemini 获取 character-driven 的问题文本
     this.uiManager.showTypingIndicator();
@@ -425,9 +425,12 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 只有当当前问题 ID 为空（表示所有预设问题都已问完）时，才允许 Gemini 结束对话
     if (geminiResult.success && geminiResult.isComplete && !this.currentQuestionId) {
       console.log("🏁 Gemini 指示对话已完成，且预设问题已全部结束。");
-      if (geminiResult.message && !geminiResult.message.toLowerCase().includes("thanks for sharing")) {
+      
+      // 显示 Gemini 的最后一条消息（如果是结语，确保只显示一次）
+      if (geminiResult.message) {
         this.uiManager.addMessage("NPC", geminiResult.message);
       }
+      
       await this.delay(500);
       this.completeMealRecording();
       return;
@@ -559,14 +562,6 @@ export default class DialogSceneRefactored extends Phaser.Scene {
             }, true);
           }
           await this.delay(1000);
-        }
-
-        // 结语：如果 Gemini 没说，我们就说
-        const history = this.uiManager.getMessageHistory();
-        const lastMsg = history[history.length - 1]?.text || "";
-        if (!lastMsg.toLowerCase().includes("thanks for sharing")) {
-          const completionMsg = this.mealHandler.getCompletionMessage(lang);
-          this.uiManager.addMessage("NPC", completionMsg);
         }
 
         // 🔧 同步数据到 React UI (地图进度图标)
