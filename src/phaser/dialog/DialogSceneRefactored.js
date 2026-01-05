@@ -56,6 +56,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.clueManager = new ClueManager(this);
     this.uiManager = new DialogUIManager(this);
 
+    this.isForcedSequence = true; // 强制执行问答序列
+    this.isSubmitting = false; // 防止重复提交
     console.log("✅ 所有模块已初始化");
   }
 
@@ -398,6 +400,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     const dialogHistory = this.uiManager.getMessageHistory();
     const npcId = this.currentNPC || "uncle_bo";
 
+    // 🔧 获取核心问题意图，传给 Gemini
+    const coreQuestion = this.mealHandler.questions[this.currentQuestionId]?.coreQuestion;
+
     // 🔧 调用 Gemini 获取 character-driven 的问题文本
     this.uiManager.showTypingIndicator();
     
@@ -410,7 +415,8 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       mealType,
       dialogHistory,
       mealAnswers,
-      questionControl
+      questionControl,
+      coreQuestion // 🔧 传递核心问题
     );
     
     this.uiManager.hideTypingIndicator();
@@ -477,7 +483,13 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
   // 完成餐食记录
   async completeMealRecording() {
-    console.log("🎉 餐食记录完成");
+    if (this.isSubmitting) {
+      console.warn("⚠️ [DialogScene] 正在提交中，跳过重复请求");
+      return;
+    }
+    
+    this.isSubmitting = true;
+    console.log("🎉 [DialogScene] 开始提交餐食记录...");
     
     const lang = this.playerData.language || "zh";
     const mealType = this.stateManager.selectedMealType;
@@ -485,8 +497,6 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     // 提交到后端
     this.uiManager.updateStatus("正在保存...");
     this.uiManager.showTypingIndicator();
-    
-    const conversationHistory = this.uiManager.getMessageHistory();
     
     // 🔧 修复 NPC 名字提取逻辑
     let npcNameStr = "NPC";
@@ -496,133 +506,115 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       npcNameStr = this.npcData.name;
     }
 
-    const result = await this.mealHandler.submitMealRecord(
-      this.playerId,
-      this.currentNPC,
-      npcNameStr,
-      mealType,
-      this.stateManager.questionAnswers,
-      this.currentDay
-    );
+    try {
+      const result = await this.mealHandler.submitMealRecord(
+        this.playerId,
+        this.currentNPC,
+        npcNameStr,
+        mealType,
+        this.stateManager.questionAnswers,
+        this.currentDay
+      );
 
-    this.uiManager.hideTypingIndicator();
+      this.uiManager.hideTypingIndicator();
 
-    if (result.success) {
-      console.log("✅ [DialogScene] 餐食记录保存成功:", result);
-      this.stateManager.markMealSubmitted(result);
-      this.uiManager.updateStatus("✅ 保存成功");
-      
-      // 🔧 直接从前端数据获取线索（更可靠！）
-      const { getNPCClue, getNPCName } = await import('../../data/npcClues.js');
-      
-      // 🔧 确保使用正确的NPC名字
-      const actualNPCName = getNPCName(this.currentNPC, lang);
-      
-      // 判断应该给什么类型的线索
-      let clueType, clueText, clueData;
-      
-      if (mealType === "dinner") {
-        // 晚餐：给真实线索
-        clueType = "true";
-        clueData = getNPCClue(this.currentNPC, "true", 0, lang);
-        clueText = clueData ? clueData.text : "Good job!";
-        console.log("🗝️ [前端] 晚餐 - 给予真实线索:", clueText.substring(0, 50) + "...");
-      } else {
-        // 早餐/午餐：给模糊线索
-        clueType = "vague";
-        // 获取该NPC已给过几次vague线索（从本地存储或初始化）
-        const clueKey = `${this.playerId}_${this.currentNPC}_vague_count`;
-        const previousVagueCount = parseInt(localStorage.getItem(clueKey) || '0');
-        const vagueIndex = Math.min(previousVagueCount, 1); // 最多2个vague clue
+      if (result.success) {
+        console.log("✅ [DialogScene] 餐食记录保存成功:", result);
+        this.stateManager.markMealSubmitted(result);
+        this.uiManager.updateStatus("✅ 保存成功");
         
-        clueData = getNPCClue(this.currentNPC, "vague", vagueIndex, lang);
-        clueText = clueData ? clueData.text : "Great job!";
+        // 🔧 直接从前端数据获取线索
+        const { getNPCClue, getNPCName } = await import('../../data/npcClues.js');
+        const actualNPCName = getNPCName(this.currentNPC, lang);
         
-        // 更新计数
-        localStorage.setItem(clueKey, (previousVagueCount + 1).toString());
-        console.log(`🌫️ [前端] ${mealType} - 给予模糊线索 ${vagueIndex + 1}:`, clueText.substring(0, 50) + "...");
-      }
-      
-      // NPC说出线索
-      if (clueText) {
-        console.log("🗝️ NPC 正在说出线索...");
-        this.uiManager.addMessage("NPC", clueText);
-        
-        // 添加到本地线索列表（确保立即显示）
-        if (this.mainScene && this.mainScene.uiManager) {
-          this.mainScene.uiManager.addClue({
-            npcId: this.currentNPC,
-            npcName: actualNPCName,
-            clue: clueText,
-            clueType: clueType,
-            day: this.currentDay,
-            mealType: mealType
-          }, true);
-        }
-        
-        await this.delay(1000);
-      }
-
-      // 最后说结束语
-      const completionMsg = this.mealHandler.getCompletionMessage(lang);
-      this.uiManager.addMessage("NPC", completionMsg);
-      
-      // 🔧 同步数据到 React UI (地图进度图标)
-      if (this.mainScene && this.mainScene.updatePlayerdata) {
-        const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
-        console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
-        
-        // 🔧 关键：检查是否完成所有 7 天任务
-        const isDebugPlayer = this.playerId === '002';
-        const isGameComplete = (this.currentDay >= 7 && remaining.length === 0) || (isDebugPlayer && this.currentDay >= 7 && mealType === 'dinner');
-        
-        if (isGameComplete) {
-          console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！强制触发报告...");
-          this.mainScene.updatePlayerdata({
-            ...this.playerData,
-            gameCompleted: true,
-            currentDayMealsRemaining: []
-          });
+        let clueType, clueText, clueData;
+        if (mealType === "dinner") {
+          clueType = "true";
+          clueData = getNPCClue(this.currentNPC, "true", 0, lang);
+          clueText = clueData ? clueData.text : "Good job!";
         } else {
-          this.mainScene.updatePlayerdata({
-            ...this.playerData,
-            currentDayMealsRemaining: remaining
-          });
+          clueType = "vague";
+          const clueKey = `${this.playerId}_${this.currentNPC}_vague_count`;
+          const previousVagueCount = parseInt(localStorage.getItem(clueKey) || '0');
+          const vagueIndex = Math.min(previousVagueCount, 1);
+          clueData = getNPCClue(this.currentNPC, "vague", vagueIndex, lang);
+          clueText = clueData ? clueData.text : "Great job!";
+          localStorage.setItem(clueKey, (previousVagueCount + 1).toString());
+        }
+        
+        // 🔧 只有当 Gemini 还没说结束语时，我们才显示线索
+        // 我们改为让线索晚一点出现，并只显示一次
+        if (clueText) {
+          console.log("🗝️ NPC 正在说出线索...");
+          this.uiManager.addMessage("NPC", clueText);
+          
+          if (this.mainScene && this.mainScene.uiManager) {
+            this.mainScene.uiManager.addClue({
+              npcId: this.currentNPC,
+              npcName: actualNPCName,
+              clue: clueText,
+              clueType: clueType,
+              day: this.currentDay,
+              mealType: mealType
+            }, true);
+          }
+          await this.delay(1000);
         }
 
-        // 🔧 必须先更新本地的 playerData，否则后续逻辑使用的是旧数据
-        this.playerData = {
-          ...this.playerData,
-          currentDayMealsRemaining: remaining,
-          availableMealTypes: remaining,
-          gameCompleted: isGameComplete // 🔧 标记游戏已完成
-        };
-        
-        this.mainScene.updatePlayerdata(this.playerData);
-      } else {
-        console.warn("⚠️ [DialogScene] 无法同步到 React UI: mainScene.updatePlayerdata 未定义");
-      }
-      
-      // 🔧 保存对话历史
-      await this.saveConversationHistory(conversationHistory);
-      
-      // 🔧 显示线索或vague回复
-      if (result.clueText) {
-        if (result.clueType === "true") {
-          await this.showTrueClue(result.clueText, result.clueData);
-        } else {
-          await this.showVagueClue(result.clueText);
+        // 结语：如果 Gemini 没说，我们就说
+        const history = this.uiManager.getMessageHistory();
+        const lastMsg = history[history.length - 1]?.text || "";
+        if (!lastMsg.toLowerCase().includes("thanks for sharing")) {
+          const completionMsg = this.mealHandler.getCompletionMessage(lang);
+          this.uiManager.addMessage("NPC", completionMsg);
         }
+
+        // 🔧 同步数据到 React UI (地图进度图标)
+        if (this.mainScene && this.mainScene.updatePlayerdata) {
+          const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
+          console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
+          
+          const isDebugPlayer = this.playerId === '002';
+          const isGameComplete = (this.currentDay >= 7 && remaining.length === 0) || (isDebugPlayer && this.currentDay >= 7 && mealType === 'dinner');
+          
+          if (isGameComplete) {
+            console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！强制触发报告...");
+            this.mainScene.updatePlayerdata({
+              ...this.playerData,
+              gameCompleted: true,
+              currentDayMealsRemaining: []
+            });
+          } else {
+            this.mainScene.updatePlayerdata({
+              ...this.playerData,
+              currentDayMealsRemaining: remaining
+            });
+          }
+
+          this.playerData = {
+            ...this.playerData,
+            currentDayMealsRemaining: remaining,
+            availableMealTypes: remaining,
+            gameCompleted: isGameComplete
+          };
+          
+          this.mainScene.updatePlayerdata(this.playerData);
+        }
+        
+        await this.delay(3000);
+        this.exitDialog();
+      } else {
+        console.error("❌ 保存失败:", result.error);
+        this.isSubmitting = false;
+        this.uiManager.updateStatus("❌ 保存失败");
       }
-    } else {
-      console.error("❌ 餐食保存失败:", result.error);
-      this.uiManager.updateStatus("❌ 保存失败: " + (result.error || "未知错误"));
+    } catch (error) {
+      console.error("❌ 提交异常:", error);
+      this.isSubmitting = false;
+      this.uiManager.hideTypingIndicator();
     }
-
-    // 🔧 修复：显示按钮让玩家选择，而不是立刻返回
-    this.showCompletionOptions();
   }
-  
+
   // 🔧 新增：显示对话完成后的选项
   showCompletionOptions() {
     const lang = this.playerData?.language || "zh";

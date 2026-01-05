@@ -19,6 +19,10 @@ export default class MealRecordingHandler {
       Q1: {
         id: "Q1",
         type: "choice",
+        coreQuestion: {
+          en: "How is your meal obtained?",
+          zh: "你的这顿饭是怎么获得的？"
+        },
         text: {
           en: "How is your meal obtained?",
           zh: "你的这顿饭是怎么获得的？"
@@ -41,6 +45,10 @@ export default class MealRecordingHandler {
       Q2: {
         id: "Q2",
         type: "choice",
+        coreQuestion: {
+          en: "What time did you have this meal?",
+          zh: "你什么时候吃的这顿饭？"
+        },
         text: {
           en: "What time did you have this meal?",
           zh: "你什么时候吃的这顿饭？"
@@ -67,6 +75,10 @@ export default class MealRecordingHandler {
       Q3: {
         id: "Q3",
         type: "choice",
+        coreQuestion: {
+          en: "How long did you eat?",
+          zh: "你吃了多久？"
+        },
         text: {
           en: "How long did you eat?",
           zh: "你吃了多久？"
@@ -90,6 +102,10 @@ export default class MealRecordingHandler {
       Q4: {
         id: "Q4",
         type: "input",
+        coreQuestion: {
+          en: "What did you have for [MEAL]?",
+          zh: "你吃了什么（[MEAL]）？"
+        },
         text: {
           en: "What did you have (for [MEAL])?",
           zh: "你吃了什么（[MEAL]）？"
@@ -98,6 +114,10 @@ export default class MealRecordingHandler {
       Q5: {
         id: "Q5",
         type: "input",
+        coreQuestion: {
+          en: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?",
+          zh: "你吃了多少份量？你是如何决定这个份量的？吃的时候或吃完后身体感觉如何？"
+        },
         text: {
           en: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?",
           zh: "你吃了多少份量？你是如何决定这个份量的？吃的时候或吃完后身体感觉如何？"
@@ -106,6 +126,10 @@ export default class MealRecordingHandler {
       Q6: {
         id: "Q6",
         type: "input",
+        coreQuestion: {
+          en: "Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?",
+          zh: "你为什么选择这顿饭？比如，方便、想吃、健康选择？"
+        },
         text: {
           en: "Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?",
           zh: "你为什么选择这顿饭？比如，方便、想吃、健康选择？"
@@ -115,6 +139,10 @@ export default class MealRecordingHandler {
       Q_TIME_FOLLOWUP: {
         id: "Q_TIME_FOLLOWUP",
         type: "input",
+        coreQuestion: {
+          en: "Why did you eat at this time rather than earlier or later?",
+          zh: "你为什么在这个时间吃饭，而不是早一点或晚一点？"
+        },
         text: {
           en: "Why did you eat at this time rather than earlier or later?",
           zh: "你为什么在这个时间吃饭，而不是早一点或晚一点？"

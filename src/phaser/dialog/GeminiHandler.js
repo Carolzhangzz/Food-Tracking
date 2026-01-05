@@ -17,8 +17,9 @@ export default class GeminiHandler {
    * @param {Array} dialogHistory 之前的对话历史
    * @param {Object} mealAnswers 已收集的餐食答案
    * @param {Object} questionControl 当前问题进度控制
+   * @param {Object} coreQuestion 核心问题意图 (包含 en, zh)
    */
-  async getGeminiResponse(userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl) {
+  async getGeminiResponse(userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl, coreQuestion) {
     this.turnCount++;
     
     try {
@@ -36,7 +37,8 @@ export default class GeminiHandler {
           dialogHistory: dialogHistory,
           mealAnswers: mealAnswers,
           turnCount: this.turnCount,
-          questionControl: questionControl
+          questionControl: questionControl,
+          coreQuestion: coreQuestion // 🔧 传递核心意图
         }),
       });
 
