@@ -106,9 +106,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     this.events.on('destroy', restoreKeyboard);
 
     // 检查横屏
-    const { width, height } = this.scale;
-    if (height > width) {
+    if (this.scale.height > this.scale.width) {
       console.warn("⚠️ 检测到竖屏，显示旋转提示");
+      alert("请将手机横过来以继续对话！\nPlease rotate your phone to landscape mode!");
       this.showRotationMessage();
       return;
     }
