@@ -431,6 +431,20 @@ export default class NPCManager {
     const unlockDay = npcData.unlockDay;
     const todayMeals = this.getTodayMeals();
     
+    // 检查前一天餐食记录
+    const isDebugPlayer = this.scene.playerId === '002';
+    
+    // 🔧 核心解锁逻辑：
+    // 1. 调试账号 (002) 始终解锁
+    // 2. 第1天 NPC 始终解锁
+    // 3. 正常逻辑：当前天 >= NPC解锁天，且前一天至少记录了一餐
+    const prevDayMeals = this.getMealsForDay(unlockDay - 1);
+    const completedPrevTask = prevDayMeals.length >= 1;
+    const reachedRequiredDay = currentDay >= unlockDay;
+    
+    const isUnlocked = isDebugPlayer || unlockDay === 1 || (reachedRequiredDay && completedPrevTask);
+    const isCurrentDay = isDebugPlayer || unlockDay === currentDay;
+
     console.log(`📊 [NPC点击检查]`, {
       "点击NPC": npcName,
       "点击NPC ID": npcData.id,
