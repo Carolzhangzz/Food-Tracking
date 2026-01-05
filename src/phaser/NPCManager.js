@@ -445,7 +445,7 @@ export default class NPCManager {
     const isUnlocked = isDebugPlayer || unlockDay === 1 || (reachedRequiredDay && completedPrevTask);
     const isCurrentDay = isDebugPlayer || unlockDay === currentDay;
 
-    // 🔍 [DIAGNOSTIC] NPC CLICK CHECK
+    // 🔍 [DIAGNOSTIC] NPC CLICK CHECK - v2
     console.log(`📊 [NPC点击检查]`, {
       "点击NPC": npcName,
       "点击NPC ID": npcData.id,
