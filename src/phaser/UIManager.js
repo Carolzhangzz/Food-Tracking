@@ -265,21 +265,21 @@ export default class UIManager {
           fill: clue.clueType === 'true' ? "#fbbf24" : "#ffffff",
           wordWrap: { width: width - 50 },
           lineSpacing: isMobile ? 10 : 6
-        }).setOrigin(0).setDepth(205); // 🔧 增加深度
+        }).setOrigin(0).setDepth(201); // 🔧 设置足够深度
         
         cluesContainer.add(text);
         currentY += text.height + itemSpacing;
       });
 
       cluesContainer.setScrollFactor(0);
-      cluesContainer.setDepth(205); // 🔧 增加深度
+      cluesContainer.setDepth(205); // 🔧 确保容器深度高于背景面板和关闭按钮
 
       // 🔧 创建遮罩，只显示中间区域（使用世界坐标）
       const maskShape = this.scene.add.graphics()
         .fillStyle(0xffffff)
         .fillRect(x - width / 2, contentTop, width, contentHeight)
         .setScrollFactor(0)
-        .setDepth(204); // 🔧 设置深度
+        .setVisible(false); // 🔧 关键：遮罩绘图本身必须不可见，否则会遮挡内容
       const mask = maskShape.createGeometryMask();
       cluesContainer.setMask(mask);
       clueTexts.push(maskShape); // 方便销毁

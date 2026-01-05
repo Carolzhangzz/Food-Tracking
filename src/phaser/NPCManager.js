@@ -138,7 +138,7 @@ export default class NPCManager {
         console.log("✅ 玩家状态加载成功:", {
           当前天数: this.getCurrentDay(),
           餐食记录: this.mealRecords.length,
-          首次登录: this.playerStatus.first_login_time,
+          首次登录: this.playerStatus.player?.firstLoginDate,
         });
       } else {
         console.warn("⚠️ 无法加载玩家状态，使用默认值");
@@ -497,17 +497,17 @@ export default class NPCManager {
   // ==================== 工具方法 ====================
 
   getCurrentDay() {
-    // 🔧 优先使用数据库返回的当前天数，这是最准确的
-    if (this.playerStatus && this.playerStatus.currentDay) {
-      return Number(this.playerStatus.currentDay);
+    // 🔧 修复：访问 player 对象内的 currentDay
+    if (this.playerStatus && this.playerStatus.player && this.playerStatus.player.currentDay) {
+      return Number(this.playerStatus.player.currentDay);
     }
     
     // 兜底逻辑
-    if (!this.playerStatus || !this.playerStatus.first_login_time) {
+    if (!this.playerStatus || !this.playerStatus.player || !this.playerStatus.player.firstLoginDate) {
       return 1;
     }
 
-    const firstLogin = new Date(this.playerStatus.first_login_time);
+    const firstLogin = new Date(this.playerStatus.player.firstLoginDate);
     const now = new Date();
     
     // 设置为 0 点比较日期
