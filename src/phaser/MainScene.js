@@ -266,9 +266,17 @@ export default class MainScene extends Phaser.Scene {
       this.npcManager = new NPCManager(this);
       this.uiManager = new UIManager(this);
 
-      // 🔧 等待NPCManager初始化完成后再初始化UI
-      console.log("⏳ 等待 NPCManager 初始化...");
-      await this.npcManager.init();
+      // 🔧 关键修复：提前标记为完全初始化，避免被异步操作阻塞
+      this.fullyInitialized = true;
+      console.log("✅ MainScene 标记为已初始化，开始后台加载NPC和UI...");
+
+      // 🔧 异步初始化NPCManager（不阻塞loading）
+      console.log("⏳ 后台初始化 NPCManager...");
+      this.npcManager.init().then(() => {
+        console.log("✅ NPCManager 初始化完成");
+      }).catch(error => {
+        console.error("❌ NPCManager 初始化失败:", error);
+      });
 
       // 🔧 初始化 UI 元素（线索按钮、日期显示、餐食进度）
       console.log("📋 初始化 UI 元素...");
@@ -302,10 +310,6 @@ export default class MainScene extends Phaser.Scene {
           console.error("❌ 恢复场景时同步数据失败:", error);
         }
       });
-
-      // 标记为完全初始化
-      this.fullyInitialized = true;
-      console.log("✅ MainScene 完全初始化完成");
       console.log("📊 场景信息:", {
         地图尺寸: `${mapW} x ${mapH}`,
         玩家位置: `${startX}, ${startY}`,
