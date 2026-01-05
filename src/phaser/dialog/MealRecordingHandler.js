@@ -185,15 +185,6 @@ export default class MealRecordingHandler {
     
     // 方法3：提取时间段关键词
     if (index === -1) {
-      const keywords = [
-        'before 7', 'early morning',  // 0
-        '7', '11', 'morning',         // 1
-        '11', '2', 'midday', 'noon',  // 2
-        '2', '5', 'afternoon',        // 3
-        '5', '9', 'evening',          // 4
-        'after 9', 'night'            // 5
-      ];
-      
       const lowerTime = timeText.toLowerCase();
       if (lowerTime.includes('before 7') || lowerTime.includes('early')) index = 0;
       else if (lowerTime.includes('7') && lowerTime.includes('11')) index = 1;

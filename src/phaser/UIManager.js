@@ -224,13 +224,14 @@ export default class UIManager {
       // 只有点击背景空白处才关闭，不要点击内容区域就关闭
       const clickX = pointer.x;
       const clickY = pointer.y;
-      const isOutsideContent = clickX < x - width / 2 + 20 || clickX > x + width / 2 - 20 ||
-                               clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
       
-      // 暂时禁用背景点击关闭，只允许通过关闭按钮关闭
-      // if (isOutsideContent) {
-      //   this.hideCluePanel();
-      // }
+      const isOutside = clickX < x - width / 2 + 20 || clickX > x + width / 2 - 20 ||
+                        clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
+      
+      // 暂时禁用背景点击关闭
+      if (isOutside) {
+        console.log("🖱️ 点击了外部区域");
+      }
     });
 
     // 内容渲染
