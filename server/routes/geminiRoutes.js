@@ -2,7 +2,18 @@ const express = require("express");
 const router = express.Router();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 🎯 获取所有可用的 Gemini API Keys
+const getGeminiKeys = () => {
+  const keys = [];
+  if (process.env.GEMINI_API_KEY) keys.push(process.env.GEMINI_API_KEY);
+  
+  Object.keys(process.env).forEach(key => {
+    if (key.startsWith('GEMINI_API_KEY_') && process.env[key]) {
+      keys.push(process.env[key]);
+    }
+  });
+  return keys;
+};
 
 // 🎯 NPC 详细设定映射 (根据用户提供的 Prompt Design)
 const NPC_PERSONAS = {
@@ -122,39 +133,72 @@ Respond in ${lang === "zh" ? "Chinese" : "English"}.`;
 }
 
 router.post("/gemini-chat", async (req, res) => {
-  try {
-    const { userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl = {}, coreQuestion = null, lang = "en" } = req.body;
-    
-    console.log(`🤖 [Gemini] Chat Request: NPC=${npcId}, Meal=${mealType}, Mode=${questionControl.currentQuestionId ? 'Journaling' : 'FreeChat'}`);
+  const { userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl = {}, coreQuestion = null, lang = "en" } = req.body;
+  
+  console.log(`🤖 [Gemini] Chat Request: NPC=${npcId}, Meal=${mealType}, Mode=${questionControl.currentQuestionId ? 'Journaling' : 'FreeChat'}`);
 
-    const systemPrompt = generateImprovedSystemPrompt(npcId, questionControl, mealType, coreQuestion, lang);
-
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: systemPrompt 
-    });
-
-    // Format history for Gemini
-    const contents = (dialogHistory || []).slice(-10).map(msg => ({
-      role: msg.speaker === "Player" ? "user" : "model",
-      parts: [{ text: msg.text }]
-    }));
-
-    // Add current user input
-    contents.push({ role: "user", parts: [{ text: userInput }] });
-
-    const result = await model.generateContent({ contents });
-    const responseText = result.response.text().trim();
-
-    res.json({
-      success: true,
-      message: responseText,
-      isComplete: questionControl.currentQuestionId === null
-    });
-  } catch (error) {
-    console.error("❌ [Gemini] API Error:", error);
-    res.status(500).json({ success: false, error: error.message });
+  const apiKeys = getGeminiKeys();
+  if (apiKeys.length === 0) {
+    return res.status(500).json({ success: false, error: "No Gemini API Keys configured" });
   }
+
+  const systemPrompt = generateImprovedSystemPrompt(npcId, questionControl, mealType, coreQuestion, lang);
+  let lastError = null;
+
+  // 🔄 轮询尝试每个 Key
+  for (let i = 0; i < apiKeys.length; i++) {
+    const currentKey = apiKeys[i];
+    try {
+      const genAI = new GoogleGenerativeAI(currentKey);
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: systemPrompt 
+      });
+
+      // Format history for Gemini
+      const contents = (dialogHistory || []).slice(-10).map(msg => ({
+        role: msg.speaker === "Player" ? "user" : "model",
+        parts: [{ text: msg.text }]
+      }));
+
+      // Add current user input
+      contents.push({ role: "user", parts: [{ text: userInput }] });
+
+      const result = await model.generateContent({ contents });
+      const responseText = result.response.text().trim();
+
+      console.log(`✅ Gemini 使用 Key #${i + 1} 成功`);
+      return res.json({
+        success: true,
+        message: responseText,
+        isComplete: questionControl.currentQuestionId === null
+      });
+
+    } catch (error) {
+      console.error(`❌ Gemini Key #${i + 1} Error:`, error.message);
+      lastError = error;
+
+      // 🔍 检查是否为额度超限或权限错误 (429 或 403)
+      const errorMsg = error.message.toLowerCase();
+      const isQuotaError = errorMsg.includes("quota") || 
+                          errorMsg.includes("429") || 
+                          errorMsg.includes("limit") ||
+                          errorMsg.includes("exhausted");
+
+      if (isQuotaError && i < apiKeys.length - 1) {
+        console.warn(`⚠️ Gemini Key #${i + 1} 额度可能已耗尽，尝试下一个...`);
+        continue;
+      } else {
+        // 如果是最后一位 Key 或者非额度错误，则跳出循环并报错
+        break;
+      }
+    }
+  }
+
+  res.status(500).json({ 
+    success: false, 
+    error: lastError ? lastError.message : "All Gemini API calls failed" 
+  });
 });
 
 module.exports = router;
