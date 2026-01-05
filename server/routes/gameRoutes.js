@@ -448,10 +448,15 @@ router.post("/login", async (req, res) => {
         });
 
         if (recordedMealsOnCurrentDay > 0) {
-          // 进阶到日历当前天，或逐天增加
+          // 🔧 修复：不直接跳到日历天数，而是逐天进阶，确保不会错过中间的 NPC
           const oldDay = player.currentDay;
-          targetDay = calendarDay;
-          console.log(`🚀 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录，允许从第 ${oldDay} 天进阶到第 ${targetDay} 天`);
+          targetDay = player.currentDay + 1;
+          
+          // 确保不超过日历当前天数，也不超过上限 7
+          if (targetDay > calendarDay) targetDay = calendarDay;
+          if (targetDay > 7) targetDay = 7;
+
+          console.log(`🚀 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录 -> 进阶到第 ${targetDay} 天 (当前日历为第 ${calendarDay} 天)`);
           
           await player.update({ currentDay: targetDay });
           

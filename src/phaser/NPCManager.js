@@ -431,27 +431,17 @@ export default class NPCManager {
     const unlockDay = npcData.unlockDay;
     const todayMeals = this.getTodayMeals();
     
-    console.log(`📊 NPC点击检查:`, {
-      NPC: npcName,
-      当前天数: currentDay,
-      NPC解锁天数: unlockDay,
-      今日已记录餐食: todayMeals,
+    console.log(`📊 [NPC点击检查]`, {
+      "点击NPC": npcName,
+      "点击NPC ID": npcData.id,
+      "游戏当前天数 (currentDay)": currentDay,
+      "NPC解锁所需天数 (unlockDay)": unlockDay,
+      "是否解锁 (isUnlocked)": isUnlocked,
+      "是否为当天NPC (isCurrentDay)": isCurrentDay,
+      "今日已记录餐食": todayMeals,
+      "玩家ID": this.scene.playerId
     });
     
-    // 检查前一天餐食记录
-    const isDebugPlayer = this.scene.playerId === '002';
-    
-    // 🔧 核心解锁逻辑：
-    // 1. 调试账号 (002) 始终解锁
-    // 2. 第1天 NPC 始终解锁
-    // 3. 正常逻辑：当前天 >= NPC解锁天，且前一天至少记录了一餐
-    const prevDayMeals = this.getMealsForDay(unlockDay - 1);
-    const completedPrevTask = prevDayMeals.length >= 1;
-    const reachedRequiredDay = currentDay >= unlockDay;
-    
-    const isUnlocked = isDebugPlayer || unlockDay === 1 || (reachedRequiredDay && completedPrevTask);
-    const isCurrentDay = isDebugPlayer || unlockDay === currentDay;
-
     // 🔒 未解锁
     if (!isUnlocked) {
       const message = lang === "zh" 
@@ -464,11 +454,15 @@ export default class NPCManager {
 
     // ⏭️ 不是当天的NPC
     if (!isCurrentDay) {
+      const activeNpcData = this.npcData.find(n => n.unlockDay === currentDay);
+      const activeNpcName = activeNpcData ? (activeNpcData.name[lang] || activeNpcData.name.zh) : "???";
+      
       const message = lang === "zh"
-        ? "你已经和这个NPC完成了对话，去找下一个NPC吧！"
-        : "You've completed this NPC's dialogue. Find the next NPC!";
-      console.log(`⏭️ 不是当天NPC: ${message}`);
-      this.scene.showNotification(message, 2500);
+        ? `今天（第 ${currentDay} 天）的任务是找 ${activeNpcName} 对话哦！`
+        : `Your task for today (Day ${currentDay}) is to talk to ${activeNpcName}!`;
+      
+      console.log(`⏭️ 点击了非当天NPC (Day ${unlockDay}), 当前活跃NPC是 Day ${currentDay} (${activeNpcName})`);
+      this.scene.showNotification(message, 3500);
       return;
     }
 
@@ -519,27 +513,34 @@ export default class NPCManager {
   // ==================== 工具方法 ====================
 
   getCurrentDay() {
-    // 🔧 修复：访问 player 对象内的 currentDay
-    if (this.playerStatus && this.playerStatus.player && this.playerStatus.player.currentDay) {
+    // 🔧 优先访问 player 对象内的 currentDay
+    if (this.playerStatus && this.playerStatus.player && this.playerStatus.player.currentDay !== undefined) {
       return Number(this.playerStatus.player.currentDay);
     }
     
-    // 兜底逻辑
+    // 其次访问顶层的 currentDay
+    if (this.playerStatus && this.playerStatus.currentDay !== undefined) {
+      return Number(this.playerStatus.currentDay);
+    }
+    
+    // 兜底逻辑：计算日历天数 (Calendar Day)
     if (!this.playerStatus || !this.playerStatus.player || !this.playerStatus.player.firstLoginDate) {
+      console.warn("⚠️ [NPCManager] 无法获取玩家天数信息，默认使用 Day 1");
       return 1;
     }
 
     const firstLogin = new Date(this.playerStatus.player.firstLoginDate);
     const now = new Date();
     
-    // 设置为 0 点比较日期
     const d1 = new Date(firstLogin.getFullYear(), firstLogin.getMonth(), firstLogin.getDate());
     const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const diffTime = d2 - d1;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    return Math.max(1, Math.min(diffDays + 1, 7));
+    const calculatedDay = Math.max(1, Math.min(diffDays + 1, 7));
+    console.log(`📅 [NPCManager] 后端未返回 currentDay，本地计算结果: Day ${calculatedDay}`);
+    return calculatedDay;
   }
 
   getTodayMeals() {
