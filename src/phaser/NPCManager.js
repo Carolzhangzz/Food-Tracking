@@ -121,10 +121,17 @@ export default class NPCManager {
         
         // 🔧 同步关键数据到主场景
         if (this.scene.playerData) {
+          const oldDay = this.scene.playerData.currentDay;
           this.scene.playerData.currentDay = data.player?.currentDay || data.currentDay || this.scene.playerData.currentDay;
+          
           // 🔧 只有当后端确实返回了该字段时才同步，避免默认为空导致图标变绿
           if (data.currentDayMealsRemaining) {
             this.scene.playerData.currentDayMealsRemaining = data.currentDayMealsRemaining;
+          }
+          
+          // 🔧 同步回 React Context
+          if (this.scene.updatePlayerdata) {
+            this.scene.updatePlayerdata({ ...this.scene.playerData });
           }
         }
         

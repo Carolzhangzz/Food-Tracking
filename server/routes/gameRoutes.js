@@ -449,30 +449,30 @@ router.post("/login", async (req, res) => {
 
         if (recordedMealsOnCurrentDay > 0) {
           // 进阶到日历当前天，或逐天增加
+          const oldDay = player.currentDay;
           targetDay = calendarDay;
-          console.log(`🚀 玩家在第 ${player.currentDay} 天有 ${recordedMealsOnCurrentDay} 条记录，允许进阶到第 ${targetDay} 天`);
+          console.log(`🚀 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录，允许从第 ${oldDay} 天进阶到第 ${targetDay} 天`);
+          
+          await player.update({ currentDay: targetDay });
+          
+          // 确保从旧天数到新天数之间的所有进度记录都存在并正确解锁
+          for (let d = oldDay + 1; d <= targetDay; d++) {
+            const progressExists = await PlayerProgress.findOne({
+              where: { playerId, day: d }
+            });
+            
+            if (!progressExists) {
+              await PlayerProgress.create({
+                playerId,
+                day: d,
+                npcId: dayToNpcId(d),
+                unlockedAt: new Date(),
+              });
+              console.log(`🔓 已为玩家 ${playerId} 创建并解锁第 ${d} 天的进度`);
+            }
+          }
         } else {
           console.log(`⏳ 玩家在第 ${player.currentDay} 天没有记录，保持在第 ${player.currentDay} 天，虽然日历已经是第 ${calendarDay} 天`);
-        }
-      }
-
-      if (targetDay > player.currentDay) {
-        await player.update({ currentDay: targetDay });
-        
-        // 确保进阶后所有缺失天数的进度记录都存在
-        for (let d = player.currentDay; d <= targetDay; d++) {
-          const progressExists = await PlayerProgress.findOne({
-            where: { playerId, day: d }
-          });
-          
-          if (!progressExists) {
-            await PlayerProgress.create({
-              playerId,
-              day: d,
-              npcId: dayToNpcId(d),
-              unlockedAt: new Date(),
-            });
-          }
         }
       }
     }

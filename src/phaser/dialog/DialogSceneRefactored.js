@@ -364,11 +364,11 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
     // ========================================
     // 🔧 全程调用 Gemini 获取 character-driven 的问题文本
-    // ========================================
     const questionControl = {
       currentQuestionId: this.currentQuestionId,
       currentQuestionIndex: this.mealHandler.getQuestionIndex(this.currentQuestionId),
-      maxQuestions: 6
+      maxQuestions: 6,
+      isForcedSequence: true // 🔧 强制执行完整序列
     };
     
     const mealAnswers = this.stateManager.questionAnswers;
@@ -392,9 +392,10 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     
     this.uiManager.hideTypingIndicator();
     
-    // 🔧 检查 Gemini 是否发出了结束信号（Q6 之后）
-    if (geminiResult.success && geminiResult.isComplete) {
-      console.log("🏁 Gemini 指示对话已完成，正在提交餐食记录以获取线索...");
+    // 🔧 检查 Gemini 是否发出了结束信号
+    // 只有当当前问题 ID 为空（表示所有预设问题都已问完）时，才允许 Gemini 结束对话
+    if (geminiResult.success && geminiResult.isComplete && !this.currentQuestionId) {
+      console.log("🏁 Gemini 指示对话已完成，且预设问题已全部结束。");
       if (geminiResult.message && !geminiResult.message.toLowerCase().includes("thanks for sharing")) {
         this.uiManager.addMessage("NPC", geminiResult.message);
       }

@@ -248,38 +248,38 @@ export default class UIManager {
       clueTexts.push(empty);
     } else {
       // 🔧 增加滚动容器逻辑
-      const contentX = x - width / 2 + 25;
       const contentTop = y - height / 2 + 100;
       const contentHeight = height - 150;
+      const contentX = x - width / 2 + 25;
       
-      // 创建一个容器来存放所有线索
-      const cluesContainer = this.scene.add.container(0, 0);
+      // 创建一个容器来存放所有线索，位置设为内容区域左上角
+      const cluesContainer = this.scene.add.container(contentX, contentTop);
       clueTexts.push(cluesContainer); // 方便销毁
 
       let currentY = 0;
       this.clues.forEach((clue, index) => {
-        const text = this.scene.add.text(contentX, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
+        const text = this.scene.add.text(0, currentY, `📌 ${clue.npcName}:\n${clue.clue}`, {
           fontSize: itemFontSize,
           fontFamily: "Arial, sans-serif",
           fontWeight: isMobile ? "bold" : "normal",
           fill: clue.clueType === 'true' ? "#fbbf24" : "#ffffff",
           wordWrap: { width: width - 50 },
           lineSpacing: isMobile ? 10 : 6
-        }).setOrigin(0).setDepth(201);
+        }).setOrigin(0).setDepth(205); // 🔧 增加深度
         
         cluesContainer.add(text);
         currentY += text.height + itemSpacing;
       });
 
-      // 设置容器位置
-      cluesContainer.setPosition(0, contentTop);
       cluesContainer.setScrollFactor(0);
+      cluesContainer.setDepth(205); // 🔧 增加深度
 
-      // 🔧 创建遮罩，只显示中间区域
+      // 🔧 创建遮罩，只显示中间区域（使用世界坐标）
       const maskShape = this.scene.add.graphics()
         .fillStyle(0xffffff)
         .fillRect(x - width / 2, contentTop, width, contentHeight)
-        .setScrollFactor(0);
+        .setScrollFactor(0)
+        .setDepth(204); // 🔧 设置深度
       const mask = maskShape.createGeometryMask();
       cluesContainer.setMask(mask);
       clueTexts.push(maskShape); // 方便销毁

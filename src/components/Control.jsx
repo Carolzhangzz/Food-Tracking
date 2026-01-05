@@ -340,11 +340,14 @@ const Control = memo(() => {
         }}>
           {["breakfast", "lunch", "dinner"].map(m => {
             // 🔧 修复逻辑：只有明确获取到数据后，才根据数据判断
-            // 如果还没加载，默认显示为待完成 (isDone = false)
-            const availableMeals = playerData.currentDayMealsRemaining || playerData.availableMealTypes;
+            // 优先使用 currentDayMealsRemaining，如果不存在则所有图标置灰
+            const availableMeals = playerData.currentDayMealsRemaining;
             
-            // 如果数据还没加载出来，假定所有餐食都还没记录
-            const isDone = availableMeals ? !availableMeals.includes(m) : false;
+            // 关键：只有当 availableMeals 是数组且不为 null/undefined 时才进行判断
+            // 如果数据还没准备好，所有图标都应该是置灰状态 (isDone = false)
+            const isDone = (Array.isArray(availableMeals) && availableMeals.length > 0) 
+              ? !availableMeals.includes(m) 
+              : (Array.isArray(availableMeals) && availableMeals.length === 0 ? true : false);
             
             const mealIcons = { breakfast: "☀️", lunch: "🍜", dinner: "🌙" };
             const mealNames = { 
