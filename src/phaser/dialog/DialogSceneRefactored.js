@@ -602,7 +602,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         }
         
         await this.delay(3000);
-        this.exitDialog();
+        this.returnToMainScene();
       } else {
         console.error("❌ 保存失败:", result.error);
         this.isSubmitting = false;
@@ -819,9 +819,16 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     if (mainScene) {
       this.scene.resume("MainScene");
       
-      // 刷新NPC状态
+      // 🔧 关键：从后端重新拉取一次状态，确保主场景的 playerData 和 NPC 状态是最新的
       if (mainScene.npcManager) {
-        mainScene.npcManager.updateNPCStates();
+        console.log("🔄 对话结束，触发 NPC 管理器刷新状态...");
+        mainScene.npcManager.refreshAvailableNPCs().then(() => {
+          console.log("✅ 主场景数据已通过 NPC 管理器同步刷新");
+        }).catch(err => {
+          console.error("❌ 刷新 NPC 状态失败:", err);
+          // 兜底：仅本地更新
+          mainScene.npcManager.updateNPCStates();
+        });
       }
     }
   }

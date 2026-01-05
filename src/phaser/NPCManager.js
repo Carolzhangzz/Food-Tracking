@@ -467,34 +467,37 @@ export default class NPCManager {
       return;
     }
 
-    // ⏭️ 不是当天的NPC
+    // ⏭️ 不是当天的NPC（只要解锁了，就允许继续补齐餐食记录）
     if (!isCurrentDay) {
-      const activeNpcData = this.npcData.find(n => n.unlockDay === currentDay);
-      const activeNpcName = activeNpcData ? (activeNpcData.name[lang] || activeNpcData.name.zh) : "???";
+      // 如果是未来的 NPC（理论上被 isUnlocked 拦截了，但以防万一）
+      if (unlockDay > currentDay) {
+        const activeNpcData = this.npcData.find(n => n.unlockDay === currentDay);
+        const activeNpcName = activeNpcData ? (activeNpcData.name[lang] || activeNpcData.name.zh) : "???";
+        const message = lang === "zh"
+          ? `今天（第 ${currentDay} 天）的任务是找 ${activeNpcName} 对话哦！`
+          : `Your task for today (Day ${currentDay}) is to talk to ${activeNpcName}!`;
+        this.scene.showNotification(message, 3500);
+        return;
+      }
       
-      const message = lang === "zh"
-        ? `今天（第 ${currentDay} 天）的任务是找 ${activeNpcName} 对话哦！`
-        : `Your task for today (Day ${currentDay}) is to talk to ${activeNpcName}!`;
-      
-      console.log(`⏭️ 点击了非当天NPC (Day ${unlockDay}), 当前活跃NPC是 Day ${currentDay} (${activeNpcName})`);
-      this.scene.showNotification(message, 3500);
-      return;
+      // 如果是过去的 NPC，允许补录
+      console.log(`ℹ️ 点击了过去的 NPC (Day ${unlockDay}), 允许继续对话补齐记录。`);
     }
 
     // ✅ 可以对话
-    console.log(`✅ 开始对话: ${npcName}`);
+    console.log(`✅ 开始对话: ${npcName} (针对第 ${unlockDay} 天的任务)`);
     this.startDialogWithNPC(npcData);
   }
 
   startDialogWithNPC(npcData) {
     const lang = this.scene.playerData?.language || "zh";
     const npcName = npcData.name[lang] || npcData.name.zh;
+    const unlockDay = npcData.unlockDay;
     
-    console.log(`💬 开始对话: ${npcName} (${npcData.id})`);
+    console.log(`💬 开始对话: ${npcName} (${npcData.id}), 目标天数: ${unlockDay}`);
 
     try {
-      // 🔧 关键修复：确保主场景真的被暂停，并且使用 start 而不是 launch 来测试是否能成功打开
-      // 之前用 launch 可能因为场景已经在后台运行而没反应
+      // 🔧 关键修复：确保主场景真的被暂停
       console.log("⏸️ 正在暂停 MainScene...");
       this.scene.scene.pause("MainScene");
 
@@ -503,8 +506,8 @@ export default class NPCManager {
         npcName: npcName,
         playerId: this.scene.playerId,
         playerData: this.scene.playerData,
-        currentDay: this.getCurrentDay(),
-        todayMeals: this.getTodayMeals(),
+        currentDay: unlockDay, // 🔧 使用 NPC 对应的天数，确保记录存到正确的一天
+        todayMeals: this.getMealsForDay(unlockDay).map(m => m.mealType), // 🔧 使用该天已有的餐食记录
         hasTalkedBefore: this.hasCompletedNPC(npcData.id),
         npcManager: this,
         useConvAI: true,
