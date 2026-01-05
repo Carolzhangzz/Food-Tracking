@@ -915,12 +915,28 @@ router.post("/record-meal", async (req, res) => {
     let shouldGiveClue = true;
     let clueData = null;
     
-    // 1. 先把餐食记录存了，并提交事务（保证最基础的功能不挂）
-    // 预创建下一天的 progress
+    // 1. 先把餐食记录存了
+    // 🔧 核心解锁逻辑优化：
+    // 1. 如果是晚餐，立即解锁下一天 (不管日历时间)
+    // 2. 如果不是晚餐，但日历天数已经超过了当前记录的天数，也解锁下一天
     let nextDayUnlocked = false;
     let shouldUnlockNextDay = false;
-    if (day < 7) {
+    let updatedCurrentDay = player.currentDay;
+
+    const calendarDay = calculateDayNumber(player.firstLoginDate, new Date());
+    const isDinner = mealType === "dinner";
+    const isNextCalendarDay = calendarDay > day;
+
+    if ((isDinner || isNextCalendarDay) && day < 7) {
       const nextDay = day + 1;
+      
+      // 立即更新玩家当前的进度天数
+      if (nextDay > player.currentDay) {
+        await player.update({ currentDay: nextDay }, { transaction: t });
+        updatedCurrentDay = nextDay;
+        console.log(`🚀 [NPC解锁] 玩家 ${playerId} 满足解锁条件 (晚餐:${isDinner}, 跨天:${isNextCalendarDay}) -> 进阶到 Day ${nextDay}`);
+      }
+
       const exists = await PlayerProgress.findOne({
         where: { playerId, day: nextDay },
         transaction: t,
@@ -1037,7 +1053,7 @@ router.post("/record-meal", async (req, res) => {
       availableMealTypes: remainingMeals,
       nextDayUnlocked,
       shouldUnlockNextDay,
-      currentDay: day,
+      currentDay: updatedCurrentDay,
       gameCompleted: finalGameCompleted,
     });
   } catch (error) {
