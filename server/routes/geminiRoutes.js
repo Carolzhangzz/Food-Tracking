@@ -75,9 +75,9 @@ const NPC_PERSONAS = {
   }
 };
 
-function generateImprovedSystemPrompt(npcId, questionControl, mealType, coreQuestion, lang = "en") {
+function generateImprovedSystemPrompt(npcId, questionControl = {}, mealType = "this meal", coreQuestion = null, lang = "en") {
   const npc = NPC_PERSONAS[npcId] || NPC_PERSONAS.uncle_bo;
-  const { currentQuestionId, currentQuestionIndex } = questionControl;
+  const { currentQuestionId = null } = questionControl;
 
   const styleConstraint = `STRICT PERSONALITY & STYLE:
 - Name: ${npc.name} (${npc.role})
@@ -85,26 +85,33 @@ function generateImprovedSystemPrompt(npcId, questionControl, mealType, coreQues
 - Background: ${npc.background}
 - Constraints: KEEP RESPONSES CONCISE (max 15 words per sentence). Conversational, interactive, gameful. DO NOT expose inner thoughts in parentheses.`;
 
-  const instruction = coreQuestion ? `CURRENT TASK:
-${coreQuestion[lang] || coreQuestion.en}` : `CONTINUE CONVERSATION about ${mealType}.`;
+  let modeInstruction = "";
+  if (currentQuestionId) {
+    const instruction = coreQuestion ? coreQuestion[lang] || coreQuestion.en : `CONTINUE CONVERSATION about ${mealType}.`;
+    modeInstruction = `JOURNALING MODE:
+- Recording meal: ${mealType}
+- Question Stage: ${currentQuestionId}
+- TASK: ${instruction}
+- Completion Rule: Once the player has answered ALL sequence questions, say: "Thanks for sharing your meal with me." AND STOP.`;
+  } else {
+    modeInstruction = `FREE CHAT MODE:
+- Respond to the player's message in character.
+- You can subtly mention that if they want to record a meal (breakfast, lunch, or dinner), you are ready to help.`;
+  }
 
   const prompt = `You are playing the role of ${npc.name} in an interactive game. 
 
 ${styleConstraint}
 
 BACKGROUND STORY SUMMARY:
-Master Chef Hua disappeared. The player (his former apprentice) returned to unravel the mystery. Hua had a habit of food journaling. You are helping/guiding the player through this journaling format.
+Master Chef Hua disappeared. The player (his former apprentice) returned to unravel the mystery. Hua had a habit of food journaling.
 
-JOURNALING CONTEXT:
-- Recording meal: ${mealType}
-- Question Stage: ${currentQuestionId}
+${modeInstruction}
 
 IMPORTANT GUIDELINES:
 1. SHARE YOUR OWN MEAL: Throughout the conversation, share what you (NPC) are eating. Must have natural ingredients, healthy preparation (but don't use the word "healthy"). Stick with narrative story.
-2. ${instruction}
-3. Character-driven response: Before asking the next question, give a short remark based on the player's previous answer in your unique voice.
-4. Completion Rule: Once the player has answered ALL sequence questions, say: "Thanks for sharing your meal with me." AND STOP. Do not discuss the next meal.
-5. If the player didn't give a complete answer, ask again gently in character.
+2. Character-driven response: Give a short remark based on the player's previous input in your unique voice.
+3. If the player didn't give a complete answer or was vague, nudge them gently in character.
 
 EXAMPLES OF YOUR VOICE:
 ${npc.examples.map(ex => "- " + ex).join("\n")}
@@ -116,9 +123,9 @@ Respond in ${lang === "zh" ? "Chinese" : "English"}.`;
 
 router.post("/gemini-chat", async (req, res) => {
   try {
-    const { userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl, coreQuestion, lang = "en" } = req.body;
+    const { userInput, npcId, mealType, dialogHistory, mealAnswers, questionControl = {}, coreQuestion = null, lang = "en" } = req.body;
     
-    console.log(`🤖 [Gemini] Chat Request: NPC=${npcId}, Meal=${mealType}, Q=${questionControl.currentQuestionId}`);
+    console.log(`🤖 [Gemini] Chat Request: NPC=${npcId}, Meal=${mealType}, Mode=${questionControl.currentQuestionId ? 'Journaling' : 'FreeChat'}`);
 
     const systemPrompt = generateImprovedSystemPrompt(npcId, questionControl, mealType, coreQuestion, lang);
 

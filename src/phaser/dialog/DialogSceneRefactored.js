@@ -270,11 +270,35 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         this.uiManager.addMessage("Player", userInput, lang === "zh" ? "你" : "You");
         this.uiManager.showTypingIndicator();
         
-        const response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+        let response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+        
+        // 🔧 关键修复：如果 ConvAI 失败（500 错误或超限），自动回退到 Gemini
+        if (!response.success) {
+          console.warn("⚠️ ConvAI 失败，正在尝试回退到 Gemini...");
+          const geminiFallback = await this.geminiHandler.getGeminiResponse(
+            userInput,
+            this.currentNPC,
+            "conversation",
+            this.uiManager.getMessageHistory(),
+            {},
+            { currentQuestionId: null } // 表示自由聊天模式
+          );
+          
+          if (geminiFallback.success) {
+            response = {
+              success: true,
+              message: geminiFallback.message
+            };
+          }
+        }
+
         this.uiManager.hideTypingIndicator();
         
         if (response.success) {
           this.uiManager.addMessage("NPC", response.message);
+        } else {
+          // 如果全部都失败了
+          this.uiManager.addMessage("NPC", lang === "zh" ? "我也在思考这件事..." : "I'm thinking about that too...");
         }
         
         await this.delay(800);
@@ -301,7 +325,28 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       
       // 调用ConvAI继续对话
       this.uiManager.showTypingIndicator();
-      const response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+      let response = await this.convaiHandler.callAPI(userInput, this.currentNPC);
+      
+      // 🔧 关键修复：如果 ConvAI 失败，回退到 Gemini
+      if (!response.success) {
+        console.warn("⚠️ ConvAI 失败，正在尝试回退到 Gemini (FreeChat)...");
+        const geminiFallback = await this.geminiHandler.getGeminiResponse(
+          userInput,
+          this.currentNPC,
+          "conversation",
+          this.uiManager.getMessageHistory(),
+          {},
+          { currentQuestionId: null }
+        );
+        
+        if (geminiFallback.success) {
+          response = {
+            success: true,
+            message: geminiFallback.message
+          };
+        }
+      }
+
       this.uiManager.hideTypingIndicator();
       
       if (response.success) {
