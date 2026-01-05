@@ -960,10 +960,21 @@ router.post("/record-meal", async (req, res) => {
 
     // 2. 事务提交后，再尝试处理线索（即使这里挂了，也不会报错 500 给前端）
     try {
-      // 这里的查询不带 transaction
+      // 🔧 关键修复：先进行ID映射，然后再查询和保存
+      const idMapping = {
+        "village_head": "uncle_bo", "spice_woman": "spice_granny",
+        "npc1": "uncle_bo", "npc2": "shop_owner", "npc3": "spice_granny",
+        "npc4": "restaurant_owner", "npc5": "fisherman", "npc6": "old_friend",
+        "npc7": "secret_apprentice"
+      };
+      const actualNpcId = idMapping[npcId] || npcId;
+      
+      // 🔧 使用映射后的ID查询，确保查询和保存使用同一个ID
       const previousVagueCount = await Clue.count({
-        where: { playerId, npcId, clueType: 'vague' }
+        where: { playerId, npcId: actualNpcId, clueType: 'vague' }
       }).catch(() => 0); // 容错：如果 clueType 字段不存在，返回 0
+      
+      console.log(`🔍 [线索检查] NPC: ${npcId} -> ${actualNpcId}, 已有vague线索: ${previousVagueCount}条`);
       
       if (mealType === "dinner") {
         clueType = "true";
@@ -972,15 +983,8 @@ router.post("/record-meal", async (req, res) => {
         clueType = "vague";
         const stage = previousVagueCount === 0 ? 1 : 2;
         clueText = getClueForNPCStage(npcId, playerLanguage, stage);
+        console.log(`📝 [线索生成] 餐食: ${mealType}, Stage: ${stage}`);
       }
-      
-      const idMapping = {
-        "village_head": "uncle_bo", "spice_woman": "spice_granny",
-        "npc1": "uncle_bo", "npc2": "shop_owner", "npc3": "spice_granny",
-        "npc4": "restaurant_owner", "npc5": "fisherman", "npc6": "old_friend",
-        "npc7": "secret_apprentice"
-      };
-      const actualNpcId = idMapping[npcId] || npcId;
 
       if (clueText && typeof clueText === 'string') {
         const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
