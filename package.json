@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.13.0",
+    "@google/generative-ai": "^0.21.0",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
