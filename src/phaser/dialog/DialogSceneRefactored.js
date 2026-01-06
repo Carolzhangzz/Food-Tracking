@@ -434,13 +434,10 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
     // ========================================
     // 🔧 全程调用 Gemini 获取 character-driven 的问题文本
-    const currentQuestionSet = this.mealHandler.getCurrentQuestions();
-    const maxQuestions = currentQuestionSet.sequence.length; // 动态获取问题总数
-    
     const questionControl = {
       currentQuestionId: this.currentQuestionId,
       currentQuestionIndex: this.mealHandler.getQuestionIndex(this.currentQuestionId),
-      maxQuestions: maxQuestions, // Type A: 8个, Type B: 5个 (不包括 Q_TIME_FOLLOWUP)
+      maxQuestions: 8, // 所有NPC统一8个问题 (不包括条件性的 Q_TIME_FOLLOWUP)
       isForcedSequence: true // 🔧 强制执行完整序列
     };
     
