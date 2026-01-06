@@ -15,7 +15,7 @@ export default class MealRecordingHandler {
   initializeQuestions() {
     return {
       typeA: {
-        sequence: ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6"],
+        sequence: ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8"],
         questions: {
           Q1: {
             id: "Q1",
@@ -50,43 +50,67 @@ export default class MealRecordingHandler {
           Q4: {
             id: "Q4",
             type: "input",
-            coreQuestion: { en: "Ask what they had for [MEAL]", zh: "询问玩家吃了什么（[MEAL]）" },
+            coreQuestion: { en: "Ask what foods they consumed during this meal", zh: "询问玩家在这顿饭中吃了哪些食物" },
             text: { en: "What did you have (for [MEAL])?", zh: "你吃了什么（[MEAL]）？" }
           },
           Q5: {
             id: "Q5",
             type: "input",
-            coreQuestion: { en: "Ask about portion size, how they decided, and physical feeling during/after", zh: "询问吃了多少份量，如何决定，以及吃完后的身体感觉" },
-            text: { en: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?", zh: "你吃了多少份量？你是如何决定这个份量的？吃的时候或吃完后身体感觉如何？" }
+            coreQuestion: { en: "Ask what portion size they consumed", zh: "询问玩家吃了多少份量" },
+            text: { en: "What portion size did you eat?", zh: "你吃了多少份量？" }
           },
           Q6: {
             id: "Q6",
             type: "input",
-            coreQuestion: { en: "Ask why they chose this particular food (craving, health, convenience, etc.)", zh: "询问为什么选择这个特定的食物（想吃、健康、方便等）" },
-            text: { en: "Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?", zh: "你为什么选择这顿饭？比如，方便、想吃、健康选择？" }
+            coreQuestion: { en: "Ask how they determined the portion size", zh: "询问玩家如何决定这个份量" },
+            text: { en: "How did you decide on that amount?", zh: "你是如何决定这个份量的？" }
+          },
+          Q7: {
+            id: "Q7",
+            type: "input",
+            coreQuestion: { en: "Ask how their body felt during or after eating", zh: "询问玩家吃的时候或吃完后身体感觉如何" },
+            text: { en: "How did your body feel, as you ate... and after?", zh: "你吃的时候和吃完后身体感觉如何？" }
+          },
+          Q8: {
+            id: "Q8",
+            type: "input",
+            coreQuestion: { en: "Ask why they chose this particular food instead of other options", zh: "询问为什么选择这个特定的食物而不是其他选项" },
+            text: { en: "Why did you choose this particular food/meal instead of other options?", zh: "你为什么选择这顿饭而不是其他选项？" }
           }
         }
       },
       typeB: {
-        sequence: ["Q1", "Q2", "Q3"],
+        sequence: ["Q1", "Q2", "Q3", "Q4", "Q5"],
         questions: {
           Q1: {
             id: "Q1",
             type: "input",
-            coreQuestion: { en: "Ask what they had for [MEAL]", zh: "询问玩家吃了什么（[MEAL]）" },
+            coreQuestion: { en: "Ask what foods they consumed during this meal", zh: "询问玩家在这顿饭中吃了哪些食物" },
             text: { en: "What did you have (for [MEAL])?", zh: "你吃了什么（[MEAL]）？" }
           },
           Q2: {
             id: "Q2",
             type: "input",
-            coreQuestion: { en: "Ask about portion size, how they decided, and physical feeling during/after", zh: "询问吃了多少份量，如何决定，以及吃完后的身体感觉" },
-            text: { en: "What portion size did you eat? How did you decide on that amount? How did you feel physically during or after eating?", zh: "你吃了多少份量？你是如何决定这个份量的？吃的时候或吃完后身体感觉如何？" }
+            coreQuestion: { en: "Ask what portion size they consumed", zh: "询问玩家吃了多少份量" },
+            text: { en: "What portion size did you eat?", zh: "你吃了多少份量？" }
           },
           Q3: {
             id: "Q3",
             type: "input",
-            coreQuestion: { en: "Ask why they chose this particular food (craving, health, convenience, etc.)", zh: "询问为什么选择这个特定的食物（想吃、健康、方便等）" },
-            text: { en: "Why did you choose this particular food/meal? For example, simply convenient, you have a craving, healthy options?", zh: "你为什么选择这顿饭？比如，方便、想吃、健康选择？" }
+            coreQuestion: { en: "Ask how they determined the portion size", zh: "询问玩家如何决定这个份量" },
+            text: { en: "How did you decide on that amount?", zh: "你是如何决定这个份量的？" }
+          },
+          Q4: {
+            id: "Q4",
+            type: "input",
+            coreQuestion: { en: "Ask how their body felt during or after eating", zh: "询问玩家吃的时候或吃完后身体感觉如何" },
+            text: { en: "How did your body feel, as you ate... and after?", zh: "你吃的时候和吃完后身体感觉如何？" }
+          },
+          Q5: {
+            id: "Q5",
+            type: "input",
+            coreQuestion: { en: "Ask why they chose this particular food instead of other options", zh: "询问为什么选择这个特定的食物而不是其他选项" },
+            text: { en: "Why did you choose this particular food/meal instead of other options?", zh: "你为什么选择这顿饭而不是其他选项？" }
           }
         }
       },

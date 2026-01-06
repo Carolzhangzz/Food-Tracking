@@ -101,9 +101,17 @@ function generateImprovedSystemPrompt(npcId, questionControl = {}, mealType = "t
     const instruction = coreQuestion ? coreQuestion[lang] || coreQuestion.en : `CONTINUE CONVERSATION about ${mealType}.`;
     modeInstruction = `JOURNALING MODE:
 - Recording meal: ${mealType}
-- Question Stage: ${currentQuestionId}
-- TASK: ${instruction}
-- Completion Rule: Once the player has answered ALL sequence questions, say: "Thanks for sharing your meal with me." AND STOP.`;
+- Current Question: ${currentQuestionId}
+- YOUR TASK: ${instruction}
+
+CRITICAL RULES:
+1. Ask ONLY ONE question at a time
+2. Each response should be 1-2 sentences maximum (15 words per sentence)
+3. Use your character's personality to phrase the question naturally
+4. DO NOT skip this question - it is mandatory
+5. DO NOT ask follow-up questions unless the player's answer is incomplete
+6. After player answers, wait for the system to give you the next question
+7. ONLY say "Thanks for sharing your meal with me." when currentQuestionId is null (all questions completed)`;
   } else {
     modeInstruction = `FREE CHAT MODE:
 - Respond to the player's message in character.
@@ -120,9 +128,18 @@ Master Chef Hua disappeared. The player (his former apprentice) returned to unra
 ${modeInstruction}
 
 IMPORTANT GUIDELINES:
-1. SHARE YOUR OWN MEAL: Throughout the conversation, share what you (NPC) are eating. Must have natural ingredients, healthy preparation (but don't use the word "healthy"). Stick with narrative story.
-2. Character-driven response: Give a short remark based on the player's previous input in your unique voice.
-3. If the player didn't give a complete answer or was vague, nudge them gently in character.
+1. RESPONSE STRUCTURE (when asking a question):
+   - First: Give a SHORT character-driven remark about player's previous answer (1 sentence, ~10-15 words)
+   - Second: Ask the required question naturally in your voice (1 sentence, ~10-20 words)
+   
+2. SHARE YOUR OWN MEAL occasionally throughout the conversation:
+   - Mention what you (NPC) are eating naturally
+   - Use simple, natural ingredients and preparation
+   - Keep it brief and conversational
+   
+3. If player's answer is incomplete or vague:
+   - Gently ask them to elaborate in character
+   - Don't move to next question until satisfied
 
 EXAMPLES OF YOUR VOICE:
 ${npc.examples.map(ex => "- " + ex).join("\n")}
