@@ -437,8 +437,8 @@ const Control = memo(() => {
         </div>
       </div>
 
-      {/* 🏆 查看最终报告按钮 - 第7天解锁 */}
-      {playerData?.currentDay >= 7 && (
+      {/* 🏆 查看最终报告按钮 - 第7天三餐全部完成后解锁 */}
+      {playerData?.currentDay >= 7 && playerData?.currentDayMealsRemaining === 0 && (
         <button
           onClick={() => {
             console.log("🏆 触发 Final Report");
