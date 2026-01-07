@@ -20,7 +20,44 @@ router.post("/generate-final-report", async (req, res) => {
       return res.status(404).json({ success: false, error: "No meal records found." });
     }
 
-    const mealSummary = meals.map(m => `Day ${m.day} - ${m.mealType}: ${m.mealContent}`).join("\n");
+    // 🔧 使用详细的 mealAnswers 而不仅仅是 mealContent
+    const mealSummary = meals.map(m => {
+      let details = `Day ${m.day} - ${m.mealType}:\n`;
+      
+      // 基础内容
+      details += `  Food: ${m.mealContent}\n`;
+      
+      // 如果有详细答案，添加更多信息
+      if (m.mealAnswers && typeof m.mealAnswers === 'object') {
+        const answers = m.mealAnswers;
+        
+        // Q1: 获取方式
+        if (answers.Q1) details += `  How obtained: ${answers.Q1}\n`;
+        
+        // Q2: 时间
+        if (answers.Q2) details += `  Meal time: ${answers.Q2}\n`;
+        
+        // Q3: 用餐时长
+        if (answers.Q3) details += `  Duration: ${answers.Q3}\n`;
+        
+        // Q4: 吃了什么（详细）
+        if (answers.Q4) details += `  What they ate: ${answers.Q4}\n`;
+        
+        // Q5: 份量
+        if (answers.Q5) details += `  Portion size: ${answers.Q5}\n`;
+        
+        // Q6: 如何决定份量
+        if (answers.Q6) details += `  How decided amount: ${answers.Q6}\n`;
+        
+        // Q7: 身体感觉
+        if (answers.Q7) details += `  Physical feeling: ${answers.Q7}\n`;
+        
+        // Q8: 为什么选择这个食物
+        if (answers.Q8) details += `  Why chose this: ${answers.Q8}\n`;
+      }
+      
+      return details;
+    }).join("\n");
 
     const prompt = `You are Master Chef Hua. The player has just completed a 7-day food journaling journey in Gourmet Village. Based on their meals, create a comprehensive final report.
 

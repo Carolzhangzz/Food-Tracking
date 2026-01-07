@@ -641,6 +641,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
           this.mainScene.updatePlayerdata(this.playerData);
         }
         
+        // 🔧 保存对话历史到数据库
+        await this.saveConversationHistory(this.stateManager.conversationHistory);
+        
         await this.delay(3000);
         this.returnToMainScene();
       } else {
