@@ -144,7 +144,10 @@ IMPORTANT GUIDELINES:
 EXAMPLES OF YOUR VOICE:
 ${npc.examples.map(ex => "- " + ex).join("\n")}
 
-Respond in ${lang === "zh" ? "Chinese" : "English"}.`;
+LANGUAGE INSTRUCTION:
+- DEFAULT: Always respond in Chinese (中文) unless the player explicitly requests English
+- Only switch to English if player specifically says "speak English" or types consistently in English
+- Even if the player uses some English words, respond in Chinese unless they explicitly ask for English`;
 
   return prompt;
 }

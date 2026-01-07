@@ -268,7 +268,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   }
 
   /**
-   * 播放NPC开场白（分段展示）
+   * 播放NPC开场白（对话框内逐句展示）
    */
   async playNPCIntro() {
     const lang = this.playerData.language || "zh";
@@ -276,32 +276,12 @@ export default class DialogSceneRefactored extends Phaser.Scene {
 
     console.log(`🎬 播放开场白：${this.currentNPC}，共${segments.length}段`);
 
-    // 进入开场白模式
-    this.uiManager.showIntroMode();
-
-    // 逐段播放
+    // 逐段显示，玩家点击Continue进入下一段
     for (let i = 0; i < segments.length; i++) {
-      await this.uiManager.showIntroSegment(
-        segments[i].text,
-        i + 1,
-        segments.length,
-        {
-          typing: true,
-          pauseAfter: 1500
-        }
-      );
-
-      // 最后一段不需要等待点击
-      if (i < segments.length - 1) {
-        await this.uiManager.waitForContinue();
-      }
+      await new Promise((resolve) => {
+        this.uiManager.showIntroSegment(segments[i].text, resolve);
+      });
     }
-
-    // 等待最后一段完成后，等待玩家点击
-    await this.uiManager.waitForContinue();
-
-    // 退出开场白模式
-    this.uiManager.exitIntroMode();
 
     console.log("✅ 开场白播放完成");
   }
@@ -735,31 +715,30 @@ export default class DialogSceneRefactored extends Phaser.Scene {
           const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
           console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
           
-          const isDebugPlayer = this.playerId === '002';
-          const isGameComplete = (this.currentDay >= 7 && remaining.length === 0) || (isDebugPlayer && this.currentDay >= 7 && mealType === 'dinner');
-          
-          if (isGameComplete) {
-            console.log("🎉 [DialogScene] 恭喜！全周餐食记录已完成！强制触发报告...");
-            this.mainScene.updatePlayerdata({
-              ...this.playerData,
-              gameCompleted: true,
-              currentDayMealsRemaining: []
-            });
-          } else {
-            this.mainScene.updatePlayerdata({
-              ...this.playerData,
-              currentDayMealsRemaining: remaining
-            });
-          }
-
           this.playerData = {
             ...this.playerData,
             currentDayMealsRemaining: remaining,
-            availableMealTypes: remaining,
-            gameCompleted: isGameComplete
+            availableMealTypes: remaining
           };
           
           this.mainScene.updatePlayerdata(this.playerData);
+
+          // 🎬 检查是否为Day 7的任意一餐，询问玩家是否完成游戏
+          if (this.currentDay >= 7) {
+            console.log("🎬 [DialogScene] Day 7 记录完成，询问是否完成游戏");
+            
+            const shouldFinish = await this.askToFinishGame();
+            
+            if (shouldFinish) {
+              console.log("🎉 [DialogScene] 玩家选择完成游戏，显示结局");
+              // 保存对话历史
+              await this.saveConversationHistory(this.stateManager.conversationHistory);
+              
+              // 显示黑幕 → 信件 → Final Report
+              await this.showGameEnding();
+              return;
+            }
+          }
         }
         
         // 🔧 保存对话历史到数据库
@@ -967,6 +946,312 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       backgroundColor: "#000000aa",
       padding: { x: 20, y: 12 },
     }).setOrigin(0.5).setDepth(100);
+  }
+
+  /**
+   * 询问玩家是否完成游戏（Day 7餐食记录后）
+   * @returns {Promise<boolean>} true=完成游戏，false=继续记录
+   */
+  async askToFinishGame() {
+    return new Promise((resolve) => {
+      const lang = this.playerData?.language || "zh";
+      
+      const question = lang === "zh"
+        ? "恭喜你完成了这餐的记录！你想现在完成游戏查看结局，还是继续记录其他餐食？"
+        : "Congratulations on completing this meal! Would you like to finish the game and see the ending now, or continue recording more meals?";
+
+      this.uiManager.addMessage("NPC", question);
+
+      const finishText = lang === "zh" ? "✅ 完成游戏" : "✅ Finish Game";
+      const continueText = lang === "zh" ? "📝 继续记录" : "📝 Continue Recording";
+
+      const options = [
+        { text: finishText, value: "finish" },
+        { text: continueText, value: "continue" }
+      ];
+
+      this.uiManager.showButtons(options, (choice) => {
+        resolve(choice === "finish");
+      });
+    });
+  }
+
+  /**
+   * 显示游戏结局：黑幕 → 信件 → Final Report
+   */
+  async showGameEnding() {
+    console.log("🎬 [GameEnding] 开始显示游戏结局");
+
+    // 1. 黑幕淡入
+    await this.showBlackScreen();
+
+    // 2. 显示华师父的信件
+    await this.showMasterLetter();
+
+    // 3. 提示解锁食谱
+    await this.showUnlockRecipePrompt();
+
+    // 4. 触发 Final Report
+    this.triggerFinalReport();
+  }
+
+  /**
+   * 显示黑幕
+   */
+  async showBlackScreen() {
+    return new Promise((resolve) => {
+      const blackScreen = document.createElement("div");
+      blackScreen.id = "game-ending-black-screen";
+      blackScreen.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: black;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 2s ease;
+      `;
+
+      document.body.appendChild(blackScreen);
+
+      // 淡入
+      setTimeout(() => {
+        blackScreen.style.opacity = "1";
+      }, 100);
+
+      // 等待淡入完成
+      setTimeout(() => {
+        resolve();
+      }, 2500);
+    });
+  }
+
+  /**
+   * 显示华师父的信件
+   */
+  async showMasterLetter() {
+    return new Promise((resolve) => {
+      const lang = this.playerData?.language || "zh";
+      const playerName = this.playerData?.playerName || (lang === "zh" ? "学徒" : "Apprentice");
+
+      const letterContent = lang === "zh" 
+        ? `亲爱的${playerName}，
+
+我就知道你能找到这里。
+
+恭喜你找到了食谱。
+
+很抱歉我没能在村子里见到你。我已经离开了。
+
+你能猜到我现在在哪里吗？
+
+我做了一个决定——我想把我的烹饪方式分享给更多的人。一种反映人们口味、忠于村庄根源、同时也是经典的更健康诠释的烹饪方式。
+
+祝你好运。我为你感到骄傲。我们会再见的。
+
+—— 你的华师父`
+        : `Dear ${playerName},
+
+I knew you'd find this place.
+
+Congratulations on finding the recipe.
+
+I'm sorry I didn't meet you in the village. I've already left.
+
+Can you guess where I am now?
+
+I've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.
+
+Best of luck. I'm proud of you. Until we meet again.
+
+– Your Master Hua`;
+
+      const letterContainer = document.createElement("div");
+      letterContainer.id = "master-letter-container";
+      letterContainer.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        background: rgba(245, 240, 230, 0.95);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 1.5s ease;
+        font-family: 'Georgia', serif;
+        color: #2c2c2c;
+        line-height: 1.8;
+      `;
+
+      const letterTitle = document.createElement("div");
+      letterTitle.textContent = lang === "zh" ? "来自华师父的信" : "A Letter from Master Hua";
+      letterTitle.style.cssText = `
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 30px;
+        text-align: center;
+        color: #6b4423;
+      `;
+
+      const letterText = document.createElement("div");
+      letterText.textContent = letterContent;
+      letterText.style.cssText = `
+        font-size: 18px;
+        white-space: pre-wrap;
+        margin-bottom: 30px;
+      `;
+
+      const continueBtn = document.createElement("button");
+      continueBtn.textContent = lang === "zh" ? "继续" : "Continue";
+      continueBtn.style.cssText = `
+        display: block;
+        margin: 0 auto;
+        padding: 15px 40px;
+        font-size: 18px;
+        font-weight: 600;
+        background: #6b4423;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+      `;
+
+      continueBtn.onmouseover = () => {
+        continueBtn.style.background = "#8b5a3c";
+        continueBtn.style.transform = "translateY(-2px)";
+      };
+      continueBtn.onmouseout = () => {
+        continueBtn.style.background = "#6b4423";
+        continueBtn.style.transform = "translateY(0)";
+      };
+
+      continueBtn.onclick = () => {
+        letterContainer.style.opacity = "0";
+        setTimeout(() => {
+          letterContainer.remove();
+          resolve();
+        }, 1000);
+      };
+
+      letterContainer.appendChild(letterTitle);
+      letterContainer.appendChild(letterText);
+      letterContainer.appendChild(continueBtn);
+      document.body.appendChild(letterContainer);
+
+      // 淡入信件
+      setTimeout(() => {
+        letterContainer.style.opacity = "1";
+      }, 500);
+    });
+  }
+
+  /**
+   * 显示解锁食谱提示
+   */
+  async showUnlockRecipePrompt() {
+    return new Promise((resolve) => {
+      const lang = this.playerData?.language || "zh";
+
+      const promptContainer = document.createElement("div");
+      promptContainer.id = "unlock-recipe-prompt";
+      promptContainer.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 10001;
+        opacity: 0;
+        transition: opacity 1s ease;
+      `;
+
+      const promptText = document.createElement("div");
+      promptText.textContent = lang === "zh" 
+        ? "🎉 现在解锁你的食谱！" 
+        : "🎉 Unlock Your Recipe Right Now!";
+      promptText.style.cssText = `
+        font-size: 36px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        margin-bottom: 30px;
+      `;
+
+      const unlockBtn = document.createElement("button");
+      unlockBtn.textContent = lang === "zh" ? "🗝️ 解锁" : "🗝️ Unlock";
+      unlockBtn.style.cssText = `
+        padding: 20px 60px;
+        font-size: 24px;
+        font-weight: bold;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+        border: none;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 10px 30px rgba(245, 158, 11, 0.5);
+      `;
+
+      unlockBtn.onmouseover = () => {
+        unlockBtn.style.transform = "scale(1.1)";
+        unlockBtn.style.boxShadow = "0 15px 40px rgba(245, 158, 11, 0.7)";
+      };
+      unlockBtn.onmouseout = () => {
+        unlockBtn.style.transform = "scale(1)";
+        unlockBtn.style.boxShadow = "0 10px 30px rgba(245, 158, 11, 0.5)";
+      };
+
+      unlockBtn.onclick = () => {
+        promptContainer.style.opacity = "0";
+        setTimeout(() => {
+          promptContainer.remove();
+          resolve();
+        }, 800);
+      };
+
+      promptContainer.appendChild(promptText);
+      promptContainer.appendChild(unlockBtn);
+      document.body.appendChild(promptContainer);
+
+      // 淡入
+      setTimeout(() => {
+        promptContainer.style.opacity = "1";
+      }, 300);
+    });
+  }
+
+  /**
+   * 触发 Final Report
+   */
+  triggerFinalReport() {
+    console.log("🏆 [GameEnding] 触发 Final Report");
+
+    // 清理黑幕
+    const blackScreen = document.getElementById("game-ending-black-screen");
+    if (blackScreen) {
+      blackScreen.remove();
+    }
+
+    // 设置游戏完成状态
+    if (this.mainScene && this.mainScene.updatePlayerdata) {
+      this.mainScene.updatePlayerdata({
+        ...this.playerData,
+        gameCompleted: true,
+        currentDayMealsRemaining: []
+      });
+    }
+
+    // 返回主场景并触发报告
+    this.returnToMainScene();
   }
 
   returnToMainScene() {
