@@ -513,14 +513,16 @@ const overlayStyle = {
   left: 0,
   width: '100vw',
   height: '100vh',
-  backgroundColor: 'rgba(15, 15, 35, 0.92)',  // 🎮 游戏深色背景
-  backdropFilter: 'blur(15px)',
-  zIndex: 9999,
+  backgroundColor: 'rgba(15, 15, 35, 0.95)',  // 🎮 游戏深色背景（加深避免穿透）
+  backdropFilter: 'blur(20px)',  // 🔧 加强模糊效果
+  zIndex: 999999,  // 🔧 超高z-index，完全覆盖所有元素
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   padding: '20px',
   fontFamily: '"Georgia", serif',
+  pointerEvents: 'auto',  // 🔧 确保捕获所有点击事件
+  isolation: 'isolate',  // 🔧 创建新的堆叠上下文
 };
 
 const cardStyle = {

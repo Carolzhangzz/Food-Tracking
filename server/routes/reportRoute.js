@@ -59,20 +59,24 @@ router.post("/generate-final-report", async (req, res) => {
       return details;
     }).join("\n");
 
-    const prompt = `You are Master Chef Hua. The player has just completed a 7-day food journaling journey in Gourmet Village. Based on their meals, create a comprehensive final report.
+    const prompt = `You are Master Chef Hua. The player has just completed a 7-day food journaling journey in Gourmet Village. Based on their ACTUAL meal records, create a personalized final report.
 
-PLAYER'S 7-DAY MEAL RECORDS:
+PLAYER'S 7-DAY MEAL RECORDS (USE THESE EXACT FOODS):
 ${mealSummary}
 
-YOUR TASK:
-1. Analyze the ingredients and meals the player logged over 7 days
-2. Create a complete recipe menu (Starter, Main Course, Side, Dessert, Drink) based on THEIR actual ingredients and cooking styles
-3. Provide a health analysis comparing their choices with healthy eating principles (balance, variety, nutrition)
-4. Highlight which ingredients/meals support a healthy diet and which could be improved
-5. Suggest simple swaps or additions to improve nutritional value, using what they actually ate as examples
-6. Write a heartfelt letter from Master Hua to the player
+CRITICAL INSTRUCTIONS:
+1. EXTRACT all the actual food items the player ate from the records above (e.g., "fish and chips", "面包", "番茄鸡蛋汤", "土豆面条", etc.)
+2. CREATE a recipe menu that DIRECTLY USES these foods/ingredients:
+   - Starter: Based on a food they ate (e.g., if they had "soup", create a soup recipe)
+   - Main Course: Based on their most common main foods (e.g., "fish", "rice with vegetables")
+   - Side: Based on their side dishes or vegetables they mentioned
+   - Dessert: Based on any sweet foods or fruits they ate
+   - Drink: Based on any beverages they mentioned, or create a healthy drink using their ingredients
+3. In the recipe, MENTION the specific foods they ate by name (e.g., "Remember the fish and chips you enjoyed on Day 1? Here's how to make it...")
+4. Health analysis should reference their ACTUAL meals by day and type (e.g., "Your Day 3 steamed rice with greens was excellent...")
+5. Use their cooking methods: if they mentioned "home-cooked", "stir-fried", "steamed", incorporate these methods
 
-TONE: Friendly, encouraging, positive reinforcement. Focus on what they did well and gently guide improvements.
+TONE: Warm, personal, like talking to someone whose meals you've been following closely. Use specific examples from their journal.
 
 IMPORTANT: Return ONLY a valid JSON object with this exact structure:
 
