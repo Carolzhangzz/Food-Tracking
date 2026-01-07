@@ -8,6 +8,7 @@ import GeminiHandler from "./GeminiHandler.js";
 import MealRecordingHandler from "./MealRecordingHandler.js";
 import ClueManager from "./ClueManager.js";
 import DialogUIManager from "./DialogUIManager.js";
+import { getNPCIntroSegments } from "../config/NPCIntros.js";
 
 // NPC背景图导入
 import npc1bg from "../../assets/npc/npc1bg.png";
@@ -204,8 +205,128 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   async startDialogFlow() {
     console.log("🎤 开始对话流程");
     
+    // Phase 0: NPC开场白（首次见面时）
+    const shouldPlayIntro = await this.checkAndPlayNPCIntro();
+    
+    if (!shouldPlayIntro) {
+      console.log("⏭️ 跳过开场白，直接进入对话");
+    }
+    
     // Phase 1: ConvAI开场白
     await this.playConvAIIntro();
+  }
+
+  /**
+   * 检查并播放NPC开场白
+   * @returns {Promise<boolean>} 是否播放了开场白
+   */
+  async checkAndPlayNPCIntro() {
+    try {
+      // 检查该NPC的开场白是否已观看
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL || "https://foodtracking-t1-2f2d3e0bfd08.herokuapp.com"}/api/game/check-intro-watched`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId: this.playerId,
+            npcId: this.currentNPC,
+            day: this.currentDay
+          })
+        }
+      );
+
+      const data = await response.json();
+      const isFirstMeet = !data.introWatched;
+
+      if (isFirstMeet) {
+        console.log("🎬 首次见面，播放开场白");
+        await this.playNPCIntro();
+        
+        // 标记开场白已观看
+        await this.markIntroAsWatched();
+        return true;
+      } else {
+        // 非首次见面，询问是否重看
+        const shouldReplay = await this.uiManager.showIntroSkipPrompt(this.currentNPC);
+        
+        if (!shouldReplay) {
+          console.log("🔄 玩家选择重看开场白");
+          await this.playNPCIntro();
+          return true;
+        } else {
+          console.log("⏭️ 玩家选择跳过开场白");
+          return false;
+        }
+      }
+    } catch (error) {
+      console.error("❌ 检查开场白状态失败:", error);
+      // 出错时默认播放开场白
+      await this.playNPCIntro();
+      return true;
+    }
+  }
+
+  /**
+   * 播放NPC开场白（分段展示）
+   */
+  async playNPCIntro() {
+    const lang = this.playerData.language || "zh";
+    const segments = getNPCIntroSegments(this.currentNPC, lang);
+
+    console.log(`🎬 播放开场白：${this.currentNPC}，共${segments.length}段`);
+
+    // 进入开场白模式
+    this.uiManager.showIntroMode();
+
+    // 逐段播放
+    for (let i = 0; i < segments.length; i++) {
+      await this.uiManager.showIntroSegment(
+        segments[i].text,
+        i + 1,
+        segments.length,
+        {
+          typing: true,
+          pauseAfter: 1500
+        }
+      );
+
+      // 最后一段不需要等待点击
+      if (i < segments.length - 1) {
+        await this.uiManager.waitForContinue();
+      }
+    }
+
+    // 等待最后一段完成后，等待玩家点击
+    await this.uiManager.waitForContinue();
+
+    // 退出开场白模式
+    this.uiManager.exitIntroMode();
+
+    console.log("✅ 开场白播放完成");
+  }
+
+  /**
+   * 标记开场白已观看
+   */
+  async markIntroAsWatched() {
+    try {
+      await fetch(
+        `${process.env.REACT_APP_API_URL || "https://foodtracking-t1-2f2d3e0bfd08.herokuapp.com"}/api/game/mark-intro-watched`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId: this.playerId,
+            npcId: this.currentNPC,
+            day: this.currentDay
+          })
+        }
+      );
+      console.log("✅ 已标记开场白为已观看");
+    } catch (error) {
+      console.error("❌ 标记开场白失败:", error);
+    }
   }
 
   async playConvAIIntro() {

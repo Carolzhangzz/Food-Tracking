@@ -21,6 +21,13 @@ const PlayerProgress = sequelize.define('PlayerProgress', {
     field: 'available_meal_types'
   },
 
+  // 🎬 新增：标记NPC开场白是否已观看
+  introWatched: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'intro_watched'
+  },
+
   createdAt: { type: DataTypes.DATE, field: 'created_at' },
   updatedAt: { type: DataTypes.DATE, field: 'updated_at' },
 }, {

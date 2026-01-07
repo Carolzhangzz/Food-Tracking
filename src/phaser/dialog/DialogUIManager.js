@@ -642,4 +642,350 @@ export default class DialogUIManager {
     
     return "NPC";
   }
+
+  // ============ 开场白展示功能 ============
+
+  /**
+   * 显示开场白模式的UI
+   * 将对话框切换为剧场模式，适合展示开场白
+   */
+  showIntroMode() {
+    const { width } = this.scene.scale;
+    const isMobile = width < 768;
+
+    console.log("🎬 [IntroMode] 进入开场白模式");
+
+    // 清空输入容器和消息容器
+    if (this.inputContainer) {
+      this.inputContainer.innerHTML = "";
+    }
+    if (this.messagesContainer) {
+      this.messagesContainer.innerHTML = "";
+    }
+
+    // 创建开场白专用容器
+    this.introContainer = document.createElement("div");
+    this.introContainer.id = "intro-container";
+    this.introContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: ${isMobile ? "20px" : "40px"};
+      position: relative;
+    `;
+
+    // NPC头像（特写）
+    const npcAvatar = document.createElement("div");
+    npcAvatar.id = "intro-npc-avatar";
+    npcAvatar.style.cssText = `
+      width: ${isMobile ? "80px" : "120px"};
+      height: ${isMobile ? "80px" : "120px"};
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+      border: 3px solid rgba(99, 102, 241, 0.6);
+      margin-bottom: ${isMobile ? "20px" : "30px"};
+      animation: avatarPulse 3s ease-in-out infinite;
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+    `;
+
+    // 对话文本容器
+    const textContainer = document.createElement("div");
+    textContainer.id = "intro-text-container";
+    textContainer.style.cssText = `
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: ${isMobile ? "100%" : "800px"};
+      margin-bottom: ${isMobile ? "20px" : "40px"};
+    `;
+
+    // 对话文本
+    const dialogText = document.createElement("div");
+    dialogText.id = "intro-dialog-text";
+    dialogText.style.cssText = `
+      font-size: ${isMobile ? "18px" : "28px"};
+      line-height: 1.8;
+      color: #e0e7ff;
+      text-align: center;
+      text-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+      white-space: pre-wrap;
+      padding: ${isMobile ? "15px" : "30px"};
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: ${isMobile ? "12px" : "20px"};
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      min-height: ${isMobile ? "150px" : "200px"};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    textContainer.appendChild(dialogText);
+
+    // 进度指示器
+    const progressIndicator = document.createElement("div");
+    progressIndicator.id = "intro-progress";
+    progressIndicator.style.cssText = `
+      display: flex;
+      gap: 12px;
+      margin-bottom: ${isMobile ? "15px" : "20px"};
+    `;
+
+    // 继续提示
+    const continueHint = document.createElement("div");
+    continueHint.id = "intro-continue-hint";
+    continueHint.innerHTML = this.scene.playerData?.language === "zh" 
+      ? "点击屏幕继续 ▼" 
+      : "Tap to continue ▼";
+    continueHint.style.cssText = `
+      font-size: ${isMobile ? "14px" : "18px"};
+      color: rgba(99, 102, 241, 0.8);
+      animation: bounce 2s ease-in-out infinite;
+      cursor: pointer;
+    `;
+
+    this.introContainer.appendChild(npcAvatar);
+    this.introContainer.appendChild(textContainer);
+    this.introContainer.appendChild(progressIndicator);
+    this.introContainer.appendChild(continueHint);
+
+    // 插入到消息容器位置
+    if (this.messagesContainer) {
+      this.messagesContainer.style.display = "none";
+      this.messagesContainer.parentNode.insertBefore(this.introContainer, this.messagesContainer);
+    }
+
+    // 添加CSS动画
+    this.addIntroAnimations();
+  }
+
+  /**
+   * 显示单个开场白段落
+   * @param {string} text - 要显示的文本
+   * @param {number} currentSegment - 当前段落索引（从1开始）
+   * @param {number} totalSegments - 总段落数
+   * @param {Object} options - 配置选项
+   */
+  async showIntroSegment(text, currentSegment, totalSegments, options = {}) {
+    const {
+      typing = true,
+      pauseAfter = 1000
+    } = options;
+
+    console.log(`🎬 [IntroSegment] 显示段落 ${currentSegment}/${totalSegments}`);
+
+    // 更新进度指示器
+    const progressContainer = document.getElementById("intro-progress");
+    if (progressContainer) {
+      progressContainer.innerHTML = "";
+      for (let i = 1; i <= totalSegments; i++) {
+        const dot = document.createElement("div");
+        dot.style.cssText = `
+          width: ${i === currentSegment ? "12px" : "8px"};
+          height: ${i === currentSegment ? "12px" : "8px"};
+          border-radius: 50%;
+          background: ${i === currentSegment 
+            ? "rgba(99, 102, 241, 1)" 
+            : i < currentSegment 
+              ? "rgba(99, 102, 241, 0.5)" 
+              : "rgba(99, 102, 241, 0.2)"};
+          transition: all 0.3s ease;
+        `;
+        progressContainer.appendChild(dot);
+      }
+    }
+
+    // 显示文本
+    const textElem = document.getElementById("intro-dialog-text");
+    if (textElem) {
+      if (typing) {
+        await this.typewriterEffect(text, textElem);
+      } else {
+        textElem.textContent = text;
+      }
+
+      // 暂停
+      if (pauseAfter > 0) {
+        await this.sleep(pauseAfter);
+      }
+    }
+  }
+
+  /**
+   * 打字机效果
+   * @param {string} text - 要显示的文本
+   * @param {HTMLElement} element - 目标DOM元素
+   */
+  async typewriterEffect(text, element = null) {
+    const targetElem = element || document.getElementById("intro-dialog-text");
+    if (!targetElem) return;
+
+    targetElem.textContent = "";
+    
+    const speed = 50; // 每个字符50ms
+    const pauseOnPunctuation = {
+      "。": 400,
+      ".": 400,
+      "！": 300,
+      "!": 300,
+      "？": 300,
+      "?": 300,
+      "…": 600,
+      "\n": 200,
+      "，": 150,
+      ",": 150
+    };
+
+    for (let i = 0; i < text.length; i++) {
+      targetElem.textContent += text[i];
+      
+      const char = text[i];
+      const pause = pauseOnPunctuation[char] || speed;
+      
+      await this.sleep(pause);
+    }
+  }
+
+  /**
+   * 等待玩家点击继续
+   * @returns {Promise} 当玩家点击后resolve
+   */
+  waitForContinue() {
+    return new Promise((resolve) => {
+      const continueHint = document.getElementById("intro-continue-hint");
+      const introContainer = document.getElementById("intro-container");
+      
+      const clickHandler = () => {
+        // 移除事件监听器
+        if (continueHint) continueHint.removeEventListener("click", clickHandler);
+        if (introContainer) introContainer.removeEventListener("click", clickHandler);
+        
+        console.log("👆 [IntroMode] 玩家点击继续");
+        resolve();
+      };
+
+      // 点击继续提示或整个开场白容器都可以继续
+      if (continueHint) {
+        continueHint.addEventListener("click", clickHandler);
+      }
+      if (introContainer) {
+        introContainer.addEventListener("click", clickHandler);
+      }
+    });
+  }
+
+  /**
+   * 退出开场白模式
+   */
+  exitIntroMode() {
+    console.log("🎬 [IntroMode] 退出开场白模式");
+
+    // 移除开场白容器
+    if (this.introContainer) {
+      this.introContainer.remove();
+      this.introContainer = null;
+    }
+
+    // 恢复消息容器
+    if (this.messagesContainer) {
+      this.messagesContainer.style.display = "flex";
+    }
+  }
+
+  /**
+   * 显示开场白跳过提示（非首次见面）
+   * @param {string} npcId - NPC ID
+   * @returns {Promise<boolean>} true表示跳过，false表示重看
+   */
+  showIntroSkipPrompt(npcId) {
+    return new Promise((resolve) => {
+      const lang = this.scene.playerData?.language || "zh";
+      
+      const promptText = lang === "zh" 
+        ? "是否重新观看开场白？" 
+        : "Watch the intro again?";
+      
+      const skipText = lang === "zh" ? "跳过" : "Skip";
+      const watchText = lang === "zh" ? "重看" : "Watch";
+
+      // 显示简短对话
+      this.addMessage("NPC", promptText);
+
+      // 显示按钮
+      this.clearButtons();
+      
+      const buttonContainer = document.createElement("div");
+      buttonContainer.style.cssText = `
+        display: flex;
+        gap: 15px;
+        padding: 20px;
+        justify-content: center;
+      `;
+
+      const createButton = (text, isSkip) => {
+        const btn = document.createElement("button");
+        btn.textContent = text;
+        btn.style.cssText = `
+          padding: 15px 30px;
+          font-size: 18px;
+          font-weight: 600;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.3s;
+          ${isSkip 
+            ? "background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5;" 
+            : "background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); color: #c7d2fe;"}
+        `;
+        btn.onclick = () => {
+          buttonContainer.remove();
+          resolve(isSkip);
+        };
+        return btn;
+      };
+
+      buttonContainer.appendChild(createButton(watchText, false));
+      buttonContainer.appendChild(createButton(skipText, true));
+
+      this.inputContainer.appendChild(buttonContainer);
+    });
+  }
+
+  /**
+   * 添加开场白相关的CSS动画
+   */
+  addIntroAnimations() {
+    // 检查是否已添加
+    if (document.getElementById("intro-animations-style")) return;
+
+    const style = document.createElement("style");
+    style.id = "intro-animations-style";
+    style.textContent = `
+      @keyframes avatarPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * 睡眠函数
+   * @param {number} ms - 毫秒数
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 }

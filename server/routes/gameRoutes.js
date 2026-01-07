@@ -1599,4 +1599,70 @@ router.post("/generate-final-report", async (req, res) => {
   }
 });
 
+/* --------------------------------- NPC开场白管理 -------------------------------- */
+
+/**
+ * 检查NPC开场白是否已观看
+ */
+router.post("/check-intro-watched", async (req, res) => {
+  const { playerId, npcId, day } = req.body;
+
+  try {
+    console.log(`🔍 检查开场白状态: playerId=${playerId}, npcId=${npcId}, day=${day}`);
+
+    const progress = await PlayerProgress.findOne({
+      where: { playerId, day }
+    });
+
+    if (!progress) {
+      console.log("⚠️ 未找到进度记录，视为未观看");
+      return res.json({ introWatched: false });
+    }
+
+    const introWatched = progress.introWatched || false;
+    console.log(`✅ 开场白状态: ${introWatched ? "已观看" : "未观看"}`);
+
+    res.json({ introWatched });
+
+  } catch (error) {
+    console.error("❌ 检查开场白状态失败:", error);
+    res.status(500).json({ error: "Failed to check intro status" });
+  }
+});
+
+/**
+ * 标记NPC开场白为已观看
+ */
+router.post("/mark-intro-watched", async (req, res) => {
+  const { playerId, npcId, day } = req.body;
+
+  try {
+    console.log(`🎬 标记开场白已观看: playerId=${playerId}, npcId=${npcId}, day=${day}`);
+
+    const progress = await PlayerProgress.findOne({
+      where: { playerId, day }
+    });
+
+    if (!progress) {
+      console.log("⚠️ 未找到进度记录，创建新记录");
+      await PlayerProgress.create({
+        playerId,
+        day,
+        npcId,
+        introWatched: true,
+        unlockedAt: new Date()
+      });
+    } else {
+      await progress.update({ introWatched: true });
+      console.log("✅ 已更新开场白状态为已观看");
+    }
+
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error("❌ 标记开场白失败:", error);
+    res.status(500).json({ error: "Failed to mark intro as watched" });
+  }
+});
+
 module.exports = router;
