@@ -99,6 +99,51 @@ function nextMidnight(ts = new Date()) {
   return d;
 }
 
+/**
+ * 🌙 日切点计算：基于凌晨4点的天数判断
+ * 优点：
+ * - 符合真实生活作息（夜猫子友好）
+ * - 避免深夜吃夜宵被误判为第二天
+ * - 更灵活的天数推进逻辑
+ * 
+ * @param {Date} firstLoginDate - 玩家首次登录时间
+ * @param {Date} currentDate - 当前时间
+ * @param {number} cutoffHour - 日切点（默认4点）
+ * @returns {number} 当前是第几天（从1开始）
+ */
+function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), cutoffHour = 4) {
+  try {
+    const first = new Date(firstLoginDate);
+    const current = new Date(currentDate);
+
+    // 调整到日切点逻辑：
+    // 如果当前时间在日切点之前（0:00-3:59），算作前一天
+    const adjustedFirst = new Date(first);
+    if (adjustedFirst.getHours() < cutoffHour) {
+      adjustedFirst.setDate(adjustedFirst.getDate() - 1);
+    }
+    adjustedFirst.setHours(cutoffHour, 0, 0, 0);
+
+    const adjustedCurrent = new Date(current);
+    if (adjustedCurrent.getHours() < cutoffHour) {
+      adjustedCurrent.setDate(adjustedCurrent.getDate() - 1);
+    }
+    adjustedCurrent.setHours(cutoffHour, 0, 0, 0);
+
+    // 计算相差的天数
+    const diffTime = adjustedCurrent - adjustedFirst;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    console.log(`📅 [日切点计算] 首次登录: ${first.toISOString()}, 当前时间: ${current.toISOString()}, 日切点: ${cutoffHour}:00, 计算天数: ${diffDays + 1}`);
+
+    if (diffDays < 0) return 1;
+    return diffDays + 1;
+  } catch (e) {
+    console.error("❌ 日切点计算错误:", e);
+    return 1;
+  }
+}
+
 // 时间闸门（严格次日 00:00 或若用小时制则基于第一餐时间 + waitHours）
 async function computeAdvanceGateStrictCalendar(
   playerId,
@@ -435,10 +480,11 @@ router.post("/login", async (req, res) => {
       });
     } else {
       // 再次登录：进阶逻辑优化
-      const calendarDay = calculateDayNumber(player.firstLoginDate, clientDate);
+      // 🌙 使用日切点逻辑（凌晨4点）计算天数
+      const calendarDay = calculateDayNumberWithCutoff(player.firstLoginDate, new Date(), 4);
       let targetDay = player.currentDay;
 
-      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前日历天数: ${calendarDay}, 数据库存储天数: ${player.currentDay}`);
+      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前日历天数: ${calendarDay} (日切点4AM), 数据库存储天数: ${player.currentDay}`);
 
       // 🔧 关键改进：如果玩家还没记录过任何餐食，不自动进阶天数
       // 只有当 (日历天数 > 当前存储天数) 且 (当前存储天数至少有一餐记录) 时，才进阶
@@ -456,7 +502,7 @@ router.post("/login", async (req, res) => {
           if (targetDay > calendarDay) targetDay = calendarDay;
           if (targetDay > 7) targetDay = 7;
 
-          console.log(`🚀 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录 -> 进阶到第 ${targetDay} 天 (当前日历为第 ${calendarDay} 天)`);
+          console.log(`🚀 [日切点推进] 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录 -> 进阶到第 ${targetDay} 天 (当前日历为第 ${calendarDay} 天)`);
 
           await player.update({ currentDay: targetDay });
 
@@ -915,51 +961,19 @@ router.post("/record-meal", async (req, res) => {
     let shouldGiveClue = true;
     let clueData = null;
 
-    // 1. 先把餐食记录存了
-    // 🔧 核心解锁逻辑：
-    // 只有晚餐才立即解锁下一天 NPC
-    // 早餐/午餐需要等到第二天登录时，由 /login 路由自动推进
+    // 🔧 新的核心解锁逻辑：
+    // 所有餐食（包括晚餐）都需要等到第二天登录时才解锁下一个NPC
+    // 使用日切点（4AM）判断，更符合真实生活作息
     let nextDayUnlocked = false;
     let shouldUnlockNextDay = false;
     let updatedCurrentDay = player.currentDay;
 
     const isDinner = mealType === "dinner";
 
-    // 🔑 只有晚餐才立即解锁下一天
-    if (isDinner && day < 7) {
-      const nextDay = day + 1;
-
-      // 立即更新玩家当前的进度天数
-      if (nextDay > player.currentDay) {
-        await player.update({ currentDay: nextDay }, { transaction: t });
-        updatedCurrentDay = nextDay;
-        console.log(`🌙 [晚餐解锁] 玩家 ${playerId} 完成晚餐 -> 立即进阶到 Day ${nextDay}`);
-      }
-
-      const exists = await PlayerProgress.findOne({
-        where: { playerId, day: nextDay },
-        transaction: t,
-      });
-      if (!exists) {
-        const nextNpcId = dayToNpcId(nextDay);
-        if (nextNpcId) {
-          await PlayerProgress.create(
-            {
-              playerId,
-              day: nextDay,
-              npcId: nextNpcId,
-              unlockedAt: new Date(),
-            },
-            { transaction: t }
-          );
-          console.log(`🔓 已创建并解锁 Day ${nextDay} 的进度 (NPC: ${nextNpcId})`);
-        }
-      }
-      nextDayUnlocked = true;
-      shouldUnlockNextDay = true;
-    } else if (!isDinner) {
-      console.log(`🍽️ [早/午餐记录] 玩家 ${playerId} 记录了 ${mealType}，需要等到明天登录才能解锁下一个 NPC`);
-    }
+    console.log(`🍽️ [餐食记录] 玩家 ${playerId} 记录了 ${mealType}，将在下次登录时（过了日切点4AM后）解锁下一个NPC`);
+    
+    // 🔑 餐食记录不再立即解锁，但晚餐会给予最明确的线索
+    // NPC解锁统一由 /login 路由在过了日切点后处理
 
     // 🔧 获取当天所有已记录的餐食，确保准确性
     const allRecordedMeals = await MealRecord.findAll({
