@@ -167,7 +167,7 @@ function GenderSelectionPage() {
       </h1>
 
       <div style={styles.cardsContainer}>
-        {/* 男性角色 */}
+        {/* 角色 A - 阿宇 / River */}
         <div
           style={{
             ...styles.card,
@@ -176,11 +176,11 @@ function GenderSelectionPage() {
           onClick={() => setSelectedGender('boy')}
         >
           <div style={styles.imageContainer}>
-            <img src="/assets/npc/boynew.png" alt="Boy" style={styles.image} />
+            <img src="/assets/npc/boynew.png" alt="Character A" style={styles.image} />
           </div>
           <div style={styles.textContainer}>
             <div style={styles.genderLabel}>
-              {playerData?.language === 'zh' ? '男生 🧑' : 'Boy 🧑'}
+              {playerData?.language === 'zh' ? '阿宇 🧑' : 'River 🧑'}
             </div>
             <div style={styles.genderDescription}>
               {playerData?.language === 'zh' 
@@ -190,7 +190,7 @@ function GenderSelectionPage() {
           </div>
         </div>
 
-        {/* 女性角色 */}
+        {/* 角色 B - 小琪 / Sage */}
         <div
           style={{
             ...styles.card,
@@ -199,11 +199,11 @@ function GenderSelectionPage() {
           onClick={() => setSelectedGender('girl')}
         >
           <div style={styles.imageContainer}>
-            <img src="/assets/npc/girlnew.png" alt="Girl" style={styles.imageFemale} />
+            <img src="/assets/npc/girlnew.png" alt="Character B" style={styles.imageFemale} />
           </div>
           <div style={styles.textContainer}>
             <div style={styles.genderLabel}>
-              {playerData?.language === 'zh' ? '女生 👧' : 'Girl 👧'}
+              {playerData?.language === 'zh' ? '小琪 👧' : 'Sage 👧'}
             </div>
             <div style={styles.genderDescription}>
               {playerData?.language === 'zh' 

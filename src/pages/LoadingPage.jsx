@@ -3,32 +3,11 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PlayerContext } from '../context/PlayerContext';
 
-// 🔧 随机名字生成函数
-function generateRandomName(lang = 'zh') {
-  const chineseNames = [
-    '小林', '小王', '小李', '小张', '小陈', '小刘', '小赵', '小孙',
-    '阿明', '阿华', '阿杰', '阿强', '阿伟', '阿文', '阿勇', '阿军',
-    '晓东', '晓明', '晓华', '晓燕', '晓红', '晓芳', '晓丽', '晓梅',
-    '思远', '思琪', '思雨', '思慧', '思涵', '思敏', '思婷', '思颖',
-    '宇轩', '宇航', '宇晨', '宇凡', '宇恒', '宇鹏', '宇辰', '宇浩'
-  ];
-  
-  const englishNames = [
-    'Alex', 'Jamie', 'Taylor', 'Jordan', 'Morgan', 'Casey', 'Riley', 'Avery',
-    'Quinn', 'Sage', 'River', 'Phoenix', 'Dakota', 'Skyler', 'Logan', 'Cameron',
-    'Parker', 'Blake', 'Reese', 'Eden', 'Aspen', 'Hunter', 'Peyton', 'Emerson',
-    'Harper', 'Finley', 'Rowan', 'Sawyer', 'Charlie', 'Ellis', 'Jules', 'Kai'
-  ];
-  
-  const names = lang === 'zh' ? chineseNames : englishNames;
-  return names[Math.floor(Math.random() * names.length)];
-}
-
 function LoadingPage() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingTip, setLoadingTip] = useState('');
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
-  const { playerData, playerId, setPlayerData } = useContext(PlayerContext);
+  const { playerData, playerId } = useContext(PlayerContext);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -107,18 +86,10 @@ function LoadingPage() {
       setLoadingProgress(prev => {
         if (prev >= 100) {
           clearInterval(progressInterval);
-          // 🔧 加载完成，生成随机名字并直接跳转到游戏
-          console.log("✅ LoadingPage: 加载完成，生成随机名字并跳转到游戏");
-          
-          // 生成随机名字
-          const randomName = generateRandomName(playerData?.language || 'zh');
-          setPlayerData(prevData => ({ 
-            ...prevData, 
-            playerName: randomName 
-          }));
-          
+          // 加载完成，跳转到角色选择页面
+          console.log("✅ LoadingPage: 加载完成，跳转到角色选择页面");
           setTimeout(() => {
-            navigate('/game');
+            navigate('/gender-selection');
           }, 500);
           return 100;
         }

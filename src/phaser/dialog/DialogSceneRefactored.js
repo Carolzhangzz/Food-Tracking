@@ -1029,7 +1029,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
   }
 
   /**
-   * 显示华师父的信件
+   * 显示华师父的信件（同步播放语音）
    */
   async showMasterLetter() {
     return new Promise((resolve) => {
@@ -1067,6 +1067,12 @@ I've made a decision — I want to share my way of cooking with more people. Som
 Best of luck. I'm proud of you. Until we meet again.
 
 – Your Master Hua`;
+
+      // 🎵 创建音频对象
+      const chefHuaAudio = new Audio('/assets/audio/chefhua.mp3');
+      chefHuaAudio.volume = 0.7;  // 设置音量为70%
+      
+      console.log("🎵 [MasterLetter] 准备播放华师父语音");
 
       const letterContainer = document.createElement("div");
       letterContainer.id = "master-letter-container";
@@ -1135,6 +1141,11 @@ Best of luck. I'm proud of you. Until we meet again.
       };
 
       continueBtn.onclick = () => {
+        // 🎵 停止音频播放
+        console.log("🔇 [MasterLetter] 停止语音播放");
+        chefHuaAudio.pause();
+        chefHuaAudio.currentTime = 0;
+        
         letterContainer.style.opacity = "0";
         setTimeout(() => {
           letterContainer.remove();
@@ -1147,10 +1158,23 @@ Best of luck. I'm proud of you. Until we meet again.
       letterContainer.appendChild(continueBtn);
       document.body.appendChild(letterContainer);
 
-      // 淡入信件
+      // 淡入信件并播放语音
       setTimeout(() => {
         letterContainer.style.opacity = "1";
+        
+        // 🎵 开始播放语音
+        chefHuaAudio.play().then(() => {
+          console.log("✅ [MasterLetter] 语音播放开始");
+        }).catch(err => {
+          console.error("❌ [MasterLetter] 语音播放失败:", err);
+        });
       }, 500);
+
+      // 🎵 音频播放完成时自动显示"继续"按钮的提示效果
+      chefHuaAudio.onended = () => {
+        console.log("✅ [MasterLetter] 语音播放完成");
+        continueBtn.style.animation = "pulse 1s ease-in-out infinite";
+      };
     });
   }
 
