@@ -116,25 +116,30 @@ function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), 
     const first = new Date(firstLoginDate);
     const current = new Date(currentDate);
 
-    // 调整到日切点逻辑：
-    // 如果当前时间在日切点之前（0:00-3:59），算作前一天
-    const adjustedFirst = new Date(first);
-    if (adjustedFirst.getHours() < cutoffHour) {
-      adjustedFirst.setDate(adjustedFirst.getDate() - 1);
+    // 🔧 简化的日切点逻辑：
+    // 将两个时间都调整到"基于4AM的虚拟日期"
+    // 例如：2024-01-01 02:00 → 算作 2023-12-31 的一部分
+    //      2024-01-01 05:00 → 算作 2024-01-01 的一部分
+    
+    function adjustToCutoff(date) {
+      const adjusted = new Date(date);
+      if (adjusted.getHours() < cutoffHour) {
+        // 如果在凌晨0-3点，减去一天
+        adjusted.setDate(adjusted.getDate() - 1);
+      }
+      // 统一设置为当天4:00，方便计算天数差
+      adjusted.setHours(cutoffHour, 0, 0, 0);
+      return adjusted;
     }
-    adjustedFirst.setHours(cutoffHour, 0, 0, 0);
 
-    const adjustedCurrent = new Date(current);
-    if (adjustedCurrent.getHours() < cutoffHour) {
-      adjustedCurrent.setDate(adjustedCurrent.getDate() - 1);
-    }
-    adjustedCurrent.setHours(cutoffHour, 0, 0, 0);
+    const adjustedFirst = adjustToCutoff(first);
+    const adjustedCurrent = adjustToCutoff(current);
 
     // 计算相差的天数
-    const diffTime = adjustedCurrent - adjustedFirst;
+    const diffTime = adjustedCurrent.getTime() - adjustedFirst.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    console.log(`📅 [日切点计算] 首次登录: ${first.toISOString()}, 当前时间: ${current.toISOString()}, 日切点: ${cutoffHour}:00, 计算天数: ${diffDays + 1}`);
+    console.log(`📅 [日切点计算] 首次登录: ${first.toLocaleString()}, 当前时间: ${current.toLocaleString()}, 调整后首次: ${adjustedFirst.toLocaleString()}, 调整后当前: ${adjustedCurrent.toLocaleString()}, 计算天数: ${diffDays + 1}`);
 
     if (diffDays < 0) return 1;
     return diffDays + 1;

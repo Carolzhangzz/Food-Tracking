@@ -16,15 +16,18 @@ export default class DialogUIManager {
   createDialogBox() {
     const { width, height } = this.scene.scale;
     const isMobile = width < 768;
+    const isLandscape = width > height;
 
-    console.log(`📐 创建现代化对话框 (${width}x${height})`);
+    console.log(`📐 创建现代化对话框 (${width}x${height}), 横屏: ${isLandscape}`);
 
     // 创建主容器（四周留边距）
     this.dialogContainer = document.createElement("div");
     this.dialogContainer.id = "dialog-container";
+    
+    // 🔧 手机横屏专用优化：极小边距 + 紧凑布局
     const isSmallScreen = width < 600;
-    // 🔧 针对手机横屏优化：减少边距，增加紧凑度
-    const margin = isSmallScreen ? "4px" : (isMobile ? "10px" : "40px");
+    const margin = (isLandscape && height < 500) ? "2px" : (isSmallScreen ? "4px" : (isMobile ? "10px" : "40px"));
+    
     this.dialogContainer.style.cssText = `
       position: fixed;
       left: ${margin};
@@ -37,7 +40,7 @@ export default class DialogUIManager {
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1.5px solid rgba(99, 102, 241, 0.4);
-      border-radius: ${isSmallScreen ? "8px" : (isMobile ? "12px" : "24px")};
+      border-radius: ${(isLandscape && height < 500) ? "6px" : (isSmallScreen ? "8px" : (isMobile ? "12px" : "24px"))};
       box-shadow: 
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
@@ -50,22 +53,26 @@ export default class DialogUIManager {
 
     // 创建标题栏
     const header = document.createElement("div");
+    const headerPadding = (isLandscape && height < 500) ? "4px 8px" : (isMobile ? "8px 12px" : "24px 32px");
+    const headerHeight = (isLandscape && height < 500) ? "24px" : (isMobile ? "32px" : "auto");
+    
     header.style.cssText = `
-      padding: ${isMobile ? "8px 12px" : "24px 32px"};
+      padding: ${headerPadding};
       background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(129, 140, 248, 0.15) 100%);
       border-bottom: 1.5px solid rgba(99, 102, 241, 0.3);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
-      height: ${isMobile ? "32px" : "auto"};
+      height: ${headerHeight};
     `;
 
     const npcName = document.createElement("div");
     npcName.id = "dialog-npc-name";
     npcName.textContent = this.getNPCDisplayName();
+    const fontSize = (isLandscape && height < 500) ? "12px" : (isMobile ? "16px" : "32px");
     npcName.style.cssText = `
-      font-size: ${isMobile ? "16px" : "32px"};
+      font-size: ${fontSize};
       font-weight: 700;
       color: #e0e7ff;
       text-shadow: 0 2px 10px rgba(99, 102, 241, 0.6);
@@ -73,14 +80,17 @@ export default class DialogUIManager {
 
     const closeBtn = document.createElement("button");
     closeBtn.innerHTML = "✕";
+    const btnSize = (isLandscape && height < 500) ? "20px" : (isMobile ? "24px" : "44px");
+    const btnFontSize = (isLandscape && height < 500) ? "12px" : (isMobile ? "14px" : "24px");
+    
     closeBtn.style.cssText = `
-      width: ${isMobile ? "24px" : "44px"};
-      height: ${isMobile ? "24px" : "44px"};
+      width: ${btnSize};
+      height: ${btnSize};
       border-radius: 50%;
       border: 1px solid rgba(239, 68, 68, 0.4);
       background: rgba(239, 68, 68, 0.15);
       color: #fca5a5;
-      font-size: ${isMobile ? "14px" : "24px"};
+      font-size: ${btnFontSize};
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -100,17 +110,20 @@ export default class DialogUIManager {
     header.appendChild(npcName);
     header.appendChild(closeBtn);
 
-    // 创建消息滚动容器（全屏优化）
+    // 创建消息滚动容器（手机横屏超紧凑版）
     this.messagesContainer = document.createElement("div");
     this.messagesContainer.id = "dialog-messages";
+    const msgPadding = (isLandscape && height < 500) ? "4px 8px" : (isMobile ? "8px 12px" : "32px 40px");
+    const msgGap = (isLandscape && height < 500) ? "3px" : (isMobile ? "6px" : "20px");
+    
     this.messagesContainer.style.cssText = `
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: ${isMobile ? "8px 12px" : "32px 40px"};
+      padding: ${msgPadding};
       display: flex;
       flex-direction: column;
-      gap: ${isMobile ? "6px" : "20px"};
+      gap: ${msgGap};
       scroll-behavior: smooth;
       min-height: 0;
     `;
@@ -200,8 +213,11 @@ export default class DialogUIManager {
     // 创建输入区域容器（全屏优化 + 可滚动）
     this.inputContainer = document.createElement("div");
     this.inputContainer.id = "dialog-input-area";
+    const inputPadding = (isLandscape && height < 500) ? "6px 8px" : (isMobile ? "10px 14px" : "24px 40px");
+    const inputGap = (isLandscape && height < 500) ? "6px" : (isMobile ? "10px" : "16px");
+    
     this.inputContainer.style.cssText = `
-      padding: ${isMobile ? "10px 14px" : "24px 40px"};
+      padding: ${inputPadding};
       background: linear-gradient(180deg, rgba(15, 23, 42, 0.6) 0%, rgba(15, 23, 42, 0.9) 100%);
       border-top: 2px solid rgba(99, 102, 241, 0.3);
       max-height: ${isMobile ? "40%" : "40%"};
@@ -209,7 +225,7 @@ export default class DialogUIManager {
       overflow-x: hidden;
       display: flex;
       align-items: flex-start;
-      gap: ${isMobile ? "10px" : "16px"};
+      gap: ${inputGap};
       flex-shrink: 0;
       -webkit-overflow-scrolling: touch;
     `;
@@ -234,8 +250,9 @@ export default class DialogUIManager {
       displayNameOverride = null;
     }
 
-    const { width } = this.scene.scale;
+    const { width, height } = this.scene.scale;
     const isMobile = width < 768;
+    const isLandscape = width > height;
 
     const messageDiv = document.createElement("div");
     const isNPC = speaker === "NPC";
@@ -247,13 +264,16 @@ export default class DialogUIManager {
     this.messageHistory.push({ speaker, text, timestamp: Date.now() });
 
     if (isSystem) {
-      // 系统消息（居中，小字）
+      // 系统消息（居中，小字）- 手机横屏更小字体
+      const sysFontSize = (isLandscape && height < 500) ? "11px" : (isMobile ? "13px" : "18px");
+      const sysPadding = (isLandscape && height < 500) ? "4px 8px" : "10px 20px";
+      
       messageDiv.style.cssText = `
         text-align: center;
-        font-size: ${isMobile ? "17px" : "18px"};
+        font-size: ${sysFontSize};
         color: rgba(148, 163, 184, 0.9);
         font-style: italic;
-        padding: 10px 20px;
+        padding: ${sysPadding};
         animation: messageSlideIn 0.3s ease-out;
       `;
       // 🔧 系统消息也支持HTML（用于高亮提示）
@@ -272,10 +292,13 @@ export default class DialogUIManager {
 
       const bubble = document.createElement("div");
       const isSmallScreen = width < 600; // 🔧 特别小的屏幕（如手机横屏）
+      const bubblePadding = (isLandscape && height < 500) ? "4px 8px" : (isSmallScreen ? "6px 10px" : (isMobile ? "10px 14px" : "16px 24px"));
+      const bubbleRadius = (isLandscape && height < 500) ? "8px" : "12px";
+      
       bubble.style.cssText = `
         max-width: ${isSmallScreen ? "85%" : (isMobile ? "80%" : "80%")};
-        padding: ${isSmallScreen ? "6px 10px" : (isMobile ? "10px 14px" : "16px 24px")};
-        border-radius: ${isNPC ? "12px 12px 12px 4px" : "12px 12px 4px 12px"};
+        padding: ${bubblePadding};
+        border-radius: ${isNPC ? `${bubbleRadius} ${bubbleRadius} ${bubbleRadius} 4px` : `${bubbleRadius} ${bubbleRadius} 4px ${bubbleRadius}`};
         background: ${
           isNPC
             ? "linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(129, 140, 248, 0.2) 100%)"
@@ -300,11 +323,14 @@ export default class DialogUIManager {
       } else {
         speakerLabel.textContent = isNPC ? npcDisplayName : (this.scene.playerData?.language === "zh" ? "你" : "You");
       }
+      const labelFontSize = (isLandscape && height < 500) ? "11px" : (isMobile ? "13px" : "16px");
+      const labelMargin = (isLandscape && height < 500) ? "2px" : (isMobile ? "4px" : "8px");
+      
       speakerLabel.style.cssText = `
-        font-size: ${isMobile ? "15px" : "16px"};
+        font-size: ${labelFontSize};
         color: ${isNPC ? "rgba(165, 180, 252, 0.9)" : "rgba(134, 239, 172, 0.9)"};
         font-weight: 700;
-        margin-bottom: ${isMobile ? "4px" : "8px"};
+        margin-bottom: ${labelMargin};
         letter-spacing: 0.5px;
       `;
 
@@ -315,11 +341,14 @@ export default class DialogUIManager {
       } else {
         textContent.textContent = text;
       }
-      // 🔧 使用已声明的 isSmallScreen 变量
+      // 🔧 手机横屏专用：更小的字体和行高
+      const textFontSize = (isLandscape && height < 500) ? "11px" : (isSmallScreen ? "13px" : (isMobile ? "15px" : "22px"));
+      const textLineHeight = (isLandscape && height < 500) ? "1.3" : (isMobile ? "1.4" : "1.5");
+      
       textContent.style.cssText = `
-        font-size: ${isSmallScreen ? "13px" : (isMobile ? "15px" : "22px")};
+        font-size: ${textFontSize};
         color: #f1f5f9;
-        line-height: ${isMobile ? "1.4" : "1.5"};
+        line-height: ${textLineHeight};
         word-wrap: break-word;
         word-break: break-word;
       `;
