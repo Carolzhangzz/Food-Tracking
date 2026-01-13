@@ -1073,6 +1073,16 @@ Best of luck. I'm proud of you. Until we meet again.
       chefHuaAudio.volume = 0.7;  // 设置音量为70%
       
       console.log("🎵 [MasterLetter] 准备播放华师父语音");
+      
+      // 添加音频加载错误处理
+      chefHuaAudio.onerror = (e) => {
+        console.error("❌ [MasterLetter] 音频加载失败:", e);
+        console.error("音频路径: /assets/audio/chefhua.mp3");
+      };
+      
+      chefHuaAudio.oncanplaythrough = () => {
+        console.log("✅ [MasterLetter] 音频已加载完毕，可以播放");
+      };
 
       const letterContainer = document.createElement("div");
       letterContainer.id = "master-letter-container";
@@ -1162,11 +1172,65 @@ Best of luck. I'm proud of you. Until we meet again.
       setTimeout(() => {
         letterContainer.style.opacity = "1";
         
-        // 🎵 开始播放语音
+        // 🎵 开始播放语音（增强错误处理）
         chefHuaAudio.play().then(() => {
           console.log("✅ [MasterLetter] 语音播放开始");
+          // 显示音频播放指示器
+          const audioIndicator = document.createElement("div");
+          audioIndicator.id = "audio-indicator";
+          audioIndicator.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(99, 102, 241, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: pulse 2s ease-in-out infinite;
+          `;
+          audioIndicator.innerHTML = `🎵 ${lang === "zh" ? "华师父的声音..." : "Master Hua's voice..."}`;
+          letterContainer.appendChild(audioIndicator);
+          
+          // 音频结束时移除指示器
+          chefHuaAudio.onended = () => {
+            if (audioIndicator && audioIndicator.parentNode) {
+              audioIndicator.remove();
+            }
+          };
         }).catch(err => {
           console.error("❌ [MasterLetter] 语音播放失败:", err);
+          console.error("可能原因: 浏览器自动播放策略、音频文件不存在、或网络问题");
+          
+          // 添加用户提示：音频无法自动播放
+          const audioHint = document.createElement("div");
+          audioHint.style.cssText = `
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(245, 158, 11, 0.9);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+          `;
+          audioHint.innerHTML = `🔊 ${lang === "zh" ? "点击播放语音" : "Click to play audio"}`;
+          audioHint.onclick = () => {
+            chefHuaAudio.play().then(() => {
+              console.log("✅ 用户手动触发，语音播放成功");
+              audioHint.innerHTML = `🎵 ${lang === "zh" ? "正在播放..." : "Playing..."}`;
+              setTimeout(() => audioHint.remove(), 2000);
+            }).catch(e => {
+              console.error("❌ 即使用户点击也无法播放:", e);
+              audioHint.innerHTML = `❌ ${lang === "zh" ? "音频不可用" : "Audio unavailable"}`;
+            });
+          };
+          letterContainer.appendChild(audioHint);
         });
       }, 500);
 

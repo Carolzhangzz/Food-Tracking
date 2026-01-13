@@ -137,7 +137,17 @@ ${report.wisdom[lang]}
   }
 
   return (
-    <div style={overlayStyle}>
+    <div 
+      style={overlayStyle}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+    >
       {/* 🎨 飘落的食材特效 */}
       <div className="floating-ingredients">
         <span className="ingredient">🍅</span>
@@ -148,7 +158,14 @@ ${report.wisdom[lang]}
         <span className="ingredient">🥦</span>
       </div>
 
-      <div style={cardStyle} className="report-card">
+      <div 
+        style={cardStyle} 
+        className="report-card"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+      >
         {/* Decorative Seal with pulse animation */}
         <div style={sealStyle} className="seal-pulse">華</div>
         
@@ -259,13 +276,49 @@ ${report.wisdom[lang]}
         </div>
 
         <div style={footerStyle}>
-          <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} style={btnSecondaryStyle} className="btn-bounce">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              setLang(lang === 'zh' ? 'en' : 'zh');
+            }} 
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            style={btnSecondaryStyle} 
+            className="btn-bounce"
+          >
             🌐 {lang === 'zh' ? 'English' : '中文'}
           </button>
-          <button onClick={downloadReport} style={btnPrimaryStyle} className="btn-bounce">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              downloadReport();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            style={btnPrimaryStyle} 
+            className="btn-bounce"
+          >
             📂 {lang === 'zh' ? '下载完整报告' : 'Download Full Report'}
           </button>
-          <button onClick={onClose} style={btnDangerStyle} className="btn-bounce">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onClose();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            style={btnDangerStyle} 
+            className="btn-bounce"
+          >
             🏁 {lang === 'zh' ? '结束旅程' : 'End Journey'}
           </button>
         </div>

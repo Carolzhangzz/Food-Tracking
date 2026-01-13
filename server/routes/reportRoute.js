@@ -277,7 +277,7 @@ Remember: Return ONLY the JSON object. No markdown, no code blocks, no extra tex
   }
 });
 
-// 🔧 后备报告生成函数（当 AI 不可用时使用）
+// 🔧 后备报告生成函数（当 AI 不可用时使用）- 使用真实食物数据
 function generateFallbackReport(meals) {
   // 处理空数据的情况
   if (!meals || meals.length === 0) {
@@ -309,27 +309,99 @@ function generateFallbackReport(meals) {
   const mealTypes = [...new Set(meals.map(m => m.mealType))];
   const dayCount = [...new Set(meals.map(m => m.day))].length;
   
+  // 🔧 从真实餐食数据中提取食物信息
+  const realFoods = meals.map(m => {
+    // 优先使用 Q4 (吃了什么) 的详细描述
+    if (m.mealAnswers && m.mealAnswers.Q4) {
+      return m.mealAnswers.Q4;
+    }
+    // 其次使用 mealContent
+    if (m.mealContent) {
+      return m.mealContent;
+    }
+    return null;
+  }).filter(Boolean);
+  
+  // 生成基于真实食物的食谱
+  const personalizedRecipe = generatePersonalizedRecipeFromMeals(meals, realFoods);
+  
+  // 生成包含真实食物的健康分析
+  const foodMentions = realFoods.length > 0 
+    ? ` Your meals included: ${realFoods.slice(0, 5).join(', ')}${realFoods.length > 5 ? ', and more' : ''}.`
+    : '';
+  const foodMentionsZh = realFoods.length > 0
+    ? ` 你的餐食包括：${realFoods.slice(0, 5).join('、')}${realFoods.length > 5 ? '等' : ''}。`
+    : '';
+  
   return {
     title: {
       en: "Your Culinary Journey - Final Report",
       zh: "你的美食之旅 - 最终报告"
     },
     mealSummary: {
-      en: `Over ${dayCount} day${dayCount > 1 ? 's' : ''}, you recorded ${meals.length} meal${meals.length > 1 ? 's' : ''}, showing dedication to mindful eating.`,
-      zh: `在 ${dayCount} 天里，你记录了 ${meals.length} 顿餐食，展现了对正念饮食的坚持。`
+      en: `Over ${dayCount} day${dayCount > 1 ? 's' : ''}, you recorded ${meals.length} meal${meals.length > 1 ? 's' : ''}, showing dedication to mindful eating.${foodMentions}`,
+      zh: `在 ${dayCount} 天里，你记录了 ${meals.length} 顿餐食，展现了对正念饮食的坚持。${foodMentionsZh}`
     },
-    recipe: generateDefaultRecipe(),
+    recipe: personalizedRecipe,
     healthAnalysis: {
-      en: `Your ${dayCount}-day food journal shows commitment to tracking your eating habits. Key observations: You recorded a variety of meal types${mealTypes.length > 0 ? ` (${mealTypes.join(', ')})` : ''}, which is excellent for understanding your eating patterns. For continued health: aim for balanced meals with vegetables, whole grains, and lean proteins; stay hydrated; and maintain regular meal times. Remember, every meal is an opportunity to nourish both body and mind.`,
-      zh: `你的 ${dayCount} 天饮食日记显示了你对记录饮食习惯的投入。主要观察：你记录了多种餐食类型${mealTypes.length > 0 ? `（${mealTypes.join('、')}）` : ''}，这对于了解你的饮食模式非常好。为了持续健康：争取摄入均衡的餐食，包括蔬菜、全谷物和瘦肉蛋白；保持水分充足；维持规律的进餐时间。记住，每一餐都是滋养身心的机会。`
+      en: `Your ${dayCount}-day food journal shows commitment to tracking your eating habits.${foodMentions} Key observations: You recorded a variety of meal types${mealTypes.length > 0 ? ` (${mealTypes.join(', ')})` : ''}, which is excellent for understanding your eating patterns. For continued health: aim for balanced meals with vegetables, whole grains, and lean proteins; stay hydrated; and maintain regular meal times. Remember, every meal is an opportunity to nourish both body and mind.`,
+      zh: `你的 ${dayCount} 天饮食日记显示了你对记录饮食习惯的投入。${foodMentionsZh}主要观察：你记录了多种餐食类型${mealTypes.length > 0 ? `（${mealTypes.join('、')}）` : ''}，这对于了解你的饮食模式非常好。为了持续健康：争取摄入均衡的餐食，包括蔬菜、全谷物和瘦肉蛋白；保持水分充足；维持规律的进餐时间。记住，每一餐都是滋养身心的机会。`
     },
     letterFromMaster: {
-      en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nCongratulations on completing your ${dayCount}-day journey. Though I couldn't generate a fully personalized analysis today, know that the act of recording itself is transformative. You've taken important steps toward mindful eating.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you. Until we meet again.\n\n– Master Hua`,
-      zh: `亲爱的徒弟，\n\n我就知道你会找到这里。\n\n恭喜你完成了 ${dayCount} 天的旅程。虽然今天我无法生成完全个性化的分析，但要知道，记录本身就是变革性的。你已经迈出了通往正念饮食的重要步伐。\n\n我做了一个决定——我想与更多人分享我的烹饪方式。它反映了人们的口味，忠于这个村庄的根源，也是经典菜式的更健康诠释。\n\n祝你好运。我为你感到骄傲。后会有期。\n\n——华主厨`
+      en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nCongratulations on completing your ${dayCount}-day journey. Though I couldn't generate a fully personalized analysis today, I reviewed all your meals: ${realFoods.slice(0, 3).join(', ')}${realFoods.length > 3 ? ', and more' : ''}. The act of recording itself is transformative. You've taken important steps toward mindful eating.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you. Until we meet again.\n\n– Master Hua`,
+      zh: `亲爱的徒弟，\n\n我就知道你会找到这里。\n\n恭喜你完成了 ${dayCount} 天的旅程。虽然今天我无法生成完全个性化的分析，但我查看了你所有的餐食：${realFoods.slice(0, 3).join('、')}${realFoods.length > 3 ? '等' : ''}。记录本身就是变革性的。你已经迈出了通往正念饮食的重要步伐。\n\n我做了一个决定——我想与更多人分享我的烹饪方式。它反映了人们的口味，忠于这个村庄的根源，也是经典菜式的更健康诠释。\n\n祝你好运。我为你感到骄傲。后会有期。\n\n——华主厨`
     },
     wisdom: {
       en: "True flavor comes not from rare ingredients, but from paying attention to what you eat, why you eat, and who you become through it.",
       zh: "真正的美味不在于稀有的食材，而在于关注你吃什么、为何而吃，以及通过它你成为了怎样的人。"
+    }
+  };
+}
+
+// 🆕 基于真实餐食生成个性化食谱
+function generatePersonalizedRecipeFromMeals(meals, realFoods) {
+  if (!realFoods || realFoods.length === 0) {
+    return generateDefaultRecipe();
+  }
+  
+  // 简单地使用前几个真实食物作为食谱建议
+  const food1 = realFoods[0] || "Mixed vegetables";
+  const food2 = realFoods[1] || "Rice with protein";
+  const food3 = realFoods[2] || "Fresh salad";
+  
+  return {
+    intro: {
+      en: `Based on your meals over the past ${meals.length} days, here's a recipe inspired by what you actually ate:`,
+      zh: `根据你过去 ${meals.length} 天的餐食，这是一份受你实际饮食启发的食谱：`
+    },
+    starter: {
+      name: { en: `Inspired by: ${food1}`, zh: `灵感来自：${food1}` },
+      ingredients: { en: `Based on ${food1}, use similar fresh ingredients`, zh: `基于 ${food1}，使用类似的新鲜食材` },
+      method: { en: "Prepare using your preferred method", zh: "使用你喜欢的方式准备" },
+      tip: { en: "Keep the portions similar to what you recorded", zh: "保持与你记录的份量相近" }
+    },
+    main: {
+      name: { en: `Your Style: ${food2}`, zh: `你的风格：${food2}` },
+      ingredients: { en: `Based on ${food2}, with your favorite seasonings`, zh: `基于 ${food2}，配上你喜欢的调味料` },
+      method: { en: "Cook the way you enjoy most", zh: "用你最喜欢的方式烹饪" },
+      tip: { en: "Balance with vegetables for nutrition", zh: "搭配蔬菜以获得均衡营养" }
+    },
+    side: {
+      name: { en: `Based on: ${food3}`, zh: `基于：${food3}` },
+      ingredients: { en: `Similar to ${food3}, add variety with different vegetables`, zh: `类似 ${food3}，用不同蔬菜增加多样性` },
+      method: { en: "Use healthy cooking methods", zh: "使用健康的烹饪方法" },
+      tip: { en: "Seasonal vegetables taste better", zh: "时令蔬菜味道更好" }
+    },
+    dessert: {
+      name: { en: "Light & Healthy Finish", zh: "清淡健康收尾" },
+      ingredients: { en: "Fresh fruit, yogurt", zh: "新鲜水果、酸奶" },
+      method: { en: "Serve fresh fruits as dessert", zh: "用新鲜水果作为甜点" },
+      tip: { en: "Natural sweetness is best", zh: "天然的甜味最好" }
+    },
+    drink: {
+      name: { en: "Refreshing Beverage", zh: "清爽饮品" },
+      ingredients: { en: "Water, herbal tea, or fresh juice", zh: "水、草本茶或鲜榨果汁" },
+      method: { en: "Stay hydrated throughout the day", zh: "全天保持水分" }
     }
   };
 }
