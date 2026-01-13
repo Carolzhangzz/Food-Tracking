@@ -2,12 +2,11 @@ const express = require("express");
 const router = express.Router();
 const { MealRecord } = require("../models");
 
-// 🔧 采用官方最新 @google/genai 调用方式
+// 🚀 使用 Groq API 生成最终报告（免费且快速）
 router.post("/generate-final-report", async (req, res) => {
   const { playerId } = req.body;
-  console.log(`📜 [Backend] 正在使用最新 GenAI SDK 为玩家 ${playerId} 生成报告...`);
+  console.log(`📜 [Backend] 使用 Groq API 为玩家 ${playerId} 生成报告...`);
   
-  // 🔧 将 meals 移到外部作用域，以便 catch 块也能访问
   let meals = null;
   
   try {
@@ -20,65 +19,62 @@ router.post("/generate-final-report", async (req, res) => {
       return res.status(404).json({ success: false, error: "No meal records found." });
     }
 
-    // 🔧 使用详细的 mealAnswers 而不仅仅是 mealContent
+    // 提取所有真实食物数据
     const mealSummary = meals.map(m => {
-      let details = `Day ${m.day} - ${m.mealType}:\n`;
+      let details = `📅 Day ${m.day} - ${m.mealType}:\n`;
       
-      // 基础内容
-      details += `  Food: ${m.mealContent}\n`;
-      
-      // 如果有详细答案，添加更多信息
       if (m.mealAnswers && typeof m.mealAnswers === 'object') {
         const answers = m.mealAnswers;
-        
-        // Q1: 获取方式
-        if (answers.Q1) details += `  How obtained: ${answers.Q1}\n`;
-        
-        // Q2: 时间
-        if (answers.Q2) details += `  Meal time: ${answers.Q2}\n`;
-        
-        // Q3: 用餐时长
-        if (answers.Q3) details += `  Duration: ${answers.Q3}\n`;
-        
-        // Q4: 吃了什么（详细）
-        if (answers.Q4) details += `  What they ate: ${answers.Q4}\n`;
-        
-        // Q5: 份量
-        if (answers.Q5) details += `  Portion size: ${answers.Q5}\n`;
-        
-        // Q6: 如何决定份量
-        if (answers.Q6) details += `  How decided amount: ${answers.Q6}\n`;
-        
-        // Q7: 身体感觉
-        if (answers.Q7) details += `  Physical feeling: ${answers.Q7}\n`;
-        
-        // Q8: 为什么选择这个食物
-        if (answers.Q8) details += `  Why chose this: ${answers.Q8}\n`;
+        if (answers.Q1) details += `  🍽️ How obtained: ${answers.Q1}\n`;
+        if (answers.Q2) details += `  ⏰ Meal time: ${answers.Q2}\n`;
+        if (answers.Q3) details += `  ⏱️ Duration: ${answers.Q3}\n`;
+        if (answers.Q4) details += `  🥘 What they ate: ${answers.Q4}\n`;
+        if (answers.Q5) details += `  📏 Portion size: ${answers.Q5}\n`;
+        if (answers.Q6) details += `  🤔 How decided amount: ${answers.Q6}\n`;
+        if (answers.Q7) details += `  💪 Physical feeling: ${answers.Q7}\n`;
+        if (answers.Q8) details += `  ❤️ Why chose this: ${answers.Q8}\n`;
+      } else {
+        details += `  🥘 Food: ${m.mealContent}\n`;
       }
       
       return details;
     }).join("\n");
 
-    const prompt = `You are Master Chef Hua. The player has just completed a 7-day food journaling journey in Gourmet Village. Based on their ACTUAL meal records, create a personalized final report.
+    // 🆕 使用用户提供的详细 Prompt 模板
+    const prompt = `You are Master Chef Hua from Gourmet Village. The player has completed their 7-day food journaling journey and is now receiving their final personalized recipe.
 
-PLAYER'S 7-DAY MEAL RECORDS (USE THESE EXACT FOODS):
+PLAYER'S COMPLETE 7-DAY MEAL RECORDS:
 ${mealSummary}
 
-CRITICAL INSTRUCTIONS:
-1. EXTRACT all the actual food items the player ate from the records above (e.g., "fish and chips", "面包", "番茄鸡蛋汤", "土豆面条", etc.)
-2. CREATE a recipe menu that DIRECTLY USES these foods/ingredients:
-   - Starter: Based on a food they ate (e.g., if they had "soup", create a soup recipe)
-   - Main Course: Based on their most common main foods (e.g., "fish", "rice with vegetables")
-   - Side: Based on their side dishes or vegetables they mentioned
-   - Dessert: Based on any sweet foods or fruits they ate
-   - Drink: Based on any beverages they mentioned, or create a healthy drink using their ingredients
-3. In the recipe, MENTION the specific foods they ate by name (e.g., "Remember the fish and chips you enjoyed on Day 1? Here's how to make it...")
-4. Health analysis should reference their ACTUAL meals by day and type (e.g., "Your Day 3 steamed rice with greens was excellent...")
-5. Use their cooking methods: if they mentioned "home-cooked", "stir-fried", "steamed", incorporate these methods
+YOUR TASK:
+The player has now received the final recipe. As they read it, they discover that the recipe is created from the same ingredients they logged and ate during their journey in the game.
 
-TONE: Warm, personal, like talking to someone whose meals you've been following closely. Use specific examples from their journal.
+1. **7-Day Summary**: List all the main ingredients and dishes the player has chosen or consumed across all meals.
 
-IMPORTANT: Return ONLY a valid JSON object with this exact structure:
+2. **Personalized Recipe Menu**: Create a FULL MEAL using the player's actual ingredients/dishes:
+   - **Starter** – Use ingredients/dishes from their early meals or appetizers
+   - **Main Course** – Based on their most common main dishes
+   - **Side Dish** – Use vegetables/sides they mentioned
+   - **Dessert** – Based on sweet foods or create a healthy option from their ingredients
+   - **Drink** – Based on beverages mentioned or create a healthy tea/drink
+
+   For EACH dish, provide:
+   - Name (creative but based on their actual food)
+   - Ingredients (from what they ate)
+   - Cooking method (use their mentioned cooking styles: steamed, grilled, stir-fried, etc.)
+   - Tip (practical advice)
+
+3. **Health Analysis**: Compare their ingredients with healthy eating principles (balance, variety, nutrition). Clearly show:
+   - What supports a healthy diet
+   - What might be less healthy
+   - Simple swaps or additions to improve nutrition (using examples from what they actually ate)
+
+4. **Tone**: Friendly and encouraging. Focus on positive reinforcement. Emphasize that healthy dishes can be made from everyday choices.
+
+5. **Template Example** (adapt to the player's actual meals):
+   "Based on the meals you've shared over the last 7 days, this recipe combines the ingredients, flavors, and cooking styles you described. It's designed as a full meal you could actually make at home – a reflection of your journey in Gourmet Village."
+
+CRITICAL: Return ONLY a valid JSON object with this EXACT structure:
 
 {
   "title": {
@@ -86,176 +82,151 @@ IMPORTANT: Return ONLY a valid JSON object with this exact structure:
     "zh": "你的美食村专属食谱"
   },
   "mealSummary": {
-    "en": "A brief summary of the player's 7-day eating patterns in 2-3 sentences",
-    "zh": "玩家7天饮食模式的简要总结（2-3句）"
+    "en": "2-3 sentence summary of player's 7-day eating patterns, mentioning specific foods",
+    "zh": "2-3句总结玩家7天的饮食模式，提及具体食物"
   },
   "recipe": {
     "intro": {
-      "en": "Based on the meals you've shared over the last 7 days, this recipe combines the ingredients, flavors, and cooking styles you described.",
-      "zh": "根据你过去7天分享的餐食，这份食谱结合了你描述的食材、味道和烹饪方式。"
+      "en": "Based on the meals you've shared...",
+      "zh": "根据你过去7天分享的餐食..."
     },
     "starter": {
-      "name": { "en": "Starter name", "zh": "前菜名称" },
-      "ingredients": { "en": "List of ingredients", "zh": "食材列表" },
-      "method": { "en": "Cooking method", "zh": "烹饪方法" },
-      "tip": { "en": "A helpful tip", "zh": "小贴士" }
+      "name": { "en": "Creative name based on their food", "zh": "基于他们食物的创意名称" },
+      "ingredients": { "en": "Their actual ingredients", "zh": "他们的实际食材" },
+      "method": { "en": "Cooking method using their style", "zh": "使用他们风格的烹饪方法" },
+      "tip": { "en": "Practical tip", "zh": "实用建议" }
     },
     "main": {
       "name": { "en": "Main course name", "zh": "主菜名称" },
-      "ingredients": { "en": "List of ingredients", "zh": "食材列表" },
+      "ingredients": { "en": "Ingredients from their meals", "zh": "来自他们餐食的食材" },
       "method": { "en": "Cooking method", "zh": "烹饪方法" },
-      "tip": { "en": "A helpful tip", "zh": "小贴士" }
+      "tip": { "en": "Tip", "zh": "建议" }
     },
     "side": {
       "name": { "en": "Side dish name", "zh": "配菜名称" },
-      "ingredients": { "en": "List of ingredients", "zh": "食材列表" },
-      "method": { "en": "Cooking method", "zh": "烹饪方法" },
-      "tip": { "en": "A helpful tip", "zh": "小贴士" }
+      "ingredients": { "en": "Ingredients", "zh": "食材" },
+      "method": { "en": "Method", "zh": "方法" },
+      "tip": { "en": "Tip", "zh": "建议" }
     },
     "dessert": {
       "name": { "en": "Dessert name", "zh": "甜点名称" },
-      "ingredients": { "en": "List of ingredients", "zh": "食材列表" },
-      "method": { "en": "Cooking method", "zh": "烹饪方法" },
-      "tip": { "en": "A helpful tip", "zh": "小贴士" }
+      "ingredients": { "en": "Ingredients", "zh": "食材" },
+      "method": { "en": "Method", "zh": "方法" },
+      "tip": { "en": "Tip", "zh": "建议" }
     },
     "drink": {
       "name": { "en": "Drink name", "zh": "饮品名称" },
-      "ingredients": { "en": "List of ingredients", "zh": "食材列表" },
-      "method": { "en": "Preparation method", "zh": "制作方法" }
+      "ingredients": { "en": "Ingredients", "zh": "食材" },
+      "method": { "en": "Method", "zh": "方法" }
     }
   },
   "healthAnalysis": {
-    "en": "Detailed health analysis (200+ words): what they did well, what could be improved, specific suggestions based on their actual meals",
-    "zh": "详细健康分析（200字以上）：他们做得好的地方、可以改进的地方、基于实际餐食的具体建议"
+    "en": "Detailed 200+ word analysis: what supports healthy diet, what could be improved, specific swaps/additions based on their actual meals",
+    "zh": "详细200字以上分析：哪些支持健康饮食、哪些可以改进、基于实际餐食的具体替换/添加建议"
   },
   "letterFromMaster": {
-    "en": "Dear [Player],\\n\\nI knew you'd find this place. Congratulations on finding the recipe...\\n\\n– Master Hua",
-    "zh": "亲爱的[玩家]，\\n\\n我就知道你会找到这里。恭喜你找到了食谱...\\n\\n——华主厨"
+    "en": "Dear Apprentice,\\n\\nI knew you'd find this place. Based on your journey and the meals you recorded...\\n\\n– Master Hua",
+    "zh": "亲爱的徒弟，\\n\\n我就知道你会找到这里。根据你的旅程和你记录的餐食...\\n\\n——华主厨"
   },
   "wisdom": {
-    "en": "True flavor comes not from rare ingredients, but from paying attention.",
-    "zh": "真正的美味不在于稀有的食材，而在于用心。"
+    "en": "True flavor comes not from rare ingredients, but from paying attention to what you eat and why.",
+    "zh": "真正的美味不在于稀有的食材，而在于关注你吃什么以及为何而吃。"
   }
 }
 
-Remember: Return ONLY the JSON object. No markdown, no code blocks, no extra text.`;
+Return ONLY the JSON. No markdown, no code blocks, no extra text.`;
 
-    // 🔧 使用与 geminiRoutes.js 相同的调用方式
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    // 🔧 使用与 geminiRoutes.js 相同的模型列表（优先使用更稳定的模型）
-    // 注意：gemini-2.0-flash-exp 可能有配额限制，所以放在最后
-    const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"];
-    let text = null;
-    let lastError = null;
-    
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(`🔄 尝试模型: ${modelName}`);
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4096, // 增加输出长度限制
-            topP: 0.9,
-          }
-        });
-        
-        // 🔧 使用与 geminiRoutes.js 完全一致的调用格式
-        const result = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }]
-        });
-        
-        // 🔧 健壮的文本提取（与 geminiRoutes.js 一致）
-        try {
-          text = result.response.text();
-        } catch (e) {
-          // 如果 text() 不是函数，尝试从 candidates 提取
-          if (result.response && result.response.candidates) {
-            const candidate = result.response.candidates[0];
-            if (candidate && candidate.content && candidate.content.parts) {
-              text = candidate.content.parts.map((part) => part.text || "").join("");
-            }
-          }
-        }
-        
-        if (text && text.trim()) {
-          console.log(`✅ 模型 ${modelName} 调用成功，响应长度: ${text.length}`);
-          break; // 成功了就跳出循环
-        } else {
-          throw new Error("响应为空");
-        }
-      } catch (err) {
-        console.log(`⚠️ 模型 ${modelName} 失败: ${err.message}`);
-        
-        // 如果是 429 配额错误，记录但继续尝试其他模型
-        if (err.status === 429) {
-          console.log(`⚠️ 模型 ${modelName} 配额已满，尝试下一个模型...`);
-        }
-        
-        lastError = err;
-        // 继续尝试下一个模型
-      }
+    // 🚀 调用 Groq API
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      throw new Error("GROQ_API_KEY 未配置");
     }
-    
+
+    console.log("🔄 调用 Groq API...");
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${groqApiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile", // Groq 推荐的高性能模型
+        messages: [
+          {
+            role: "system",
+            content: "You are Master Chef Hua, a wise and caring chef who creates personalized recipes based on people's actual eating habits. You always return valid JSON responses."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 4096,
+        top_p: 0.9
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API 错误 (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    let text = data.choices[0]?.message?.content;
+
     if (!text || !text.trim()) {
-      throw lastError || new Error("所有模型都失败了");
+      throw new Error("Groq API 返回空响应");
     }
-    console.log(`✅ AI 响应成功，长度: ${text.length}`);
-    console.log(`📄 AI 返回内容预览:\n${text.substring(0, 500)}...`);
 
-    // 🔧 改进的 JSON 提取逻辑
+    console.log(`✅ Groq API 响应成功，长度: ${text.length}`);
+    console.log(`📄 响应预览:\n${text.substring(0, 300)}...`);
+
+    // 解析 JSON
     let report = null;
     
-    // 先尝试直接解析（如果 AI 返回纯 JSON）
     try {
       report = JSON.parse(text);
     } catch (e1) {
-      // 如果失败，尝试从文本中提取 JSON
       console.log("⚠️ 直接解析失败，尝试提取 JSON...");
       
-      // 移除可能的 markdown 代码块标记
+      // 清理 markdown 代码块
       let cleanText = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       
-      // 尝试匹配 JSON 对象
+      // 提取 JSON 对象
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           report = JSON.parse(jsonMatch[0]);
         } catch (e2) {
           console.error("❌ JSON 提取后仍无法解析:", e2.message);
-          console.error("提取的内容:", jsonMatch[0].substring(0, 200));
         }
       }
     }
 
     if (!report || !report.title || !report.recipe || !report.letterFromMaster) {
-      throw new Error(`Could not parse valid report. Missing required fields. AI response: ${text.substring(0, 200)}...`);
+      throw new Error(`报告结构不完整。响应: ${text.substring(0, 200)}...`);
     }
     
-    console.log("✅ 报告解析成功，包含以下字段:", Object.keys(report));
+    console.log("✅ 报告解析成功，包含字段:", Object.keys(report));
 
-    res.json({ success: true, report });
+    res.json({ success: true, report, source: "groq" });
+
   } catch (error) {
-    console.error("❌ 报告生成失败 (GenAI SDK):", error);
+    console.error("❌ Groq 报告生成失败:", error);
     
-    // 🔧 任何错误都使用后备报告（确保玩家总能看到报告）
-    console.log("⚠️ AI 生成失败，使用后备报告模板...");
+    // 使用后备报告
+    console.log("⚠️ 使用后备报告模板...");
     
     try {
-      // 如果 meals 未定义（数据库查询失败），尝试重新获取
       if (!meals) {
-        console.log("🔄 重新获取餐食数据...");
         meals = await MealRecord.findAll({
           where: { playerId },
           order: [['day', 'ASC'], ['recordedAt', 'ASC']]
         });
       }
       
-      // 如果还是没有数据，使用空数组生成基础报告
       if (!meals || meals.length === 0) {
-        console.log("⚠️ 没有餐食数据，生成基础模板报告");
         meals = [];
       }
       
@@ -267,7 +238,7 @@ Remember: Return ONLY the JSON object. No markdown, no code blocks, no extra tex
         message: "AI 暂时不可用，为您生成了标准报告"
       });
     } catch (fallbackError) {
-      console.error("❌ 后备报告也失败:", fallbackError);
+      console.error("❌ 后备报告失败:", fallbackError);
       return res.status(500).json({ 
         success: false, 
         error: "报告生成系统暂时不可用",
