@@ -63,20 +63,48 @@ ORDER BY day;
 "
 
 echo ""
-echo "4️⃣ 餐食记录详情"
+echo "4️⃣ 餐食记录详情（简要）"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 heroku pg:psql --app foodtracking-t1 -c "
 SELECT 
-  \"playerId\" as \"玩家\",
   \"day\" as \"天数\",
   \"mealType\" as \"餐次\",
   \"npcName\" as \"NPC\",
-  LEFT(\"mealContent\", 30) as \"餐食内容\",
   TO_CHAR(\"createdAt\", 'MM-DD HH24:MI') as \"记录时间\"
 FROM \"MealRecords\" 
 WHERE \"playerId\" = '$PLAYER_ID'
 ORDER BY \"day\", \"createdAt\";
 "
+
+echo ""
+echo "4️⃣-详细 餐食完整内容（每一餐的详细回答）"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 查询每一餐的详细信息
+heroku pg:psql --app foodtracking-t1 -c "
+SELECT 
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' as \"分隔线\",
+  ('📅 Day ' || \"day\" || ' - ' || \"mealType\" || ' (' || \"npcName\" || ')') as \"餐次信息\",
+  ('⏰ ' || TO_CHAR(\"createdAt\", 'YYYY-MM-DD HH24:MI')) as \"记录时间\",
+  '' as \"空行1\",
+  '🍽️ 详细回答：' as \"标题\",
+  ('Q1 (获得方式): ' || COALESCE(\"mealAnswers\"->>'Q1', '未回答')) as \"Q1\",
+  ('Q2 (用餐时间): ' || COALESCE(\"mealAnswers\"->>'Q2', '未回答')) as \"Q2\",
+  ('Q3 (用餐时长): ' || COALESCE(\"mealAnswers\"->>'Q3', '未回答')) as \"Q3\",
+  ('Q4 (吃了什么): ' || COALESCE(\"mealAnswers\"->>'Q4', '未回答')) as \"Q4\",
+  ('Q5 (份量大小): ' || COALESCE(\"mealAnswers\"->>'Q5', '未回答')) as \"Q5\",
+  ('Q6 (份量决定): ' || COALESCE(\"mealAnswers\"->>'Q6', '未回答')) as \"Q6\",
+  ('Q7 (身体感觉): ' || COALESCE(\"mealAnswers\"->>'Q7', '未回答')) as \"Q7\",
+  ('Q8 (选择原因): ' || COALESCE(\"mealAnswers\"->>'Q8', '未回答')) as \"Q8\",
+  CASE 
+    WHEN \"mealAnswers\"->>'Q_TIME_FOLLOWUP' IS NOT NULL 
+    THEN ('💡 时间追问: ' || (\"mealAnswers\"->>'Q_TIME_FOLLOWUP'))
+    ELSE ''
+  END as \"Q_TIME\"
+FROM \"MealRecords\" 
+WHERE \"playerId\" = '$PLAYER_ID'
+ORDER BY \"day\", \"createdAt\";
+" | sed 's/^│//; s/│$//'
 
 echo ""
 echo "5️⃣ 餐食统计"
