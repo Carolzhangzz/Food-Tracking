@@ -672,31 +672,26 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         this.stateManager.markMealSubmitted(result);
         this.uiManager.updateStatus("✅ 保存成功");
         
-        // 🔧 直接从前端数据获取线索
-        const { getNPCClue, getNPCName } = await import('../../data/npcClues.js');
+        // 🔧 使用后端返回的线索数据（确保前后端一致）
+        const { getNPCName } = await import('../../data/npcClues.js');
         const actualNPCName = getNPCName(this.currentNPC, lang);
         
-        let clueType, clueText, clueData;
-        if (mealType === "dinner") {
-          clueType = "true";
-          clueData = getNPCClue(this.currentNPC, "true", 0, lang);
-          clueText = clueData ? clueData.text : "Good job!";
-        } else {
-          clueType = "vague";
-          const clueKey = `${this.playerId}_${this.currentNPC}_vague_count`;
-          const previousVagueCount = parseInt(localStorage.getItem(clueKey) || '0');
-          const vagueIndex = Math.min(previousVagueCount, 1);
-          clueData = getNPCClue(this.currentNPC, "vague", vagueIndex, lang);
-          clueText = clueData ? clueData.text : "Great job!";
-          localStorage.setItem(clueKey, (previousVagueCount + 1).toString());
+        // 优先使用后端返回的线索
+        let clueText = result.clueText;
+        let clueType = result.clueType;
+        
+        // 如果后端没有返回线索，使用默认消息
+        if (!clueText && result.shouldGiveClue) {
+          clueText = lang === "zh" ? "感谢你的分享！" : "Thank you for sharing!";
+          clueType = clueType || "vague";
         }
         
-        // 🔧 只有当 Gemini 还没说结束语时，我们才显示线索
-        // 我们改为让线索晚一点出现，并只显示一次
+        // 🔧 显示线索并等待玩家确认
         if (clueText) {
-          console.log("🗝️ NPC 正在说出线索...");
+          console.log(`🗝️ [DialogScene] NPC 正在说出线索 (${clueType})...`);
           this.uiManager.addMessage("NPC", clueText);
           
+          // 添加到线索本
           if (this.mainScene && this.mainScene.uiManager) {
             this.mainScene.uiManager.addClue({
               npcId: this.currentNPC,
@@ -707,7 +702,17 @@ export default class DialogSceneRefactored extends Phaser.Scene {
               mealType: mealType
             }, true);
           }
-          await this.delay(1000);
+          
+          // 🆕 计算线索长度，动态调整等待时间
+          const clueLength = clueText.length;
+          const minWaitTime = 5000; // 最少5秒
+          const readingTime = Math.max(minWaitTime, clueLength * 50); // 每个字符50ms阅读时间
+          console.log(`⏱️ [DialogScene] 线索长度: ${clueLength}, 等待时间: ${readingTime}ms`);
+          
+          await this.delay(readingTime);
+          
+          // 🆕 显示"继续"提示
+          await this.showContinuePrompt(lang);
         }
 
         // 🔧 同步数据到 React UI (地图进度图标)
@@ -744,7 +749,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         // 🔧 保存对话历史到数据库
         await this.saveConversationHistory(this.stateManager.conversationHistory);
         
-        await this.delay(3000);
+        // 🆕 直接返回地图（已经等待过了）
         this.returnToMainScene();
       } else {
         console.error("❌ 保存失败:", result.error);
@@ -946,6 +951,32 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       backgroundColor: "#000000aa",
       padding: { x: 20, y: 12 },
     }).setOrigin(0.5).setDepth(100);
+  }
+
+  /**
+   * 显示"继续"提示，让玩家确认已读完线索
+   * @param {string} lang - 语言
+   * @returns {Promise<void>}
+   */
+  async showContinuePrompt(lang = "zh") {
+    return new Promise((resolve) => {
+      const promptText = lang === "zh" 
+        ? "💡 线索已记录到你的线索本中！" 
+        : "💡 Clue has been recorded in your notebook!";
+      
+      this.uiManager.addMessage("NPC", promptText);
+      
+      const continueButtonText = lang === "zh" ? "👍 知道了" : "👍 Got it";
+      
+      const options = [
+        { text: continueButtonText, value: "continue" }
+      ];
+      
+      this.uiManager.showButtons(options, () => {
+        console.log("✅ [DialogScene] 玩家确认已读完线索");
+        resolve();
+      });
+    });
   }
 
   /**

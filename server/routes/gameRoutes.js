@@ -1011,45 +1011,78 @@ router.post("/record-meal", async (req, res) => {
       };
       const actualNpcId = idMapping[npcId] || npcId;
 
-      // 🔧 使用映射后的ID查询，确保查询和保存使用同一个ID
-      const previousVagueCount = await Clue.count({
-        where: { playerId, npcId: actualNpcId, clueType: 'vague' }
-      }).catch(() => 0); // 容错：如果 clueType 字段不存在，返回 0
-
-      console.log(`🔍 [线索检查] NPC: ${npcId} -> ${actualNpcId}, 已有vague线索: ${previousVagueCount}条`);
-
-      if (mealType === "dinner") {
-        clueType = "true";
-        clueText = getClueForNPCStage(npcId, playerLanguage, 3);
-      } else {
-        clueType = "vague";
-        const stage = previousVagueCount === 0 ? 1 : 2;
-        clueText = getClueForNPCStage(npcId, playerLanguage, stage);
-        console.log(`📝 [线索生成] 餐食: ${mealType}, Stage: ${stage}`);
-      }
-
-      if (clueText && typeof clueText === 'string') {
-        const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
-
-        // 这里的创建也不带 transaction
-        await Clue.create({
-          playerId,
-          npcId: actualNpcId,
-          npcName: actualNPCName,
-          clueType,
-          clueText: cleanText,
-          keywords: JSON.stringify(keywords),
-          shortVersion,
+      // 🔧 检查是否已经在当天给过该NPC的该类型线索（防止重复）
+      const todayClueExists = await Clue.findOne({
+        where: { 
+          playerId, 
+          npcId: actualNpcId, 
           day,
-          mealType,
-          nextNPC: npcClues[actualNpcId]?.nextNPC || null
-        }).catch(e => console.error("⚠️ 异步保存线索记录失败 (数据库未同步):", e.message));
+          mealType 
+        }
+      }).catch(() => null);
 
+      if (todayClueExists) {
+        console.log(`⚠️ [线索跳过] Day ${day} ${mealType} 已经给过 ${actualNpcId} 的线索，跳过`);
+        // 即使跳过，也返回已有的线索给前端显示
+        clueType = todayClueExists.clueType;
+        clueText = todayClueExists.clueText;
         clueData = {
           npcName: actualNPCName,
-          nextNPC: npcClues[actualNpcId]?.nextNPC || null,
+          nextNPC: todayClueExists.nextNPC || null,
           type: clueType
         };
+      } else {
+        // 🔧 查询该NPC已经给过的 vague 线索数量
+        const previousVagueCount = await Clue.count({
+          where: { playerId, npcId: actualNpcId, clueType: 'vague' }
+        }).catch(() => 0);
+
+        console.log(`🔍 [线索检查] NPC: ${npcId} -> ${actualNpcId}, 已有vague线索: ${previousVagueCount}条`);
+
+        let stage = null;
+        if (mealType === "dinner") {
+          clueType = "true";
+          stage = 3;
+          clueText = getClueForNPCStage(npcId, playerLanguage, 3);
+        } else {
+          // 🔧 只在 vague 线索少于2条时才给新线索
+          if (previousVagueCount < 2) {
+            clueType = "vague";
+            stage = previousVagueCount + 1; // 第1条或第2条
+            clueText = getClueForNPCStage(npcId, playerLanguage, stage);
+            console.log(`📝 [线索生成] 餐食: ${mealType}, Stage: ${stage}, 这是第 ${previousVagueCount + 1} 条vague线索`);
+          } else {
+            console.log(`⚠️ [线索跳过] ${actualNpcId} 已有 ${previousVagueCount} 条vague线索，不再生成新线索`);
+            clueText = null; // 不再生成新线索
+          }
+        }
+
+        // 只有当有线索文本时才创建记录
+        if (clueText && typeof clueText === 'string') {
+          const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+
+          // 创建新的线索记录
+          await Clue.create({
+            playerId,
+            npcId: actualNpcId,
+            npcName: actualNPCName,
+            clueType,
+            clueText: cleanText,
+            keywords: JSON.stringify(keywords),
+            shortVersion,
+            day,
+            mealType,
+            nextNPC: npcClues[actualNpcId]?.nextNPC || null
+          }).catch(e => console.error("⚠️ 异步保存线索记录失败 (数据库未同步):", e.message));
+
+          clueData = {
+            npcName: actualNPCName,
+            nextNPC: npcClues[actualNpcId]?.nextNPC || null,
+            type: clueType
+          };
+          
+          console.log(`✅ [线索保存] Day ${day} ${mealType} - ${actualNpcId} (${clueType}, Stage ${stage})`);
+        }
       }
     } catch (clueErr) {
       console.error("⚠️ 线索处理逻辑整体容错:", clueErr.message);

@@ -377,41 +377,52 @@ function generatePersonalizedRecipeFromMeals(meals, realFoods) {
   };
 }
 
-// 生成默认食谱
+//生成默认食谱
 function generateDefaultRecipe() {
   return {
-    intro: {
-      en: "Here's a balanced meal plan inspired by healthy eating principles:",
-      zh: "这是一份受健康饮食原则启发的均衡膳食计划："
+    summary: {
+      en: "Based on your meals over the past 7 days, you have chosen a mix of grains, vegetables, proteins, and snacks. Your most frequent ingredients include rice, leafy greens, chicken or tofu, eggs, and fruits.",
+      zh: "根据你过去 7 天记录的饮食，你的选择包含谷物、蔬菜、蛋白质和水果。最常出现的食材包括米饭、绿叶蔬菜、鸡肉或豆腐、鸡蛋以及水果。"
     },
-    starter: {
-      name: { en: "Fresh Garden Salad", zh: "新鲜田园沙拉" },
-      ingredients: { en: "Mixed greens, cherry tomatoes, cucumber, olive oil, lemon", zh: "混合蔬菜、樱桃番茄、黄瓜、橄榄油、柠檬" },
-      method: { en: "Toss all ingredients together and dress with olive oil and lemon.", zh: "将所有食材混合，用橄榄油和柠檬调味。" },
-      tip: { en: "Add protein like grilled chicken or tofu for a complete meal.", zh: "加入烤鸡肉或豆腐作为蛋白质，让餐食更完整。" }
+
+    analysis: {
+      en: "Your meals show a good balance between carbohydrates and protein, and you include vegetables regularly. Some days are higher in refined carbs and lower in fiber. Adding more whole grains and legumes could improve overall nutrition.",
+      zh: "你的饮食在碳水化合物和蛋白质之间较为均衡，并且经常包含蔬菜。但部分天数精制碳水偏多、膳食纤维偏少。增加全谷物和豆类可以进一步提升营养质量。"
     },
-    main: {
-      name: { en: "Balanced Bowl", zh: "均衡碗" },
-      ingredients: { en: "Brown rice, grilled protein, steamed vegetables, sesame seeds", zh: "糙米、烤制蛋白质、蒸蔬菜、芝麻" },
-      method: { en: "Arrange all components in a bowl. Drizzle with your favorite sauce.", zh: "将所有成分摆放在碗中，淋上你喜欢的酱汁。" },
-      tip: { en: "Vary your protein sources throughout the week.", zh: "每周变换不同的蛋白质来源。" }
+
+    suggestions: {
+      en: "Simple improvements could include swapping white rice for brown rice, adding beans or lentils to bowls, and pairing snacks with fruit or yogurt.",
+      zh: "简单的改进方式包括：用糙米替代白米，在主食中加入豆类或扁豆，零食时搭配水果或酸奶。"
     },
-    side: {
-      name: { en: "Roasted Seasonal Vegetables", zh: "烤时令蔬菜" },
-      ingredients: { en: "Seasonal vegetables, olive oil, herbs, garlic", zh: "时令蔬菜、橄榄油、香草、大蒜" },
-      method: { en: "Roast vegetables with olive oil and herbs at 200°C for 25 minutes.", zh: "将蔬菜与橄榄油和香草一起在 200°C 烤 25 分钟。" },
-      tip: { en: "Roasting brings out natural sweetness in vegetables.", zh: "烤制能带出蔬菜的天然甜味。" }
-    },
-    dessert: {
-      name: { en: "Fruit & Yogurt Parfait", zh: "水果酸奶杯" },
-      ingredients: { en: "Greek yogurt, mixed berries, honey, granola", zh: "希腊酸奶、混合浆果、蜂蜜、格兰诺拉麦片" },
-      method: { en: "Layer yogurt, berries, and granola. Drizzle with honey.", zh: "分层放入酸奶、浆果和格兰诺拉麦片，淋上蜂蜜。" },
-      tip: { en: "Prepare the night before for a quick breakfast.", zh: "前一晚准备好，作为快速早餐。" }
-    },
-    drink: {
-      name: { en: "Herbal Infusion", zh: "草本茶" },
-      ingredients: { en: "Your favorite herbal tea, hot water, optional honey", zh: "你喜欢的草本茶、热水、可选蜂蜜" },
-      method: { en: "Steep tea in hot water for 5 minutes. Add honey if desired.", zh: "将茶叶在热水中浸泡 5 分钟，根据需要加入蜂蜜。" }
+
+    finalRecipe: {
+      intro: {
+        en: "This final recipe is inspired by the ingredients you logged during your journey in Gourmet Village. It reflects your everyday choices and shows how they can come together into a balanced meal.",
+        zh: "这份最终食谱灵感来自你在《美食村》旅程中记录的真实食材，展现了日常选择如何组合成一顿均衡的餐食。"
+      },
+
+      starter: {
+        name: { en: "Herb & Tofu Dumplings", zh: "香草豆腐饺子" },
+        ingredients: { en: "Tofu, mixed herbs, ginger, soy sauce, wrappers", zh: "豆腐、混合香草、生姜、酱油、饺子皮" },
+        method: { en: "Mix filling, wrap, and steam for 6–8 minutes.", zh: "混合馅料包制，蒸 6–8 分钟。" }
+      },
+
+      main: {
+        name: { en: "Protein & Whole Grain Bowl", zh: "蛋白质全谷物碗" },
+        ingredients: { en: "Brown rice, grilled chicken or tofu, leafy greens", zh: "糙米、烤鸡肉或豆腐、绿叶蔬菜" },
+        method: { en: "Assemble all components and drizzle with light sauce.", zh: "将所有食材组合，淋上清淡酱汁。" }
+      },
+
+      dessert: {
+        name: { en: "Fruit Yogurt Cup", zh: "水果酸奶杯" },
+        ingredients: { en: "Yogurt, seasonal fruit, honey", zh: "酸奶、时令水果、蜂蜜" },
+        method: { en: "Layer and serve chilled.", zh: "分层放置，冷藏后食用。" }
+      },
+
+      closing: {
+        en: "This menu shows that healthy meals can grow naturally from everyday choices. Keep exploring, and your next week can be even more balanced and delicious.",
+        zh: "这份菜单说明，健康饮食可以从日常选择自然生长出来。继续探索，你的下一周会更加均衡而美味。"
+      }
     }
   };
 }
