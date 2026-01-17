@@ -100,23 +100,36 @@ function nextMidnight(ts = new Date()) {
 }
 
 /**
- * 🌙 日切点计算：基于凌晨4点的天数判断
+ * 🌙 日切点计算：基于玩家本地时间凌晨4点的天数判断
  * 优点：
  * - 符合真实生活作息（夜猫子友好）
  * - 避免深夜吃夜宵被误判为第二天
- * - 更灵活的天数推进逻辑
+ * - 🆕 使用玩家本地时间，解决全球时区问题
  * 
- * @param {Date} firstLoginDate - 玩家首次登录时间
- * @param {Date} currentDate - 当前时间
+ * @param {Date} firstLoginDate - 玩家首次登录时间（UTC）
+ * @param {Date|string} currentDate - 当前时间（可以是UTC Date对象或ISO字符串）
  * @param {number} cutoffHour - 日切点（默认4点）
+ * @param {number} clientTimezoneOffset - 客户端时区偏移（分钟，可选）
  * @returns {number} 当前是第几天（从1开始）
  */
-function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), cutoffHour = 4) {
+function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), cutoffHour = 4, clientTimezoneOffset = null) {
   try {
-    const first = new Date(firstLoginDate);
-    const current = new Date(currentDate);
+    let first = new Date(firstLoginDate);
+    let current = new Date(currentDate);
 
-    // 🔧 简化的日切点逻辑：
+    // 🆕 如果提供了客户端时区偏移，转换为客户端本地时间
+    if (clientTimezoneOffset !== null && clientTimezoneOffset !== undefined) {
+      // clientTimezoneOffset 是以分钟为单位的偏移（例如 -480 = UTC-8 = 太平洋时间）
+      // JavaScript Date.getTimezoneOffset() 返回的是 UTC - 本地时间的偏移
+      const offsetMs = clientTimezoneOffset * 60 * 1000;
+      
+      first = new Date(first.getTime() + offsetMs);
+      current = new Date(current.getTime() + offsetMs);
+      
+      console.log(`🌍 [时区转换] 客户端时区偏移: ${clientTimezoneOffset}分钟 (${clientTimezoneOffset/60}小时)`);
+    }
+
+    // 🔧 日切点逻辑：
     // 将两个时间都调整到"基于4AM的虚拟日期"
     // 例如：2024-01-01 02:00 → 算作 2023-12-31 的一部分
     //      2024-01-01 05:00 → 算作 2024-01-01 的一部分
@@ -139,7 +152,7 @@ function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), 
     const diffTime = adjustedCurrent.getTime() - adjustedFirst.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    console.log(`📅 [日切点计算] 首次登录: ${first.toLocaleString()}, 当前时间: ${current.toLocaleString()}, 调整后首次: ${adjustedFirst.toLocaleString()}, 调整后当前: ${adjustedCurrent.toLocaleString()}, 计算天数: ${diffDays + 1}`);
+    console.log(`📅 [日切点计算] 首次登录(本地): ${first.toISOString()}, 当前时间(本地): ${current.toISOString()}, 调整后首次: ${adjustedFirst.toISOString()}, 调整后当前: ${adjustedCurrent.toISOString()}, 计算天数: ${diffDays + 1}`);
 
     if (diffDays < 0) return 1;
     return diffDays + 1;
@@ -449,12 +462,15 @@ function calculateDayNumber(firstLoginDate, clientDateObj) {
 // 登录
 router.post("/login", async (req, res) => {
   try {
-    const { playerId, clientDate } = req.body;
+    const { playerId, clientDate, clientTimezoneOffset } = req.body;
     if (!playerId) {
       return res
         .status(400)
         .json({ success: false, error: "Player ID is required" });
     }
+    
+    // 🆕 记录客户端时区信息
+    console.log(`🌍 [Login] 玩家 ${playerId} 登录，客户端时区偏移: ${clientTimezoneOffset} 分钟`);
 
     const allowedRecord = await AllowedId.findOne({ where: { playerId } });
     if (!allowedRecord) {
@@ -485,11 +501,16 @@ router.post("/login", async (req, res) => {
       });
     } else {
       // 再次登录：进阶逻辑优化
-      // 🌙 使用日切点逻辑（凌晨4点）计算天数
-      const calendarDay = calculateDayNumberWithCutoff(player.firstLoginDate, new Date(), 4);
+      // 🌙 使用日切点逻辑（凌晨4点）计算天数，基于客户端本地时间
+      const calendarDay = calculateDayNumberWithCutoff(
+        player.firstLoginDate, 
+        new Date(), 
+        4, 
+        clientTimezoneOffset  // 🆕 传入客户端时区偏移
+      );
       let targetDay = player.currentDay;
 
-      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前日历天数: ${calendarDay} (日切点4AM), 数据库存储天数: ${player.currentDay}`);
+      console.log(`📅 玩家 ${playerId} 登录。首次登录: ${player.firstLoginDate}, 当前日历天数: ${calendarDay} (日切点4AM本地时间), 数据库存储天数: ${player.currentDay}`);
 
       // 🔧 关键改进：如果玩家还没记录过任何餐食，不自动进阶天数
       // 只有当 (日历天数 > 当前存储天数) 且 (当前存储天数至少有一餐记录) 时，才进阶

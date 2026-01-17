@@ -37,6 +37,15 @@ function LoginPage() {
 
     try {
       const now = new Date();
+      
+      // 🆕 获取客户端时区偏移（分钟）
+      // getTimezoneOffset() 返回的是 UTC - 本地时间的偏移
+      // 例如：UTC-8 (太平洋时间) 返回 480 (分钟)
+      //      UTC+8 (中国时间) 返回 -480 (分钟)
+      const clientTimezoneOffset = -now.getTimezoneOffset();
+      
+      console.log(`🌍 [Login] 客户端时区偏移: ${clientTimezoneOffset} 分钟 (${clientTimezoneOffset/60} 小时)`);
+      
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,7 +56,9 @@ function LoginPage() {
             year: now.getFullYear(),
             month: now.getMonth() + 1,
             day: now.getDate()
-          }
+          },
+          // 🆕 发送时区偏移（以分钟为单位）
+          clientTimezoneOffset: clientTimezoneOffset
         }),
       });
 
