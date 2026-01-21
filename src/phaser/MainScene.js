@@ -224,11 +224,24 @@ export default class MainScene extends Phaser.Scene {
       // === 3️⃣ 摄像机设置（显示完整地图）===
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
+      const aspectRatio = screenW / screenH;
 
-      // 🔧 计算缩放：使用较小的缩放值，确保地图完整显示
+      console.log(`📺 屏幕比例: ${screenW}x${screenH} (${aspectRatio.toFixed(2)})`);
+
+      // 🔧 计算缩放：优化超宽屏（21:9）和标准屏幕的显示
       const zoomX = screenW / mapW;
       const zoomY = screenH / mapH;
-      const zoom = Math.min(zoomX, zoomY) * 0.95; // 使用较小值，并留5%边距
+      
+      // 🆕 超宽屏优化：如果屏幕比例大于2.2（超宽屏），使用特殊处理
+      let zoom;
+      if (aspectRatio > 2.2) {
+        // 超宽屏（如2560x1080, 21:9）：使用更大的缩放值，确保底部UI可见
+        zoom = Math.min(zoomX, zoomY * 1.2); // 给纵向更多空间
+        console.log(`🖥️ 超宽屏模式：zoom = ${zoom.toFixed(2)}`);
+      } else {
+        // 标准屏幕：使用原有逻辑
+        zoom = Math.min(zoomX, zoomY) * 0.95; // 使用较小值，并留5%边距
+      }
 
       this.cameras.main.setZoom(zoom);
       this.cameras.main.setBounds(0, 0, mapW, mapH);

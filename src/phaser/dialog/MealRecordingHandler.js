@@ -129,11 +129,22 @@ export default class MealRecordingHandler {
     const options = ["Early morning (before 7AM)", "Morning (7–11AM)", "Midday (11AM–2PM)", "Afternoon (2–5PM)", "Evening (5–9PM)", "Night (after 9PM)"];
     
     let index = options.findIndex(opt => timeText.toLowerCase().includes(opt.toLowerCase().split('(')[0].trim().toLowerCase()));
-    if (index === -1) return true; // 自定义时间视为不寻常
+    if (index === -1) return false; // 🔧 自定义时间不再视为不寻常（给玩家更多自由）
 
-    if (mealType === "breakfast") return index !== 0 && index !== 1;
-    if (mealType === "lunch") return index !== 2;
-    if (mealType === "dinner") return index < 4;
+    // 🔧 优化：更宽松的时间判断，让大多数正常时间都不触发追问
+    // 只有明显异常的时间才追问（例如晚上吃早餐、清晨吃晚餐）
+    if (mealType === "breakfast") {
+      // 早餐：只有晚上(5PM后)吃早餐才算异常
+      return index >= 4; // Evening (5-9PM) or Night (after 9PM)
+    }
+    if (mealType === "lunch") {
+      // 午餐：只有深夜(9PM后)或清晨(7AM前)吃午餐才算异常
+      return index === 0 || index === 5; // Early morning or Night
+    }
+    if (mealType === "dinner") {
+      // 晚餐：只有清晨(7AM前)或上午(7-11AM)吃晚餐才算异常
+      return index === 0 || index === 1; // Early morning or Morning
+    }
     return false;
   }
 
