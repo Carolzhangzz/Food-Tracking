@@ -315,9 +315,27 @@ function generateFallbackReport(meals) {
         zh: "欢迎查看你的最终报告。开始记录你的餐食以获得个性化分析！"
       },
       recipe: generateDefaultRecipe(),
-      healthAnalysis: {
-        en: "Begin your food journaling journey to receive personalized health insights and recommendations based on your eating patterns.",
-        zh: "开始你的饮食日记之旅，根据你的饮食模式获得个性化的健康见解和建议。"
+      nutritionAnalysis: {
+        protein: {
+          en: "Start tracking your meals to receive personalized protein intake analysis.",
+          zh: "开始记录餐食以获得个性化的蛋白质摄入分析。"
+        },
+        carbohydrates: {
+          en: "Track your carbohydrate sources and balance.",
+          zh: "追踪你的碳水化合物来源和平衡。"
+        },
+        fiber: {
+          en: "Monitor your fiber intake for better digestive health.",
+          zh: "监测你的膳食纤维摄入以改善消化健康。"
+        },
+        fats: {
+          en: "Track healthy vs unhealthy fats in your diet.",
+          zh: "追踪饮食中的健康与不健康脂肪。"
+        },
+        overall: {
+          en: "Begin your food journaling journey to receive comprehensive nutrition analysis.",
+          zh: "开始你的饮食日记之旅以获得全面的营养分析。"
+        }
       },
       letterFromMaster: {
         en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nThough your journey is just beginning, I want you to know that the path to mindful eating starts with a single meal, a single moment of awareness.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you for starting. Until we meet again.\n\n– Master Hua`,
@@ -367,9 +385,27 @@ function generateFallbackReport(meals) {
       zh: `在 ${dayCount} 天里，你记录了 ${meals.length} 顿餐食，展现了对正念饮食的坚持。${foodMentionsZh}`
     },
     recipe: personalizedRecipe,
-    healthAnalysis: {
-      en: `Your ${dayCount}-day food journal shows commitment to tracking your eating habits.${foodMentions} Key observations: You recorded a variety of meal types${mealTypes.length > 0 ? ` (${mealTypes.join(', ')})` : ''}, which is excellent for understanding your eating patterns. For continued health: aim for balanced meals with vegetables, whole grains, and lean proteins; stay hydrated; and maintain regular meal times. Remember, every meal is an opportunity to nourish both body and mind.`,
-      zh: `你的 ${dayCount} 天饮食日记显示了你对记录饮食习惯的投入。${foodMentionsZh}主要观察：你记录了多种餐食类型${mealTypes.length > 0 ? `（${mealTypes.join('、')}）` : ''}，这对于了解你的饮食模式非常好。为了持续健康：争取摄入均衡的餐食，包括蔬菜、全谷物和瘦肉蛋白；保持水分充足；维持规律的进餐时间。记住，每一餐都是滋养身心的机会。`
+    nutritionAnalysis: {
+      protein: {
+        en: `Based on your ${dayCount}-day journal, assess your protein sources and aim for lean meats, fish, eggs, and plant proteins.`,
+        zh: `根据你 ${dayCount} 天的记录，评估你的蛋白质来源，建议选择瘦肉、鱼类、鸡蛋和植物蛋白。`
+      },
+      carbohydrates: {
+        en: `Your meals show varied carbohydrate sources. Consider incorporating more whole grains for sustained energy.`,
+        zh: `你的餐食显示多样的碳水来源。建议加入更多全谷物以获得持久能量。`
+      },
+      fiber: {
+        en: `Aim to include more vegetables, fruits, and whole grains to meet daily fiber needs (25-30g).`,
+        zh: `建议增加蔬菜、水果和全谷物以满足每日纤维需求（25-30克）。`
+      },
+      fats: {
+        en: `Balance your fat intake with healthy sources like olive oil, nuts, and avocado while limiting fried foods.`,
+        zh: `平衡脂肪摄入，选择橄榄油、坚果和牛油果等健康来源，同时限制油炸食品。`
+      },
+      overall: {
+        en: `Your ${dayCount}-day journey shows commitment.${foodMentions} Key improvements: aim for balanced meals with vegetables, whole grains, and lean proteins; stay hydrated; maintain regular meal times. Every meal nourishes body and mind.`,
+        zh: `你的 ${dayCount} 天旅程展现了专注。${foodMentionsZh}关键改进：争取均衡餐食（蔬菜、全谷物、瘦肉蛋白）；保持水分；规律进餐。每一餐都滋养身心。`
+      }
     },
     letterFromMaster: {
       en: `Dear Apprentice,\n\nI knew you'd find this place.\n\nCongratulations on completing your ${dayCount}-day journey. Though I couldn't generate a fully personalized analysis today, I reviewed all your meals: ${realFoods.slice(0, 3).join(', ')}${realFoods.length > 3 ? ', and more' : ''}. The act of recording itself is transformative. You've taken important steps toward mindful eating.\n\nI've made a decision — I want to share my way of cooking with more people. Something that reflects people's taste, stays true to the roots of this village, and is also a healthier take on a classic.\n\nBest of luck. I'm proud of you. Until we meet again.\n\n– Master Hua`,
@@ -395,37 +431,62 @@ function generatePersonalizedRecipeFromMeals(meals, realFoods) {
   
   return {
     intro: {
-      en: `Based on your meals over the past ${meals.length} days, here's a recipe inspired by what you actually ate:`,
-      zh: `根据你过去 ${meals.length} 天的餐食，这是一份受你实际饮食启发的食谱：`
+      en: `Based on your ${meals.length}-day journey, here are NEW healthy recipes inspired by what you ate:`,
+      zh: `根据你 ${meals.length} 天的旅程，这些是受你饮食启发的全新健康食谱：`
     },
     starter: {
       name: { en: `Inspired by: ${food1}`, zh: `灵感来自：${food1}` },
-      ingredients: { en: `Based on ${food1}, use similar fresh ingredients`, zh: `基于 ${food1}，使用类似的新鲜食材` },
-      method: { en: "Prepare using your preferred method", zh: "使用你喜欢的方式准备" },
-      tip: { en: "Keep the portions similar to what you recorded", zh: "保持与你记录的份量相近" }
+      ingredients: { en: `200g fresh ingredients similar to ${food1}`, zh: `200克类似 ${food1} 的新鲜食材` },
+      calories: "~250 kcal",
+      steps: {
+        en: ["Prepare fresh ingredients", "Season lightly", "Cook using healthy method", "Serve fresh"],
+        zh: ["准备新鲜食材", "轻度调味", "用健康方式烹饪", "趁新鲜食用"]
+      },
+      cookingTime: { en: "15 minutes", zh: "15分钟" },
+      tip: { en: "Keep portions similar to what you recorded", zh: "保持与你记录的份量相近" }
     },
     main: {
       name: { en: `Your Style: ${food2}`, zh: `你的风格：${food2}` },
-      ingredients: { en: `Based on ${food2}, with your favorite seasonings`, zh: `基于 ${food2}，配上你喜欢的调味料` },
-      method: { en: "Cook the way you enjoy most", zh: "用你最喜欢的方式烹饪" },
+      ingredients: { en: `300g base (like ${food2}), vegetables, seasonings`, zh: `300克主料（类似 ${food2}）、蔬菜、调味料` },
+      calories: "~450 kcal",
+      steps: {
+        en: ["Prep main ingredients", "Add favorite seasonings", "Cook to preference", "Balance with vegetables", "Serve hot"],
+        zh: ["准备主料", "加入喜欢的调味料", "按喜好烹饪", "搭配蔬菜平衡", "趁热食用"]
+      },
+      cookingTime: { en: "25 minutes", zh: "25分钟" },
       tip: { en: "Balance with vegetables for nutrition", zh: "搭配蔬菜以获得均衡营养" }
     },
     side: {
       name: { en: `Based on: ${food3}`, zh: `基于：${food3}` },
-      ingredients: { en: `Similar to ${food3}, add variety with different vegetables`, zh: `类似 ${food3}，用不同蔬菜增加多样性` },
-      method: { en: "Use healthy cooking methods", zh: "使用健康的烹饪方法" },
+      ingredients: { en: `150g vegetables similar to ${food3}`, zh: `150克类似 ${food3} 的蔬菜` },
+      calories: "~100 kcal",
+      steps: {
+        en: ["Wash vegetables", "Use healthy cooking method", "Season lightly", "Serve as side"],
+        zh: ["清洗蔬菜", "使用健康烹饪方法", "轻度调味", "作为配菜"]
+      },
+      cookingTime: { en: "12 minutes", zh: "12分钟" },
       tip: { en: "Seasonal vegetables taste better", zh: "时令蔬菜味道更好" }
     },
     dessert: {
       name: { en: "Light & Healthy Finish", zh: "清淡健康收尾" },
-      ingredients: { en: "Fresh fruit, yogurt", zh: "新鲜水果、酸奶" },
-      method: { en: "Serve fresh fruits as dessert", zh: "用新鲜水果作为甜点" },
+      ingredients: { en: "100g fresh fruit, 50g yogurt", zh: "100克新鲜水果、50克酸奶" },
+      calories: "~120 kcal",
+      steps: {
+        en: ["Slice fresh fruits", "Add yogurt", "Serve chilled"],
+        zh: ["切片新鲜水果", "加入酸奶", "冷藏后食用"]
+      },
+      cookingTime: { en: "5 minutes", zh: "5分钟" },
       tip: { en: "Natural sweetness is best", zh: "天然的甜味最好" }
     },
     drink: {
       name: { en: "Refreshing Beverage", zh: "清爽饮品" },
-      ingredients: { en: "Water, herbal tea, or fresh juice", zh: "水、草本茶或鲜榨果汁" },
-      method: { en: "Stay hydrated throughout the day", zh: "全天保持水分" }
+      ingredients: { en: "300ml water, herbal tea, or fresh juice", zh: "300毫升水、草本茶或鲜榨果汁" },
+      calories: "~30 kcal",
+      steps: {
+        en: ["Choose healthy beverage", "Serve fresh"],
+        zh: ["选择健康饮品", "新鲜饮用"]
+      },
+      cookingTime: { en: "3 minutes", zh: "3分钟" }
     }
   };
 }
@@ -433,53 +494,65 @@ function generatePersonalizedRecipeFromMeals(meals, realFoods) {
 //生成默认食谱
 function generateDefaultRecipe() {
   return {
-    summary: {
-      en: "Based on your meals over the past 7 days, you have chosen a mix of grains, vegetables, proteins, and snacks. Your most frequent ingredients include rice, leafy greens, chicken or tofu, eggs, and fruits.",
-      zh: "根据你过去 7 天记录的饮食，你的选择包含谷物、蔬菜、蛋白质和水果。最常出现的食材包括米饭、绿叶蔬菜、鸡肉或豆腐、鸡蛋以及水果。"
+    intro: {
+      en: "Welcome to your personalized recipe collection. These dishes are designed to inspire balanced, healthy eating.",
+      zh: "欢迎查看你的个性化食谱集。这些菜式旨在启发均衡、健康的饮食。"
     },
-
-    analysis: {
-      en: "Your meals show a good balance between carbohydrates and protein, and you include vegetables regularly. Some days are higher in refined carbs and lower in fiber. Adding more whole grains and legumes could improve overall nutrition.",
-      zh: "你的饮食在碳水化合物和蛋白质之间较为均衡，并且经常包含蔬菜。但部分天数精制碳水偏多、膳食纤维偏少。增加全谷物和豆类可以进一步提升营养质量。"
+    starter: {
+      name: { en: "Herb & Tofu Dumplings", zh: "香草豆腐饺子" },
+      ingredients: { en: "200g tofu, 50g mixed herbs, 20g ginger, 2 tbsp soy sauce, dumpling wrappers", zh: "200克豆腐、50克混合香草、20克生姜、2汤匙酱油、饺子皮" },
+      calories: "~240 kcal",
+      steps: {
+        en: ["Mash tofu and mix with herbs, ginger, soy sauce", "Place filling in wrappers and seal", "Steam for 6-8 minutes over high heat", "Serve with light dipping sauce"],
+        zh: ["豆腐捣碎，与香草、姜、酱油混合", "将馅料放入饺子皮中封口", "大火蒸6-8分钟", "配清淡蘸汁食用"]
+      },
+      cookingTime: { en: "20 minutes", zh: "20分钟" },
+      tip: { en: "Add vegetables for extra fiber", zh: "添加蔬菜以增加纤维" }
     },
-
-    suggestions: {
-      en: "Simple improvements could include swapping white rice for brown rice, adding beans or lentils to bowls, and pairing snacks with fruit or yogurt.",
-      zh: "简单的改进方式包括：用糙米替代白米，在主食中加入豆类或扁豆，零食时搭配水果或酸奶。"
+    main: {
+      name: { en: "Protein & Whole Grain Bowl", zh: "蛋白质全谷物碗" },
+      ingredients: { en: "150g brown rice, 200g grilled chicken or tofu, 100g leafy greens, 1 tbsp sauce", zh: "150克糙米、200克烤鸡肉或豆腐、100克绿叶蔬菜、1汤匙酱汁" },
+      calories: "~480 kcal",
+      steps: {
+        en: ["Cook brown rice according to package", "Grill chicken or tofu until golden", "Blanch leafy greens", "Assemble in bowl and drizzle with sauce", "Serve warm"],
+        zh: ["按说明煮糙米", "将鸡肉或豆腐烤至金黄", "焯绿叶蔬菜", "在碗中组装并淋上酱汁", "趁温热食用"]
+      },
+      cookingTime: { en: "30 minutes", zh: "30分钟" },
+      tip: { en: "Whole grains provide sustained energy", zh: "全谷物提供持久能量" }
     },
-
-    finalRecipe: {
-      intro: {
-        en: "This final recipe is inspired by the ingredients you logged during your journey in Gourmet Village. It reflects your everyday choices and shows how they can come together into a balanced meal.",
-        zh: "这份最终食谱灵感来自你在《美食村》旅程中记录的真实食材，展现了日常选择如何组合成一顿均衡的餐食。"
+    side: {
+      name: { en: "Seasonal Vegetable Medley", zh: "时令蔬菜什锦" },
+      ingredients: { en: "150g mixed seasonal vegetables", zh: "150克混合时令蔬菜" },
+      calories: "~80 kcal",
+      steps: {
+        en: ["Wash and cut vegetables", "Stir-fry or steam briefly", "Season lightly", "Serve as side"],
+        zh: ["清洗并切蔬菜", "快速炒或蒸", "轻度调味", "作为配菜"]
       },
-
-      starter: {
-        name: { en: "Herb & Tofu Dumplings", zh: "香草豆腐饺子" },
-        ingredients: { en: "Tofu, mixed herbs, ginger, soy sauce, wrappers", zh: "豆腐、混合香草、生姜、酱油、饺子皮" },
-        method: { en: "Mix filling, wrap, and steam for 6–8 minutes.", zh: "混合馅料包制，蒸 6–8 分钟。" }
+      cookingTime: { en: "10 minutes", zh: "10分钟" },
+      tip: { en: "Use seasonal vegetables for best flavor", zh: "使用时令蔬菜味道最好" }
+    },
+    dessert: {
+      name: { en: "Fruit Yogurt Cup", zh: "水果酸奶杯" },
+      ingredients: { en: "100g yogurt, 80g seasonal fruit, 1 tsp honey", zh: "100克酸奶、80克时令水果、1茶匙蜂蜜" },
+      calories: "~150 kcal",
+      steps: {
+        en: ["Layer yogurt in cup", "Add sliced fruits", "Drizzle with honey", "Serve chilled"],
+        zh: ["酸奶分层放入杯中", "加入切片水果", "淋上蜂蜜", "冷藏后食用"]
       },
-
-      main: {
-        name: { en: "Protein & Whole Grain Bowl", zh: "蛋白质全谷物碗" },
-        ingredients: { en: "Brown rice, grilled chicken or tofu, leafy greens", zh: "糙米、烤鸡肉或豆腐、绿叶蔬菜" },
-        method: { en: "Assemble all components and drizzle with light sauce.", zh: "将所有食材组合，淋上清淡酱汁。" }
+      cookingTime: { en: "5 minutes", zh: "5分钟" },
+      tip: { en: "Natural sweetness is healthiest", zh: "天然甜味最健康" }
+    },
+    drink: {
+      name: { en: "Herbal Wellness Tea", zh: "草本养生茶" },
+      ingredients: { en: "300ml hot water, herbal tea bag or fresh herbs", zh: "300毫升热水、草本茶包或新鲜香草" },
+      calories: "~5 kcal",
+      steps: {
+        en: ["Boil water", "Steep tea for 3-5 minutes", "Enjoy warm"],
+        zh: ["烧开水", "浸泡茶3-5分钟", "温热饮用"]
       },
-
-      dessert: {
-        name: { en: "Fruit Yogurt Cup", zh: "水果酸奶杯" },
-        ingredients: { en: "Yogurt, seasonal fruit, honey", zh: "酸奶、时令水果、蜂蜜" },
-        method: { en: "Layer and serve chilled.", zh: "分层放置，冷藏后食用。" }
-      },
-
-      closing: {
-        en: "This menu shows that healthy meals can grow naturally from everyday choices. Keep exploring, and your next week can be even more balanced and delicious.",
-        zh: "这份菜单说明，健康饮食可以从日常选择自然生长出来。继续探索，你的下一周会更加均衡而美味。"
-      }
+      cookingTime: { en: "5 minutes", zh: "5分钟" }
     }
   };
 }
-
-module.exports = router;
 
 module.exports = router;
