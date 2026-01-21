@@ -12,8 +12,11 @@ async function testFinalReport() {
   console.log('   ================================\n');
 
   try {
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    const endpoint = `${API_URL}/get-report`;
+    // 🔧 使用 Heroku 生产环境 API
+    const API_URL = 'https://foodtracking-t1-4d8572bed4a3.herokuapp.com/api';
+    const endpoint = `${API_URL}/generate-final-report`;
+    
+    console.log(`🔗 完整 URL: ${endpoint}`);
 
     console.log(`📡 API 端点: ${endpoint}`);
     console.log(`📤 请求参数: playerId = ${testPlayerId}\n`);
