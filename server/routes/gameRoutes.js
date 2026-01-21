@@ -136,12 +136,13 @@ function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), 
     
     function adjustToCutoff(date) {
       const adjusted = new Date(date);
-      if (adjusted.getHours() < cutoffHour) {
+      // 🔧 使用 getUTCHours() 因为我们已经将时间调整为客户端本地时间的UTC表示
+      if (adjusted.getUTCHours() < cutoffHour) {
         // 如果在凌晨0-3点，减去一天
-        adjusted.setDate(adjusted.getDate() - 1);
+        adjusted.setUTCDate(adjusted.getUTCDate() - 1);
       }
       // 统一设置为当天4:00，方便计算天数差
-      adjusted.setHours(cutoffHour, 0, 0, 0);
+      adjusted.setUTCHours(cutoffHour, 0, 0, 0);
       return adjusted;
     }
 
@@ -152,7 +153,12 @@ function calculateDayNumberWithCutoff(firstLoginDate, currentDate = new Date(), 
     const diffTime = adjustedCurrent.getTime() - adjustedFirst.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    console.log(`📅 [日切点计算] 首次登录(本地): ${first.toISOString()}, 当前时间(本地): ${current.toISOString()}, 调整后首次: ${adjustedFirst.toISOString()}, 调整后当前: ${adjustedCurrent.toISOString()}, 计算天数: ${diffDays + 1}`);
+    console.log(`📅 [日切点计算详情]`);
+    console.log(`   首次登录(本地): ${first.toISOString()} (UTC小时: ${first.getUTCHours()}, UTC日: ${first.getUTCDate()})`);
+    console.log(`   当前时间(本地): ${current.toISOString()} (UTC小时: ${current.getUTCHours()}, UTC日: ${current.getUTCDate()})`);
+    console.log(`   调整后首次: ${adjustedFirst.toISOString()}`);
+    console.log(`   调整后当前: ${adjustedCurrent.toISOString()}`);
+    console.log(`   时间差: ${diffTime}ms = ${diffDays}天，返回第 ${diffDays + 1} 天`);
 
     if (diffDays < 0) return 1;
     return diffDays + 1;
@@ -898,6 +904,7 @@ router.post("/record-meal", async (req, res) => {
       mealAnswers, 
       conversationHistory,
       mealContent,
+      clientTimezoneOffset,  // 🆕 接收时区偏移
     } = req.body;
 
     // 🔧 确定实际的day值

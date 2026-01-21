@@ -180,6 +180,9 @@ export default class MealRecordingHandler {
 
   async submitMealRecord(playerId, npcId, npcName, mealType, answers, currentDay) {
     try {
+      // 🆕 获取客户端时区偏移
+      const clientTimezoneOffset = -(new Date().getTimezoneOffset());
+      
       const response = await fetch(`${API_URL}/record-meal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,6 +190,7 @@ export default class MealRecordingHandler {
           playerId, npcId, npcName, mealType, day: currentDay,
           mealContent: this.formatMealContent(answers),
           answers, timestamp: new Date().toISOString(),
+          clientTimezoneOffset,  // 🆕 发送时区偏移
         }),
       });
       return await response.json();
