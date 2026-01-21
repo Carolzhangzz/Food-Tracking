@@ -54,7 +54,7 @@ function getNPCName(npcId, language = "zh") {
     "npc6": "old_friend",
     "npc7": "secret_apprentice"
   };
-
+  
   const actualId = idMapping[npcId] || npcId;
 
   // 优先从 npcClues.js 获取
@@ -74,12 +74,12 @@ function getNPCName(npcId, language = "zh") {
     old_friend: { zh: "旧友Rowan", en: "Old Friend Rowan" },
     secret_apprentice: { zh: "秘密学徒Mira", en: "Secret Apprentice Mira" },
   };
-
+  
   const entry = npcNames[actualId];
   if (entry) {
     return entry[language] || entry.zh;
   }
-
+  
   return actualId || "Unknown NPC";
 }
 
@@ -260,7 +260,7 @@ async function getPlayerClues(playerId) {
         try {
           keywords = clue.keywords ? JSON.parse(clue.keywords) : [];
         } catch { keywords = []; }
-
+        
         out.push({
           id: `${clue.npcId}_${clue.day}_${clue.mealType || 'unknown'}`,
           npcId: clue.npcId,
@@ -397,7 +397,7 @@ async function saveConversationHistory(
 function getClueForNPCStage(npcId, language = "en", stage = 1) {
   const playerLanguage = language === "zh" ? "zh" : "en";
   const { getNPCClue } = require("../data/npcClues");
-
+  
   // 🔧 映射 ID 以匹配 npcClues.js
   const idMapping = {
     "village_head": "uncle_bo",
@@ -432,10 +432,10 @@ function getMostInteractedNPC(mealRecords) {
 function calculateDayNumber(firstLoginDate, clientDateObj) {
   try {
     const firstDate = new Date(firstLoginDate);
-
+    
     // 玩家首次登录的年、月、日
     const d1 = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
-
+    
     // 玩家当前的年、月、日（从客户端传来）
     let d2;
     if (clientDateObj && clientDateObj.year) {
@@ -444,10 +444,10 @@ function calculateDayNumber(firstLoginDate, clientDateObj) {
       const now = new Date();
       d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
-
+    
     const diffTime = d2 - d1;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
+    
     // 返回天数（第一天是1，第二天是2...）
     if (diffDays < 0) return 1;
     return diffDays + 1;
@@ -530,23 +530,23 @@ router.post("/login", async (req, res) => {
 
           console.log(`🚀 [日切点推进] 玩家在第 ${oldDay} 天有 ${recordedMealsOnCurrentDay} 条记录 -> 进阶到第 ${targetDay} 天 (当前日历为第 ${calendarDay} 天)`);
 
-          await player.update({ currentDay: targetDay });
-
+        await player.update({ currentDay: targetDay });
+        
           // 确保从旧天数到新天数之间的所有进度记录都存在并正确解锁
           for (let d = oldDay + 1; d <= targetDay; d++) {
-            const progressExists = await PlayerProgress.findOne({
-              where: { playerId, day: d }
+          const progressExists = await PlayerProgress.findOne({
+            where: { playerId, day: d }
+          });
+          
+          if (!progressExists) {
+            await PlayerProgress.create({
+              playerId,
+              day: d,
+              npcId: dayToNpcId(d),
+              unlockedAt: new Date(),
             });
-
-            if (!progressExists) {
-              await PlayerProgress.create({
-                playerId,
-                day: d,
-                npcId: dayToNpcId(d),
-                unlockedAt: new Date(),
-              });
               console.log(`🔓 已为玩家 ${playerId} 创建并解锁第 ${d} 天的进度`);
-            }
+          }
           }
         } else {
           console.log(`⏳ 玩家在第 ${player.currentDay} 天没有记录，保持在第 ${player.currentDay} 天，虽然日历已经是第 ${calendarDay} 天`);
@@ -894,15 +894,15 @@ router.post("/record-meal", async (req, res) => {
       npcId,
       npcName,
       mealType,
-      answers,
-      mealAnswers,
+      answers, 
+      mealAnswers, 
       conversationHistory,
       mealContent,
     } = req.body;
 
     // 🔧 确定实际的day值
     const day = rawDay || 1;
-
+    
     // 🔧 确定实际的answers（兼容旧格式）
     const actualAnswers = mealAnswers || answers || {};
 
@@ -921,7 +921,7 @@ router.post("/record-meal", async (req, res) => {
     if (!npcName || npcName === "NPC" || npcName === npcId) {
       actualNPCName = getNPCName(npcId, player.language || "zh");
     }
-
+    
     console.log(`👤 记录餐食 - NPC ID: ${npcId}, 最终名字: ${actualNPCName}, 餐食: ${mealType}, Day: ${day}`);
     if (!playerId || !day || !npcId || !mealType || !mealContent) {
       await t.rollback();
@@ -986,7 +986,7 @@ router.post("/record-meal", async (req, res) => {
     let clueText = null;
     let shouldGiveClue = true;
     let clueData = null;
-
+    
     // 🔧 新的核心解锁逻辑：
     // 所有餐食（包括晚餐）都需要等到第二天登录时才解锁下一个NPC
     // 使用日切点（4AM）判断，更符合真实生活作息
@@ -1054,23 +1054,23 @@ router.post("/record-meal", async (req, res) => {
         };
       } else {
         // 🔧 查询该NPC已经给过的 vague 线索数量
-        const previousVagueCount = await Clue.count({
+      const previousVagueCount = await Clue.count({
           where: { playerId, npcId: actualNpcId, clueType: 'vague' }
         }).catch(() => 0);
-
+      
         console.log(`🔍 [线索检查] NPC: ${npcId} -> ${actualNpcId}, 已有vague线索: ${previousVagueCount}条`);
 
         let stage = null;
-        if (mealType === "dinner") {
-          clueType = "true";
+      if (mealType === "dinner") {
+        clueType = "true";
           stage = 3;
-          clueText = getClueForNPCStage(npcId, playerLanguage, 3);
-        } else {
+        clueText = getClueForNPCStage(npcId, playerLanguage, 3);
+      } else {
           // 🔧 只在 vague 线索少于2条时才给新线索
           if (previousVagueCount < 2) {
-            clueType = "vague";
+        clueType = "vague";
             stage = previousVagueCount + 1; // 第1条或第2条
-            clueText = getClueForNPCStage(npcId, playerLanguage, stage);
+        clueText = getClueForNPCStage(npcId, playerLanguage, stage);
             console.log(`📝 [线索生成] 餐食: ${mealType}, Stage: ${stage}, 这是第 ${previousVagueCount + 1} 条vague线索`);
           } else {
             console.log(`⚠️ [线索跳过] ${actualNpcId} 已有 ${previousVagueCount} 条vague线索，不再生成新线索`);
@@ -1079,28 +1079,28 @@ router.post("/record-meal", async (req, res) => {
         }
 
         // 只有当有线索文本时才创建记录
-        if (clueText && typeof clueText === 'string') {
-          const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
-
+      if (clueText && typeof clueText === 'string') {
+        const { cleanText, keywords, shortVersion } = extractClueKeywords(clueText, playerLanguage);
+        
           // 创建新的线索记录
-          await Clue.create({
-            playerId,
-            npcId: actualNpcId,
-            npcName: actualNPCName,
-            clueType,
-            clueText: cleanText,
-            keywords: JSON.stringify(keywords),
-            shortVersion,
-            day,
-            mealType,
-            nextNPC: npcClues[actualNpcId]?.nextNPC || null
-          }).catch(e => console.error("⚠️ 异步保存线索记录失败 (数据库未同步):", e.message));
-
-          clueData = {
-            npcName: actualNPCName,
-            nextNPC: npcClues[actualNpcId]?.nextNPC || null,
-            type: clueType
-          };
+        await Clue.create({
+          playerId,
+          npcId: actualNpcId,
+          npcName: actualNPCName, 
+          clueType,
+          clueText: cleanText,
+          keywords: JSON.stringify(keywords),
+          shortVersion,
+          day,
+          mealType,
+          nextNPC: npcClues[actualNpcId]?.nextNPC || null
+        }).catch(e => console.error("⚠️ 异步保存线索记录失败 (数据库未同步):", e.message));
+        
+        clueData = {
+          npcName: actualNPCName,
+          nextNPC: npcClues[actualNpcId]?.nextNPC || null,
+          type: clueType
+        };
           
           console.log(`✅ [线索保存] Day ${day} ${mealType} - ${actualNpcId} (${clueType}, Stage ${stage})`);
         }
@@ -1526,10 +1526,10 @@ router.post("/dev/skip-to-day7", async (req, res) => {
 // 保存对话历史
 router.post("/save-conversation", async (req, res) => {
   console.log("💾 [API] POST /save-conversation - 批量保存对话");
-
+  
   try {
     const { playerId, npcId, conversationType, conversationData } = req.body;
-
+    
     if (!playerId || !npcId || !conversationData || !conversationData.history) {
       return res.status(400).json({
         success: false,
@@ -1538,7 +1538,7 @@ router.post("/save-conversation", async (req, res) => {
     }
 
     const { history, day, mealType } = conversationData;
-
+    
     // 🔧 关键改进：将对话历史逐条保存，以便于数据分析
     const savedRecords = [];
     for (const entry of history) {
@@ -1554,15 +1554,15 @@ router.post("/save-conversation", async (req, res) => {
       });
       savedRecords.push(record.id);
     }
-
+    
     console.log(`✅ 成功保存了 ${savedRecords.length} 条对话记录`);
-
+    
     res.json({
       success: true,
       count: savedRecords.length,
       message: "Full conversation history saved successfully"
     });
-
+    
   } catch (error) {
     console.error("❌ 保存对话历史失败:", error);
     res.status(500).json({
@@ -1575,38 +1575,38 @@ router.post("/save-conversation", async (req, res) => {
 // 获取对话历史
 router.get("/conversation-history", async (req, res) => {
   console.log("📚 [API] GET /conversation-history");
-
+  
   try {
     const { playerId, npcId, limit = 5 } = req.query;
-
+    
     if (!playerId) {
       return res.status(400).json({
         success: false,
         error: "Missing required parameter: playerId"
       });
     }
-
+    
     // 构建查询条件
     const where = { playerId };
     if (npcId) {
       where.npcId = npcId;
     }
-
+    
     // 查询对话历史
     const conversations = await ConversationHistory.findAll({
       where: where,
       order: [['timestamp', 'DESC']],
       limit: parseInt(limit)
     });
-
+    
     console.log(`✅ 找到 ${conversations.length} 条对话记录`);
-
+    
     res.json({
       success: true,
       count: conversations.length,
       history: conversations
     });
-
+    
   } catch (error) {
     console.error("❌ 获取对话历史失败:", error);
     res.status(500).json({
@@ -1622,7 +1622,7 @@ router.get("/conversation-history", async (req, res) => {
 router.post("/generate-final-report", async (req, res) => {
   const { playerId } = req.body;
   console.log(`📜 [Backend] 正在为玩家 ${playerId} 生成总结报告...`);
-
+  
   try {
     // 1. 获取玩家所有餐食记录
     const meals = await MealRecord.findAll({
@@ -1657,7 +1657,7 @@ router.post("/generate-final-report", async (req, res) => {
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-
+    
     // 清理并解析 JSON
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const report = jsonMatch ? JSON.parse(jsonMatch[0]) : null;

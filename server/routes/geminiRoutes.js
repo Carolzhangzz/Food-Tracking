@@ -194,9 +194,9 @@ router.post("/gemini-chat", async (req, res) => {
         isComplete: questionControl.currentQuestionId === null
       });
 
-    } catch (error) {
+      } catch (error) {
       console.error(`❌ Gemini Key #${i + 1} Error:`, error.message);
-      lastError = error;
+        lastError = error;
 
       // 🔍 检查是否为额度超限或权限错误 (429 或 403)
       const errorMsg = error.message.toLowerCase();
@@ -211,7 +211,7 @@ router.post("/gemini-chat", async (req, res) => {
       } else {
         // 如果是最后一位 Key 或者非额度错误，则跳出循环并报错
         break;
-      }
+  }
     }
   }
 

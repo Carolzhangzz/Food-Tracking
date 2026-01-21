@@ -29,30 +29,30 @@ router.post('/convai-chat', async (req, res) => {
   // 🔄 轮询尝试每个 Key
   for (let i = 0; i < apiKeys.length; i++) {
     const currentKey = apiKeys[i];
-    try {
-      const formData = new URLSearchParams();
-      formData.append("userText", userText);
-      formData.append("charID", charID);
-      formData.append("sessionID", sessionID || "-1");
-      formData.append("voiceResponse", voiceResponse || "False");
+  try {
+    const formData = new URLSearchParams();
+    formData.append("userText", userText);
+    formData.append("charID", charID);
+    formData.append("sessionID", sessionID || "-1");
+    formData.append("voiceResponse", voiceResponse || "False");
 
-      const response = await axios.post(
-        "https://api.convai.com/character/getResponse",
-        formData,
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+    const response = await axios.post(
+      "https://api.convai.com/character/getResponse",
+      formData,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
             "CONVAI-API-KEY": currentKey,
-          },
+        },
           timeout: 10000 // 10秒超时
-        }
-      );
+      }
+    );
 
       // 如果成功，直接返回
       console.log(`✅ ConvAI 使用 Key #${i + 1} 成功`);
       return res.json(response.data);
 
-    } catch (error) {
+  } catch (error) {
       const errorData = error.response?.data || error.message;
       const errorMsg = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
       
@@ -78,7 +78,7 @@ router.post('/convai-chat', async (req, res) => {
   res.status(500).json({
     error: "All ConvAI API calls failed",
     detail: lastError,
-  });
+    });
 });
 
 module.exports = router;

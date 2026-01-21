@@ -194,14 +194,31 @@ ${report.wisdom[lang]}
               </h2>
               <p style={recipeIntroStyle}>{report.recipe.intro?.[lang]}</p>
               
-              {/* Recipe Cards with hover effects */}
+              {/* Recipe Cards with detailed info */}
               {report.recipe.starter && (
                 <div style={dishStyle} className="dish-card dish-hover">
                   <div className="dish-icon">🥗</div>
                   <h3 style={dishTitleStyle}>{report.recipe.starter.name[lang]}</h3>
+                  {report.recipe.starter.calories && (
+                    <p style={calorieStyle}>🔥 {report.recipe.starter.calories}</p>
+                  )}
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.starter.ingredients[lang]}</p>
-                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.starter.method[lang]}</p>
-                  <p style={tipStyle}>💡 {report.recipe.starter.tip[lang]}</p>
+                  {report.recipe.starter.cookingTime && (
+                    <p><strong>⏱️ {lang === 'zh' ? '烹饪时间' : 'Time'}:</strong> {report.recipe.starter.cookingTime[lang]}</p>
+                  )}
+                  {report.recipe.starter.steps && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>{lang === 'zh' ? '做法' : 'Steps'}:</strong>
+                      <ol style={{marginLeft: '20px', marginTop: '8px'}}>
+                        {(report.recipe.starter.steps[lang] || []).map((step, i) => (
+                          <li key={i} style={{marginBottom: '6px'}}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {report.recipe.starter.tip && (
+                    <p style={tipStyle}>💡 {report.recipe.starter.tip[lang]}</p>
+                  )}
                 </div>
               )}
               
@@ -209,9 +226,26 @@ ${report.wisdom[lang]}
                 <div style={dishStyle} className="dish-card dish-hover">
                   <div className="dish-icon">🍚</div>
                   <h3 style={dishTitleStyle}>{report.recipe.main.name[lang]}</h3>
+                  {report.recipe.main.calories && (
+                    <p style={calorieStyle}>🔥 {report.recipe.main.calories}</p>
+                  )}
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.main.ingredients[lang]}</p>
-                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.main.method[lang]}</p>
-                  <p style={tipStyle}>💡 {report.recipe.main.tip[lang]}</p>
+                  {report.recipe.main.cookingTime && (
+                    <p><strong>⏱️ {lang === 'zh' ? '烹饪时间' : 'Time'}:</strong> {report.recipe.main.cookingTime[lang]}</p>
+                  )}
+                  {report.recipe.main.steps && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>{lang === 'zh' ? '做法' : 'Steps'}:</strong>
+                      <ol style={{marginLeft: '20px', marginTop: '8px'}}>
+                        {(report.recipe.main.steps[lang] || []).map((step, i) => (
+                          <li key={i} style={{marginBottom: '6px'}}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {report.recipe.main.tip && (
+                    <p style={tipStyle}>💡 {report.recipe.main.tip[lang]}</p>
+                  )}
                 </div>
               )}
               
@@ -219,9 +253,26 @@ ${report.wisdom[lang]}
                 <div style={dishStyle} className="dish-card dish-hover">
                   <div className="dish-icon">🥦</div>
                   <h3 style={dishTitleStyle}>{report.recipe.side.name[lang]}</h3>
+                  {report.recipe.side.calories && (
+                    <p style={calorieStyle}>🔥 {report.recipe.side.calories}</p>
+                  )}
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.side.ingredients[lang]}</p>
-                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.side.method[lang]}</p>
-                  <p style={tipStyle}>💡 {report.recipe.side.tip[lang]}</p>
+                  {report.recipe.side.cookingTime && (
+                    <p><strong>⏱️ {lang === 'zh' ? '烹饪时间' : 'Time'}:</strong> {report.recipe.side.cookingTime[lang]}</p>
+                  )}
+                  {report.recipe.side.steps && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>{lang === 'zh' ? '做法' : 'Steps'}:</strong>
+                      <ol style={{marginLeft: '20px', marginTop: '8px'}}>
+                        {(report.recipe.side.steps[lang] || []).map((step, i) => (
+                          <li key={i} style={{marginBottom: '6px'}}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {report.recipe.side.tip && (
+                    <p style={tipStyle}>💡 {report.recipe.side.tip[lang]}</p>
+                  )}
                 </div>
               )}
               
@@ -229,9 +280,26 @@ ${report.wisdom[lang]}
                 <div style={dishStyle} className="dish-card dish-hover">
                   <div className="dish-icon">🍨</div>
                   <h3 style={dishTitleStyle}>{report.recipe.dessert.name[lang]}</h3>
+                  {report.recipe.dessert.calories && (
+                    <p style={calorieStyle}>🔥 {report.recipe.dessert.calories}</p>
+                  )}
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.dessert.ingredients[lang]}</p>
-                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.dessert.method[lang]}</p>
-                  <p style={tipStyle}>💡 {report.recipe.dessert.tip[lang]}</p>
+                  {report.recipe.dessert.cookingTime && (
+                    <p><strong>⏱️ {lang === 'zh' ? '烹饪时间' : 'Time'}:</strong> {report.recipe.dessert.cookingTime[lang]}</p>
+                  )}
+                  {report.recipe.dessert.steps && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>{lang === 'zh' ? '做法' : 'Steps'}:</strong>
+                      <ol style={{marginLeft: '20px', marginTop: '8px'}}>
+                        {(report.recipe.dessert.steps[lang] || []).map((step, i) => (
+                          <li key={i} style={{marginBottom: '6px'}}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {report.recipe.dessert.tip && (
+                    <p style={tipStyle}>💡 {report.recipe.dessert.tip[lang]}</p>
+                  )}
                 </div>
               )}
               
@@ -239,15 +307,89 @@ ${report.wisdom[lang]}
                 <div style={dishStyle} className="dish-card dish-hover">
                   <div className="dish-icon">🍵</div>
                   <h3 style={dishTitleStyle}>{report.recipe.drink.name[lang]}</h3>
+                  {report.recipe.drink.calories && (
+                    <p style={calorieStyle}>🔥 {report.recipe.drink.calories}</p>
+                  )}
                   <p><strong>{lang === 'zh' ? '食材' : 'Ingredients'}:</strong> {report.recipe.drink.ingredients[lang]}</p>
-                  <p><strong>{lang === 'zh' ? '做法' : 'Method'}:</strong> {report.recipe.drink.method[lang]}</p>
+                  {report.recipe.drink.cookingTime && (
+                    <p><strong>⏱️ {lang === 'zh' ? '烹饪时间' : 'Time'}:</strong> {report.recipe.drink.cookingTime[lang]}</p>
+                  )}
+                  {report.recipe.drink.steps && (
+                    <div style={{marginTop: '12px'}}>
+                      <strong>{lang === 'zh' ? '做法' : 'Steps'}:</strong>
+                      <ol style={{marginLeft: '20px', marginTop: '8px'}}>
+                        {(report.recipe.drink.steps[lang] || []).map((step, i) => (
+                          <li key={i} style={{marginBottom: '6px'}}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Health Analysis */}
-          {report.healthAnalysis && (
+          {/* Professional Nutrition Analysis */}
+          {report.nutritionAnalysis && (
+            <div style={healthBoxStyle} className="fade-in-up health-pulse">
+              <h2 style={sectionTitleStyle} className="section-title-bounce">
+                {lang === 'zh' ? '🩺 专业营养分析' : '🩺 Professional Nutrition Analysis'}
+              </h2>
+              
+              {/* Protein */}
+              {report.nutritionAnalysis.protein && (
+                <div style={{marginBottom: '20px', borderBottom: '1px dashed #a0522d', paddingBottom: '15px'}}>
+                  <h3 style={{color: '#8b4513', fontSize: '1.2rem', marginBottom: '8px'}}>
+                    💪 {lang === 'zh' ? '蛋白质' : 'Protein'}
+                  </h3>
+                  <p style={{...bodyStyle, marginTop: '8px'}}>{report.nutritionAnalysis.protein[lang]}</p>
+                </div>
+              )}
+              
+              {/* Carbohydrates */}
+              {report.nutritionAnalysis.carbohydrates && (
+                <div style={{marginBottom: '20px', borderBottom: '1px dashed #a0522d', paddingBottom: '15px'}}>
+                  <h3 style={{color: '#8b4513', fontSize: '1.2rem', marginBottom: '8px'}}>
+                    🌾 {lang === 'zh' ? '碳水化合物' : 'Carbohydrates'}
+                  </h3>
+                  <p style={{...bodyStyle, marginTop: '8px'}}>{report.nutritionAnalysis.carbohydrates[lang]}</p>
+                </div>
+              )}
+              
+              {/* Fiber */}
+              {report.nutritionAnalysis.fiber && (
+                <div style={{marginBottom: '20px', borderBottom: '1px dashed #a0522d', paddingBottom: '15px'}}>
+                  <h3 style={{color: '#8b4513', fontSize: '1.2rem', marginBottom: '8px'}}>
+                    🥬 {lang === 'zh' ? '膳食纤维' : 'Dietary Fiber'}
+                  </h3>
+                  <p style={{...bodyStyle, marginTop: '8px'}}>{report.nutritionAnalysis.fiber[lang]}</p>
+                </div>
+              )}
+              
+              {/* Fats */}
+              {report.nutritionAnalysis.fats && (
+                <div style={{marginBottom: '20px', borderBottom: '1px dashed #a0522d', paddingBottom: '15px'}}>
+                  <h3 style={{color: '#8b4513', fontSize: '1.2rem', marginBottom: '8px'}}>
+                    🥑 {lang === 'zh' ? '脂肪' : 'Fats'}
+                  </h3>
+                  <p style={{...bodyStyle, marginTop: '8px'}}>{report.nutritionAnalysis.fats[lang]}</p>
+                </div>
+              )}
+              
+              {/* Overall */}
+              {report.nutritionAnalysis.overall && (
+                <div style={{marginTop: '25px', paddingTop: '20px', borderTop: '2px solid #a0522d'}}>
+                  <h3 style={{color: '#8b4513', fontSize: '1.2rem', marginBottom: '8px'}}>
+                    📋 {lang === 'zh' ? '整体建议' : 'Overall Recommendations'}
+                  </h3>
+                  <p style={{...bodyStyle, marginTop: '8px'}}>{report.nutritionAnalysis.overall[lang]}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Fallback to old healthAnalysis if nutritionAnalysis not available */}
+          {!report.nutritionAnalysis && report.healthAnalysis && (
             <div style={healthBoxStyle} className="fade-in-up health-pulse">
               <h2 style={sectionTitleStyle} className="section-title-bounce">
                 {lang === 'zh' ? '🌱 健康分析' : '🌱 Health Analysis'}
@@ -727,6 +869,18 @@ const dishTitleStyle = {
   borderBottom: '1px solid #c9a875',
   paddingBottom: '8px',
   fontWeight: '600',
+};
+
+const calorieStyle = {
+  fontSize: '0.95rem',
+  color: '#d2691e',  // 📜 巧克力色
+  fontWeight: 'bold',
+  marginTop: '8px',
+  marginBottom: '8px',
+  padding: '4px 10px',
+  backgroundColor: 'rgba(210, 105, 30, 0.1)',
+  borderRadius: '12px',
+  display: 'inline-block',
 };
 
 const tipStyle = {

@@ -225,7 +225,7 @@ export default class UIManager {
       const clickY = pointer.y;
       
       const isOutside = clickX < x - width / 2 + 20 || clickX > x + width / 2 - 20 ||
-                        clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
+                               clickY < y - height / 2 + 70 || clickY > y + height / 2 - 20;
       
       if (isOutside) {
         console.log("🖱️ 点击了外部区域");

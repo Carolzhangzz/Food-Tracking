@@ -40,97 +40,150 @@ router.post("/generate-final-report", async (req, res) => {
       return details;
     }).join("\n");
 
-    // 🆕 使用用户提供的详细 Prompt 模板
-    const prompt = `You are Master Chef Hua from Gourmet Village. The player has completed their 7-day food journaling journey and is now receiving their final personalized recipe.
+    // 🆕 增强版 Prompt - 创造性菜谱 + 营养分析
+    const prompt = `You are Master Chef Hua from Gourmet Village, a professional chef and nutritionist. The player has completed their 7-day food journaling journey. Based on ALL the ingredients they consumed, you will CREATE NEW HEALTHY RECIPES (not copy their exact dishes) and provide professional nutrition analysis.
 
 PLAYER'S COMPLETE 7-DAY MEAL RECORDS:
 ${mealSummary}
 
 YOUR TASK:
-The player has now received the final recipe. As they read it, they discover that the recipe is created from the same ingredients they logged and ate during their journey in the game.
 
-1. **7-Day Summary**: List all the main ingredients and dishes the player has chosen or consumed across all meals.
+1. **Extract ALL Ingredients**: From their 7-day records, identify ALL ingredients they consumed (vegetables, proteins, grains, seasonings, etc.)
 
-2. **Personalized Recipe Menu**: Create a FULL MEAL using the player's actual ingredients/dishes:
-   - **Starter** – Use ingredients/dishes from their early meals or appetizers
-   - **Main Course** – Based on their most common main dishes
-   - **Side Dish** – Use vegetables/sides they mentioned
-   - **Dessert** – Based on sweet foods or create a healthy option from their ingredients
-   - **Drink** – Based on beverages mentioned or create a healthy tea/drink
+2. **Create NEW Restaurant-Style Dishes**: Using their ingredients, CREATE NEW, HEALTHIER recipes that:
+   - Combine their ingredients in creative, balanced ways
+   - Are NOT just copies of what they ate
+   - Follow healthy cooking principles (balanced nutrients, proper portions)
+   - Are restaurant-quality dishes with appealing names
+   - Include 5 courses: Starter, Main, Side, Dessert, Drink
 
    For EACH dish, provide:
-   - Name (creative but based on their actual food)
-   - Ingredients (from what they ate)
-   - Cooking method (use their mentioned cooking styles: steamed, grilled, stir-fried, etc.)
-   - Tip (practical advice)
+   - **Name**: Creative, restaurant-style dish name (bilingual)
+   - **Ingredients**: List of specific ingredients with amounts (e.g., "200g chicken breast, 100g broccoli")
+   - **Calories**: Estimated calories per serving (e.g., "~350 kcal")
+   - **Steps**: Detailed 4-6 step cooking instructions
+   - **Cooking Time**: Total time needed (e.g., "25 minutes")
+   - **Tip**: Professional cooking tip
 
-3. **Health Analysis**: Compare their ingredients with healthy eating principles (balance, variety, nutrition). Clearly show:
-   - What supports a healthy diet
-   - What might be less healthy
-   - Simple swaps or additions to improve nutrition (using examples from what they actually ate)
+3. **Professional Nutrition Analysis**: Analyze their 7-day eating patterns and provide:
+   
+   **Macronutrients Assessment**:
+   - **Protein**: Adequacy, sources quality, recommendations
+   - **Carbohydrates**: Type (refined vs whole grains), balance, suggestions
+   - **Fats**: Healthy vs unhealthy fats, balance
+   - **Fiber**: Intake level, sources, recommendations
+   
+   **Micronutrients & Other**:
+   - Vitamins & minerals coverage
+   - Hydration patterns
+   - Meal timing & frequency
+   
+   **Specific Recommendations**: 3-5 actionable improvements based on their actual data
 
-4. **Tone**: Friendly and encouraging. Focus on positive reinforcement. Emphasize that healthy dishes can be made from everyday choices.
+4. **Tone**: Professional yet warm. Like a nutritionist + chef consultation.
 
-5. **Template Example** (adapt to the player's actual meals):
-   "Based on the meals you've shared over the last 7 days, this recipe combines the ingredients, flavors, and cooking styles you described. It's designed as a full meal you could actually make at home – a reflection of your journey in Gourmet Village."
+5. **Important**: The recipes should be INSPIRED BY but NOT IDENTICAL TO what they ate. Transform their ingredients into healthier, more balanced versions.
 
 CRITICAL: Return ONLY a valid JSON object with this EXACT structure:
 
 {
   "title": {
-    "en": "Your Personal Recipe from Gourmet Village",
-    "zh": "你的美食村专属食谱"
+    "en": "Your Personalized Health Recipe Collection",
+    "zh": "你的专属健康食谱集"
   },
   "mealSummary": {
-    "en": "2-3 sentence summary of player's 7-day eating patterns, mentioning specific foods",
-    "zh": "2-3句总结玩家7天的饮食模式，提及具体食物"
+    "en": "2-3 sentence summary mentioning their key ingredients and eating patterns",
+    "zh": "2-3句总结，提及关键食材和饮食模式"
   },
   "recipe": {
     "intro": {
-      "en": "Based on the meals you've shared...",
-      "zh": "根据你过去7天分享的餐食..."
+      "en": "I've analyzed all the ingredients from your 7-day journey and created these NEW healthy recipes inspired by what you love...",
+      "zh": "我分析了你7天旅程中的所有食材，创造了这些受你喜爱的食物启发的全新健康食谱..."
     },
     "starter": {
-      "name": { "en": "Creative name based on their food", "zh": "基于他们食物的创意名称" },
-      "ingredients": { "en": "Their actual ingredients", "zh": "他们的实际食材" },
-      "method": { "en": "Cooking method using their style", "zh": "使用他们风格的烹饪方法" },
-      "tip": { "en": "Practical tip", "zh": "实用建议" }
+      "name": { "en": "Creative NEW dish name", "zh": "创意新菜名" },
+      "ingredients": { "en": "200g ingredient A, 100g ingredient B, etc.", "zh": "200克食材A，100克食材B等" },
+      "calories": "~280 kcal",
+      "steps": { 
+        "en": ["Step 1: Detailed instruction", "Step 2: ...", "Step 3: ...", "Step 4: ..."],
+        "zh": ["步骤1：详细说明", "步骤2：...", "步骤3：...", "步骤4：..."]
+      },
+      "cookingTime": { "en": "20 minutes", "zh": "20分钟" },
+      "tip": { "en": "Professional tip", "zh": "专业建议" }
     },
     "main": {
-      "name": { "en": "Main course name", "zh": "主菜名称" },
-      "ingredients": { "en": "Ingredients from their meals", "zh": "来自他们餐食的食材" },
-      "method": { "en": "Cooking method", "zh": "烹饪方法" },
+      "name": { "en": "NEW main dish name", "zh": "新主菜名称" },
+      "ingredients": { "en": "300g protein, 150g vegetables, etc.", "zh": "300克蛋白质，150克蔬菜等" },
+      "calories": "~450 kcal",
+      "steps": {
+        "en": ["Step 1...", "Step 2...", "Step 3...", "Step 4...", "Step 5..."],
+        "zh": ["步骤1...", "步骤2...", "步骤3...", "步骤4...", "步骤5..."]
+      },
+      "cookingTime": { "en": "30 minutes", "zh": "30分钟" },
       "tip": { "en": "Tip", "zh": "建议" }
     },
     "side": {
-      "name": { "en": "Side dish name", "zh": "配菜名称" },
-      "ingredients": { "en": "Ingredients", "zh": "食材" },
-      "method": { "en": "Method", "zh": "方法" },
+      "name": { "en": "NEW side dish", "zh": "新配菜" },
+      "ingredients": { "en": "Ingredients with amounts", "zh": "带分量的食材" },
+      "calories": "~120 kcal",
+      "steps": {
+        "en": ["Step 1...", "Step 2...", "Step 3...", "Step 4..."],
+        "zh": ["步骤1...", "步骤2...", "步骤3...", "步骤4..."]
+      },
+      "cookingTime": { "en": "15 minutes", "zh": "15分钟" },
       "tip": { "en": "Tip", "zh": "建议" }
     },
     "dessert": {
-      "name": { "en": "Dessert name", "zh": "甜点名称" },
+      "name": { "en": "Healthy dessert", "zh": "健康甜点" },
       "ingredients": { "en": "Ingredients", "zh": "食材" },
-      "method": { "en": "Method", "zh": "方法" },
+      "calories": "~180 kcal",
+      "steps": {
+        "en": ["Step 1...", "Step 2...", "Step 3..."],
+        "zh": ["步骤1...", "步骤2...", "步骤3..."]
+      },
+      "cookingTime": { "en": "10 minutes", "zh": "10分钟" },
       "tip": { "en": "Tip", "zh": "建议" }
     },
     "drink": {
-      "name": { "en": "Drink name", "zh": "饮品名称" },
+      "name": { "en": "Healthy drink", "zh": "健康饮品" },
       "ingredients": { "en": "Ingredients", "zh": "食材" },
-      "method": { "en": "Method", "zh": "方法" }
+      "calories": "~60 kcal",
+      "steps": {
+        "en": ["Step 1...", "Step 2..."],
+        "zh": ["步骤1...", "步骤2..."]
+      },
+      "cookingTime": { "en": "5 minutes", "zh": "5分钟" }
     }
   },
-  "healthAnalysis": {
-    "en": "Detailed 200+ word analysis: what supports healthy diet, what could be improved, specific swaps/additions based on their actual meals",
-    "zh": "详细200字以上分析：哪些支持健康饮食、哪些可以改进、基于实际餐食的具体替换/添加建议"
+  "nutritionAnalysis": {
+    "protein": {
+      "en": "Assessment of protein intake, quality of sources, recommendations (50-80 words)",
+      "zh": "蛋白质摄入评估、来源质量、建议（50-80字）"
+    },
+    "carbohydrates": {
+      "en": "Carb types (refined vs whole grain), balance assessment, suggestions (50-80 words)",
+      "zh": "碳水类型（精制vs全谷物）、平衡评估、建议（50-80字）"
+    },
+    "fiber": {
+      "en": "Fiber intake level, sources, recommendations (40-60 words)",
+      "zh": "膳食纤维摄入水平、来源、建议（40-60字）"
+    },
+    "fats": {
+      "en": "Healthy vs unhealthy fats, balance, suggestions (40-60 words)",
+      "zh": "健康与不健康脂肪、平衡、建议（40-60字）"
+    },
+    "overall": {
+      "en": "Overall nutrition summary and 3-5 actionable improvements (80-100 words)",
+      "zh": "整体营养总结及3-5个可操作的改进建议（80-100字）"
+    }
   },
   "letterFromMaster": {
-    "en": "Dear Apprentice,\\n\\nI knew you'd find this place. Based on your journey and the meals you recorded...\\n\\n– Master Hua",
-    "zh": "亲爱的徒弟，\\n\\n我就知道你会找到这里。根据你的旅程和你记录的餐食...\\n\\n——华主厨"
+    "en": "Dear Apprentice,\\n\\nI've studied your 7-day journey carefully. The recipes above are my gift to you – new creations inspired by the ingredients you love, but reimagined for better health...\\n\\n– Master Hua",
+    "zh": "亲爱的徒弟，\\n\\n我仔细研究了你的7天旅程。上面的食谱是我送给你的礼物——基于你喜爱的食材创作的新菜式，但重新设计得更健康...\\n\\n——华主厨"
   },
   "wisdom": {
-    "en": "True flavor comes not from rare ingredients, but from paying attention to what you eat and why.",
-    "zh": "真正的美味不在于稀有的食材，而在于关注你吃什么以及为何而吃。"
+    "en": "Great cooking isn't about copying recipes – it's about understanding ingredients and creating balance.",
+    "zh": "伟大的烹饪不在于复制食谱，而在于理解食材并创造平衡。"
   }
 }
 

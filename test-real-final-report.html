@@ -19,85 +19,224 @@
     // 创建 PlayerContext
     const PlayerContext = createContext();
 
-    // 玩家 021 的真实数据（从 API 测试中获取）
+    // 🆕 增强版测试数据 - 包含详细步骤、卡路里和营养分析
     const mockReportData = {
       "title": {
-        "en": "Your Personal Recipe from Gourmet Village",
-        "zh": "你的美食村专属食谱"
+        "en": "Your Personalized Health Recipe Collection",
+        "zh": "你的专属健康食谱集"
       },
       "mealSummary": {
-        "en": "Over the past 7 days, you've enjoyed a variety of dishes including steamed dumplings, fried chicken wings, and stir-fried Shanghai greens. Your meals often featured convenience foods like instant noodles and frozen dumplings, but you also cooked meals from scratch like red-braised chicken wings and egg fried rice.",
-        "zh": "过去7天，你享用了多种菜肴，包括蒸饺、炸鸡翅和炒上海青。你的餐食常常以方便食品为主，如方便面和冷冻饺子，但你也自己做过一些从头开始的菜肴，如红烧鸡翅和蛋炒饭。"
+        "en": "Over 7 days, you consumed chicken, rice, vegetables like bok choy, eggs, noodles, dumplings, and various seasonings. Your cooking styles ranged from steaming to stir-frying to braising.",
+        "zh": "在7天里，你食用了鸡肉、米饭、上海青等蔬菜、鸡蛋、面条、饺子，以及各种调味料。烹饪方式包括蒸、炒、红烧等。"
       },
       "recipe": {
         "intro": {
-          "en": "Based on the meals you've shared over the last 7 days, this recipe combines the ingredients, flavors, and cooking styles you described. It's designed as a full meal you could actually make at home – a reflection of your journey in Gourmet Village.",
-          "zh": "根据你过去7天分享的餐食，这个食谱结合了你描述的食材、口味和烹饪风格。它被设计成一顿完整的餐食，你可以在家里做出来——这是一次在美食村的旅程的反映。"
+          "en": "I've analyzed all the ingredients from your 7-day journey and created these NEW healthy recipes inspired by what you love. These are not just copies of what you ate, but creative, balanced dishes using your favorite ingredients.",
+          "zh": "我分析了你7天旅程中的所有食材，创造了这些受你喜爱的食物启发的全新健康食谱。这些不是你吃过的菜的简单复制，而是使用你喜爱食材的创意、平衡菜式。"
         },
         "starter": {
           "name": {
-            "en": "Steamed Dumpling Delight",
-            "zh": "蒸饺美味"
+            "en": "Jade Garden Dumplings",
+            "zh": "翡翠花园水饺"
           },
           "ingredients": {
-            "en": "Pork and shrimp dumplings, steamed buns",
-            "zh": "猪肉和虾肉饺子，蒸包"
+            "en": "200g chicken breast, 100g bok choy, 50g carrots, 30g ginger, 20g scallions, 1 tsp sesame oil, dumpling wrappers",
+            "zh": "200克鸡胸肉，100克上海青，50克胡萝卜，30克姜，20克葱，1茶匙香油，饺子皮"
           },
-          "method": {
-            "en": "Steaming",
-            "zh": "蒸"
+          "calories": "~280 kcal (10 dumplings)",
+          "steps": {
+            "en": [
+              "Finely chop chicken breast, bok choy, carrots, ginger, and scallions",
+              "Mix all ingredients with sesame oil, 1/2 tsp salt, and white pepper",
+              "Place 1 tbsp filling in each wrapper, fold and seal edges",
+              "Steam for 12-15 minutes over high heat",
+              "Serve with light soy sauce and vinegar dip"
+            ],
+            "zh": [
+              "将鸡胸肉、上海青、胡萝卜、姜、葱切碎",
+              "所有食材与香油、半茶匙盐、白胡椒混合",
+              "每张饺子皮放1汤匙馅料，对折封口",
+              "大火蒸12-15分钟",
+              "配清淡酱油醋汁食用"
+            ]
+          },
+          "cookingTime": {
+            "en": "25 minutes",
+            "zh": "25分钟"
           },
           "tip": {
-            "en": "Use a variety of fillings to keep it interesting",
-            "zh": "使用多种馅料来保持趣味"
+            "en": "The bok choy adds fiber and a fresh crunch – squeeze out excess water before mixing",
+            "zh": "上海青增加纤维和清爽口感——混合前挤出多余水分"
           }
         },
         "main": {
           "name": {
-            "en": "Braised Chicken Wings with Rice",
-            "zh": "红烧鸡翅配饭"
+            "en": "Golden Harmony Chicken Bowl",
+            "zh": "金和鸡肉盖饭"
           },
           "ingredients": {
-            "en": "Chicken wings, soy sauce, sugar, rice",
-            "zh": "鸡翅，酱油，糖，米饭"
+            "en": "300g chicken thigh, 150g brown rice, 2 eggs, 100g bok choy, 2 tbsp low-sodium soy sauce, 1 tsp honey, garlic, ginger",
+            "zh": "300克鸡腿肉，150克糙米，2个鸡蛋，100克上海青，2汤匙低钠酱油，1茶匙蜂蜜，蒜，姜"
           },
-          "method": {
-            "en": "Braising",
-            "zh": "红烧"
+          "calories": "~520 kcal",
+          "steps": {
+            "en": [
+              "Cook brown rice according to package instructions",
+              "Cut chicken into bite-sized pieces, marinate with soy sauce, honey, minced garlic, and ginger for 15 min",
+              "Stir-fry chicken in 1 tbsp oil over medium-high heat until golden (6-8 min)",
+              "Blanch bok choy in boiling water for 2 minutes, drain",
+              "Fry eggs sunny-side up",
+              "Assemble bowl: rice base, top with chicken, bok choy, and egg"
+            ],
+            "zh": [
+              "按包装说明煮糙米",
+              "鸡肉切块，用酱油、蜂蜜、蒜末、姜腌制15分钟",
+              "1汤匙油中火炒鸡肉至金黄（6-8分钟）",
+              "上海青沸水焯2分钟，沥干",
+              "煎荷包蛋",
+              "组装碗：糙米打底，上放鸡肉、上海青和鸡蛋"
+            ]
+          },
+          "cookingTime": {
+            "en": "35 minutes",
+            "zh": "35分钟"
           },
           "tip": {
-            "en": "Let it simmer for a richer flavor",
-            "zh": "让它慢炖以获得更浓郁的口味"
+            "en": "Brown rice provides more fiber and nutrients than white rice – a healthier upgrade",
+            "zh": "糙米比白米提供更多纤维和营养——更健康的升级"
           }
         },
         "side": {
           "name": {
-            "en": "Stir-Fried Shanghai Greens",
-            "zh": "炒上海青"
+            "en": "Ginger-Garlic Greens Medley",
+            "zh": "姜蒜青菜什锦"
           },
           "ingredients": {
-            "en": "Shanghai greens, garlic, ginger",
-            "zh": "上海青，蒜，姜"
+            "en": "200g bok choy, 100g snow peas, 2 cloves garlic, 1 tbsp ginger, 1 tbsp oyster sauce, 1 tsp sesame seeds",
+            "zh": "200克上海青，100克荷兰豆，2瓣蒜，1汤匙姜，1汤匙蚝油，1茶匙芝麻"
           },
-          "method": {
-            "en": "Stir-frying",
-            "zh": "炒"
+          "calories": "~90 kcal",
+          "steps": {
+            "en": [
+              "Slice garlic and ginger thinly",
+              "Heat 1 tbsp oil in wok over high heat",
+              "Add garlic and ginger, stir-fry for 30 seconds until fragrant",
+              "Add bok choy and snow peas, stir-fry for 3-4 minutes",
+              "Add oyster sauce, toss well, sprinkle sesame seeds"
+            ],
+            "zh": [
+              "蒜和姜切薄片",
+              "锅中1汤匙油大火烧热",
+              "加蒜姜爆香30秒",
+              "加上海青和荷兰豆翻炒3-4分钟",
+              "加蚝油拌匀，撒芝麻"
+            ]
+          },
+          "cookingTime": {
+            "en": "12 minutes",
+            "zh": "12分钟"
           },
           "tip": {
-            "en": "Add aromatics for extra depth",
-            "zh": "添加香料以获得更深的口味"
+            "en": "Don't overcook – keep vegetables crisp for maximum nutrition retention",
+            "zh": "不要过度烹饪——保持蔬菜爽脆以最大限度保留营养"
           }
         },
         "dessert": {
           "name": {
-            "en": "Fresh Fruit Platter",
-            "zh": "新鲜水果拼盘"
+            "en": "Steamed Egg Custard with Berries",
+            "zh": "浆果蒸蛋羹"
           },
           "ingredients": {
-            "en": "Assorted fruits",
-            "zh": "各种水果"
+            "en": "2 eggs, 150ml low-fat milk, 1 tsp honey, 50g mixed berries (strawberry, blueberry)",
+            "zh": "2个鸡蛋，150毫升低脂牛奶，1茶匙蜂蜜，50克混合浆果（草莓、蓝莓）"
           },
-          "method": {
+          "calories": "~180 kcal",
+          "steps": {
+            "en": [
+              "Beat eggs gently with milk and honey",
+              "Strain mixture to remove bubbles",
+              "Pour into heatproof bowl, cover with foil",
+              "Steam over medium heat for 10-12 minutes until set",
+              "Top with fresh berries before serving"
+            ],
+            "zh": [
+              "鸡蛋与牛奶和蜂蜜轻轻打匀",
+              "过滤混合物去除气泡",
+              "倒入耐热碗，盖上锡纸",
+              "中火蒸10-12分钟至凝固",
+              "食用前放上新鲜浆果"
+            ]
+          },
+          "cookingTime": {
+            "en": "15 minutes",
+            "zh": "15分钟"
+          },
+          "tip": {
+            "en": "A light, protein-rich dessert with antioxidants from berries",
+            "zh": "清淡高蛋白甜点，浆果提供抗氧化物"
+          }
+        },
+        "drink": {
+          "name": {
+            "en": "Ginger-Honey Wellness Tea",
+            "zh": "姜蜜养生茶"
+          },
+          "ingredients": {
+            "en": "20g fresh ginger, 1 tbsp honey, 1 slice lemon, 300ml hot water",
+            "zh": "20克鲜姜，1汤匙蜂蜜，1片柠檬，300毫升热水"
+          },
+          "calories": "~45 kcal",
+          "steps": {
+            "en": [
+              "Slice ginger thinly",
+              "Add ginger to hot water, steep for 5 minutes",
+              "Add honey and lemon slice",
+              "Stir and enjoy warm"
+            ],
+            "zh": [
+              "姜切薄片",
+              "姜加入热水，浸泡5分钟",
+              "加蜂蜜和柠檬片",
+              "搅拌后温热饮用"
+            ]
+          },
+          "cookingTime": {
+            "en": "8 minutes",
+            "zh": "8分钟"
+          }
+        }
+      },
+      "nutritionAnalysis": {
+        "protein": {
+          "en": "Good: You consumed chicken and eggs regularly, providing quality protein. Recommendation: Aim for ~70-80g protein daily (current: ~60g). Consider adding tofu or beans for variety.",
+          "zh": "良好：你经常食用鸡肉和鸡蛋，提供优质蛋白质。建议：每天摄入约70-80克蛋白质（当前约60克）。可考虑添加豆腐或豆类增加多样性。"
+        },
+        "carbohydrates": {
+          "en": "Concern: Heavy reliance on refined carbs (white rice, noodles). Suggestion: Replace 50% with whole grains (brown rice, quinoa, whole wheat). Your instant noodles are convenient but lack fiber.",
+          "zh": "关注：过度依赖精制碳水（白米、面条）。建议：用全谷物（糙米、藜麦、全麦）替代50%。方便面虽便捷但缺乏纤维。"
+        },
+        "fiber": {
+          "en": "Deficient: Estimated 12g/day (target: 25-30g). Action: Add more vegetables (bok choy is great!), fruits, and whole grains. Your greens consumption is a good start.",
+          "zh": "不足：估计每天12克（目标：25-30克）。行动：增加蔬菜（上海青很好！）、水果和全谷物。你的绿叶菜摄入是良好开始。"
+        },
+        "fats": {
+          "en": "Moderate: Some stir-frying and braising. Tip: Use less oil (1 tbsp max per dish), choose unsaturated oils (olive, avocado). Avoid deep-frying.",
+          "zh": "中等：有一些炒和红烧。建议：减少用油（每道菜最多1汤匙），选择不饱和油（橄榄油、牛油果油）。避免油炸。"
+        },
+        "overall": {
+          "en": "You have a solid foundation with protein and vegetables. Priority improvements: (1) Switch to whole grains, (2) Increase fiber intake by 10g/day, (3) Reduce instant foods, (4) Add more colorful vegetables, (5) Control cooking oil. Small changes, big health impact!",
+          "zh": "你在蛋白质和蔬菜方面有良好基础。优先改进：(1) 改用全谷物，(2) 每天增加10克纤维，(3) 减少方便食品，(4) 增加多彩蔬菜，(5) 控制烹饪油量。小改变，大健康！"
+        }
+      },
+      "letterFromMaster": {
+        "en": "Dear Apprentice,\n\nI've studied your 7-day journey carefully. The recipes above are my gift to you – new creations inspired by the ingredients you love (chicken, greens, rice, eggs), but reimagined for better health.\n\nYou've shown dedication by recording your meals. Now, use these recipes as a starting point. Remember: true mastery comes from understanding balance, not just following instructions.\n\nI'm proud of your journey. Keep cooking, keep learning.\n\n– Master Hua",
+        "zh": "亲爱的徒弟，\n\n我仔细研究了你的7天旅程。上面的食谱是我送给你的礼物——基于你喜爱的食材（鸡肉、青菜、米饭、鸡蛋）创作的新菜式，但重新设计得更健康。\n\n你通过记录餐食展现了专注。现在，把这些食谱作为起点。记住：真正的精通来自理解平衡，而不仅仅是遵循指示。\n\n我为你的旅程感到骄傲。继续烹饪，继续学习。\n\n——华主厨"
+      },
+      "wisdom": {
+        "en": "Great cooking isn't about copying recipes – it's about understanding ingredients and creating balance.",
+        "zh": "伟大的烹饪不在于复制食谱，而在于理解食材并创造平衡。"
+      }
+    };
             "en": "Arranging",
             "zh": "摆放"
           },
@@ -121,13 +260,9 @@
           }
         }
       },
-      "healthAnalysis": {
-        "en": "Your diet over the past 7 days has shown a good balance of protein, carbohydrates, and vegetables. The use of convenience foods like instant noodles and frozen dumplings is convenient, but it's also important to balance these with whole, unprocessed foods. Consider adding more fruits and vegetables to your meals, and try to limit your intake of sugary drinks and snacks. The stir-fried Shanghai greens and braised chicken wings are great examples of healthy, balanced meals that you can make at home. By cooking from scratch and using a variety of ingredients, you can ensure that you're getting all the nutrients your body needs.",
-        "zh": "你过去7天的饮食显示出蛋白质、碳水化合物和蔬菜的良好平衡。使用方便食品如方便面和冷冻饺子很方便，但也要平衡这些与完整的未加工食品。考虑在你的餐食中添加更多水果和蔬菜，并尝试限制你对含糖饮料和零食的摄入。炒上海青和红烧鸡翅是你可以在家做的健康、均衡的餐食的好例子。通过从头开始做饭并使用多种食材，你可以确保你获得身体所需的所有营养。"
-      },
       "letterFromMaster": {
-        "en": "Dear Apprentice,\n\nI knew you'd find this place. Based on your journey and the meals you recorded, I've created a personalized recipe just for you. Remember, the key to a healthy and happy life is balance and variety in your diet. Don't be afraid to try new things and experiment with different flavors and ingredients.\n\n– Master Hua",
-        "zh": "亲爱的徒弟，\n\n我就知道你会找到这里。根据你的旅程和你记录的餐食，我为你创造了一个专属的食谱。记住，获得健康和快乐生活的关键是饮食中的平衡和多样性。不要害怕尝试新的事物和用不同的口味和食材进行实验。\n\n——华主厨"
+        "en": "Dear Apprentice,\n\nI've studied your 7-day journey carefully. The recipes above are my gift to you – new creations inspired by the ingredients you love (chicken, greens, rice, eggs), but reimagined for better health.\n\nYou've shown dedication by recording your meals. Now, use these recipes as a starting point. Remember: true mastery comes from understanding balance, not just following instructions.\n\nI'm proud of your journey. Keep cooking, keep learning.\n\n– Master Hua",
+        "zh": "亲爱的徒弟，\n\n我仔细研究了你的7天旅程。上面的食谱是我送给你的礼物——基于你喜爱的食材（鸡肉、青菜、米饭、鸡蛋）创作的新菜式，但重新设计得更健康。\n\n你通过记录餐食展现了专注。现在，把这些食谱作为起点。记住：真正的精通来自理解平衡，而不仅仅是遵循指示。\n\n我为你的旅程感到骄傲。继续烹饪，继续学习。\n\n——华主厨"
       },
       "wisdom": {
         "en": "True flavor comes not from rare ingredients, but from paying attention to what you eat and why.",
@@ -190,8 +325,22 @@ ${report.mealSummary?.[lang] || ''}
 
 ${recipeSection}
 
-${lang === 'zh' ? '=== 健康分析 ===' : '=== Health Analysis ==='}
-${report.healthAnalysis?.[lang] || ''}
+${lang === 'zh' ? '=== 专业营养分析 ===' : '=== Professional Nutrition Analysis ==='}
+
+${lang === 'zh' ? '💪 蛋白质' : '💪 Protein'}:
+${report.nutritionAnalysis?.protein?.[lang] || ''}
+
+${lang === 'zh' ? '🌾 碳水化合物' : '🌾 Carbohydrates'}:
+${report.nutritionAnalysis?.carbohydrates?.[lang] || ''}
+
+${lang === 'zh' ? '🥬 膳食纤维' : '🥬 Dietary Fiber'}:
+${report.nutritionAnalysis?.fiber?.[lang] || ''}
+
+${lang === 'zh' ? '🥑 脂肪' : '🥑 Fats'}:
+${report.nutritionAnalysis?.fats?.[lang] || ''}
+
+${lang === 'zh' ? '📋 整体建议' : '📋 Overall Recommendations'}:
+${report.nutritionAnalysis?.overall?.[lang] || ''}
 
 ${lang === 'zh' ? '=== 师父的信 ===' : '=== Letter from Master ==='}
 ${report.letterFromMaster?.[lang] || ''}

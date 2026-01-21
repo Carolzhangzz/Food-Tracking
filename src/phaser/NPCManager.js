@@ -456,7 +456,7 @@ export default class NPCManager {
       "今日已记录餐食": todayMeals,
       "玩家ID": this.scene.playerId
     });
-    
+
     // 🔒 未解锁
     if (!isUnlocked) {
       const message = lang === "zh" 
@@ -473,11 +473,11 @@ export default class NPCManager {
       if (unlockDay > currentDay) {
         const activeNpcData = this.npcData.find(n => n.unlockDay === currentDay);
         const activeNpcName = activeNpcData ? (activeNpcData.name[lang] || activeNpcData.name.zh) : "???";
-        const message = lang === "zh"
+      const message = lang === "zh"
           ? `今天（第 ${currentDay} 天）的任务是找 ${activeNpcName} 对话哦！`
           : `Your task for today (Day ${currentDay}) is to talk to ${activeNpcName}!`;
         this.scene.showNotification(message, 3500);
-        return;
+      return;
       }
       
       // 如果是过去的 NPC，允许补录

@@ -79,17 +79,17 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     console.log("🎬 DialogScene create() 开始");
     
     try {
-      const { width, height } = this.scale;
+    const { width, height } = this.scale;
 
-      // 🔧 修复：彻底禁用 Phaser 的键盘捕捉，确保 HTML 输入框可以正常按空格、退格等
-      if (this.input && this.input.keyboard) {
-        console.log("⌨️ 正在禁用 Phaser 键盘监听 (对话模式)...");
-        // 禁用整个键盘插件
-        this.input.keyboard.enabled = false;
-        // 清除所有按键捕获（防止冒泡被阻止）
-        if (typeof this.input.keyboard.clearCaptures === 'function') {
-          this.input.keyboard.clearCaptures();
-        }
+    // 🔧 修复：彻底禁用 Phaser 的键盘捕捉，确保 HTML 输入框可以正常按空格、退格等
+    if (this.input && this.input.keyboard) {
+      console.log("⌨️ 正在禁用 Phaser 键盘监听 (对话模式)...");
+      // 禁用整个键盘插件
+      this.input.keyboard.enabled = false;
+      // 清除所有按键捕获（防止冒泡被阻止）
+      if (typeof this.input.keyboard.clearCaptures === 'function') {
+        this.input.keyboard.clearCaptures();
+      }
       }
     } catch (error) {
       console.error("❌ DialogScene create() 出错:", error);
@@ -117,13 +117,13 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     }
 
     try {
-      // 1. 创建背景
+    // 1. 创建背景
       console.log("🖼️ 创建对话背景...");
-      this.createBackground();
+    this.createBackground();
 
-      // 2. 创建现代化UI
+    // 2. 创建现代化UI
       console.log("🖥️ 创建对话UI盒子...");
-      this.uiManager.createDialogBox();
+    this.uiManager.createDialogBox();
 
       // 🔧 3. 加载并显示历史对话记录 (不阻塞后续流程)
       console.log("📚 加载历史记录...");
@@ -133,9 +133,9 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         console.error("❌ 历史记录加载失败:", err);
       });
 
-      // 4. 开始对话流程
+    // 4. 开始对话流程
       console.log("🎤 启动对话流...");
-      this.startDialogFlow();
+    this.startDialogFlow();
 
       console.log("✅ DialogScene 逻辑执行完毕");
     } catch (error) {
@@ -656,26 +656,26 @@ export default class DialogSceneRefactored extends Phaser.Scene {
     }
 
     try {
-      const result = await this.mealHandler.submitMealRecord(
-        this.playerId,
-        this.currentNPC,
-        npcNameStr,
-        mealType,
-        this.stateManager.questionAnswers,
-        this.currentDay
-      );
+    const result = await this.mealHandler.submitMealRecord(
+      this.playerId,
+      this.currentNPC,
+      npcNameStr,
+      mealType,
+      this.stateManager.questionAnswers,
+      this.currentDay
+    );
 
-      this.uiManager.hideTypingIndicator();
+    this.uiManager.hideTypingIndicator();
 
-      if (result.success) {
-        console.log("✅ [DialogScene] 餐食记录保存成功:", result);
-        this.stateManager.markMealSubmitted(result);
-        this.uiManager.updateStatus("✅ 保存成功");
-        
+    if (result.success) {
+      console.log("✅ [DialogScene] 餐食记录保存成功:", result);
+      this.stateManager.markMealSubmitted(result);
+      this.uiManager.updateStatus("✅ 保存成功");
+      
         // 🔧 使用后端返回的线索数据（确保前后端一致）
         const { getNPCName } = await import('../../data/npcClues.js');
-        const actualNPCName = getNPCName(this.currentNPC, lang);
-        
+      const actualNPCName = getNPCName(this.currentNPC, lang);
+      
         // 优先使用后端返回的线索
         let clueText = result.clueText;
         let clueType = result.clueType;
@@ -684,25 +684,25 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         if (!clueText && result.shouldGiveClue) {
           clueText = lang === "zh" ? "感谢你的分享！" : "Thank you for sharing!";
           clueType = clueType || "vague";
+      }
+      
+        // 🔧 显示线索并等待玩家确认
+      if (clueText) {
+          console.log(`🗝️ [DialogScene] NPC 正在说出线索 (${clueType})...`);
+        this.uiManager.addMessage("NPC", clueText);
+        
+          // 添加到线索本
+        if (this.mainScene && this.mainScene.uiManager) {
+          this.mainScene.uiManager.addClue({
+            npcId: this.currentNPC,
+            npcName: actualNPCName,
+            clue: clueText,
+            clueType: clueType,
+            day: this.currentDay,
+            mealType: mealType
+          }, true);
         }
         
-        // 🔧 显示线索并等待玩家确认
-        if (clueText) {
-          console.log(`🗝️ [DialogScene] NPC 正在说出线索 (${clueType})...`);
-          this.uiManager.addMessage("NPC", clueText);
-          
-          // 添加到线索本
-          if (this.mainScene && this.mainScene.uiManager) {
-            this.mainScene.uiManager.addClue({
-              npcId: this.currentNPC,
-              npcName: actualNPCName,
-              clue: clueText,
-              clueType: clueType,
-              day: this.currentDay,
-              mealType: mealType
-            }, true);
-          }
-          
           // 🆕 计算线索长度，动态调整等待时间
           const clueLength = clueText.length;
           const minWaitTime = 5000; // 最少5秒
@@ -710,23 +710,23 @@ export default class DialogSceneRefactored extends Phaser.Scene {
           console.log(`⏱️ [DialogScene] 线索长度: ${clueLength}, 等待时间: ${readingTime}ms`);
           
           await this.delay(readingTime);
-          
+
           // 🆕 显示"继续"提示
           await this.showContinuePrompt(lang);
         }
-
-        // 🔧 同步数据到 React UI (地图进度图标)
-        if (this.mainScene && this.mainScene.updatePlayerdata) {
-          const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
-          console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
-          
-          this.playerData = {
-            ...this.playerData,
-            currentDayMealsRemaining: remaining,
+      
+      // 🔧 同步数据到 React UI (地图进度图标)
+      if (this.mainScene && this.mainScene.updatePlayerdata) {
+        const remaining = result.currentDayMealsRemaining || result.availableMealTypes || [];
+        console.log("🔄 [DialogScene] 同步餐食进度到 React UI, 剩余餐食:", remaining);
+        
+        this.playerData = {
+          ...this.playerData,
+          currentDayMealsRemaining: remaining,
             availableMealTypes: remaining
-          };
-          
-          this.mainScene.updatePlayerdata(this.playerData);
+        };
+        
+        this.mainScene.updatePlayerdata(this.playerData);
 
           // 🎬 检查是否为Day 7的任意一餐，询问玩家是否完成游戏
           if (this.currentDay >= 7) {
@@ -738,7 +738,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
               console.log("🎉 [DialogScene] 玩家选择完成游戏，显示结局");
               // 保存对话历史
               await this.saveConversationHistory(this.stateManager.conversationHistory);
-              
+      
               // 显示黑幕 → 信件 → Final Report
               await this.showGameEnding();
               return;
@@ -751,7 +751,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
         
         // 🆕 直接返回地图（已经等待过了）
         this.returnToMainScene();
-      } else {
+        } else {
         console.error("❌ 保存失败:", result.error);
         this.isSubmitting = false;
         this.uiManager.updateStatus("❌ 保存失败");
@@ -762,7 +762,7 @@ export default class DialogSceneRefactored extends Phaser.Scene {
       this.uiManager.hideTypingIndicator();
     }
   }
-
+  
   // 🔧 新增：显示对话完成后的选项
   showCompletionOptions() {
     const lang = this.playerData?.language || "zh";
@@ -1395,7 +1395,7 @@ Best of luck. I'm proud of you. Until we meet again.
         }).catch(err => {
           console.error("❌ 刷新 NPC 状态失败:", err);
           // 兜底：仅本地更新
-          mainScene.npcManager.updateNPCStates();
+        mainScene.npcManager.updateNPCStates();
         });
       }
     }
