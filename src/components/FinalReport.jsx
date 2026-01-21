@@ -559,85 +559,106 @@ ${report.wisdom[lang]}
   );
 };
 
-// Styles
+// Styles - 📜 古典卷轴风格
 const overlayStyle = {
   position: 'fixed',
   top: 0,
   left: 0,
   width: '100vw',
   height: '100vh',
-  backgroundColor: 'rgba(15, 15, 35, 0.95)',  // 🎮 游戏深色背景（加深避免穿透）
-  backdropFilter: 'blur(20px)',  // 🔧 加强模糊效果
-  zIndex: 999999,  // 🔧 超高z-index，完全覆盖所有元素
+  backgroundColor: 'rgba(20, 15, 10, 0.92)',  // 📜 深棕色背景，营造古典氛围
+  backdropFilter: 'blur(15px)',
+  zIndex: 999999,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   padding: '20px',
-  fontFamily: '"Georgia", serif',
-  pointerEvents: 'auto',  // 🔧 确保捕获所有点击事件
-  isolation: 'isolate',  // 🔧 创建新的堆叠上下文
+  fontFamily: '"Crimson Text", "Georgia", "Times New Roman", serif',  // 📜 古典字体
+  pointerEvents: 'auto',
+  isolation: 'isolate',
 };
 
 const cardStyle = {
-  backgroundColor: '#1a1a2e',  // 🎮 游戏深色基调
+  backgroundColor: '#f4e8d0',  // 📜 羊皮纸米黄色
   backgroundImage: `
-    linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%),
-    url("https://www.transparenttextures.com/patterns/stardust.png")
-  `,
+    linear-gradient(to bottom, rgba(244, 232, 208, 0.9), rgba(230, 210, 180, 0.95)),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a875' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
+  `,  // 📜 古典纹理
   width: '100%',
-  maxWidth: '750px',
-  maxHeight: '90vh',
-  padding: '50px',
-  borderRadius: '20px',
-  boxShadow: '0 30px 70px rgba(102, 126, 234, 0.4), 0 0 50px rgba(118, 75, 162, 0.3)',
+  maxWidth: '820px',
+  maxHeight: '88vh',
+  padding: '60px 50px',
+  borderRadius: '8px',  // 📜 轻微圆角
+  boxShadow: `
+    0 0 0 8px #e6d2b4,
+    0 0 0 12px #d4b896,
+    0 0 0 16px #c9a875,
+    inset 0 0 80px rgba(193, 154, 107, 0.15),
+    0 30px 90px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(212, 184, 150, 0.3)
+  `,  // 📜 多层边框 + 内阴影营造卷轴感
   position: 'relative',
   overflowY: 'auto',
-  border: '3px solid rgba(102, 126, 234, 0.6)',  // 🎮 紫蓝色边框
+  border: '2px solid #c19a6b',  // 📜 古铜色边框
   scrollbarWidth: 'thin',
-  scrollbarColor: '#667eea #2d3748',
-  color: '#e2e8f0',  // 浅色文字
+  scrollbarColor: '#8b6f47 transparent',
+  color: '#2c1810',  // 📜 深棕色墨水文字
+  backgroundBlendMode: 'multiply',
 };
 
 const sealStyle = {
   position: 'absolute',
   top: '30px',
   right: '40px',
-  width: '60px',
-  height: '60px',
-  border: '3px solid #f59e0b',  // 🎮 金色印章
+  width: '70px',
+  height: '70px',
+  border: '4px solid #8b4513',  // 📜 深棕色蜡封边框
   borderRadius: '50%',
-  color: '#f59e0b',
+  color: '#8b4513',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  fontSize: '30px',
+  fontSize: '32px',
   fontWeight: 'bold',
-  opacity: 0.9,
-  transform: 'rotate(-15deg)',
-  background: 'rgba(245, 158, 11, 0.1)',
+  opacity: 0.85,
+  transform: 'rotate(-12deg)',
+  background: `
+    radial-gradient(circle, #c41e3a 0%, #8b1e3f 70%, #5c0f28 100%)
+  `,  // 📜 红色蜡封效果
+  boxShadow: `
+    inset 0 0 20px rgba(0, 0, 0, 0.4),
+    0 3px 10px rgba(0, 0, 0, 0.5)
+  `,
+  color: '#ffd700',  // 📜 金色字
+  textShadow: '1px 1px 3px rgba(0, 0, 0, 0.6)',
 };
 
 const titleStyle = {
   textAlign: 'center',
-  color: '#f0abfc',  // 🎮 明亮的紫色
-  fontSize: '2.5rem',
+  color: '#5c3317',  // 📜 深棕色标题
+  fontSize: '2.8rem',
   marginBottom: '30px',
-  borderBottom: '2px solid rgba(102, 126, 234, 0.5)',
-  paddingBottom: '10px',
-  textShadow: '0 0 20px rgba(240, 171, 252, 0.5)',
+  fontFamily: '"Cinzel Decorative", "Georgia", serif',  // 📜 装饰性字体
+  borderBottom: '3px double #8b6f47',  // 📜 双线边框
+  paddingBottom: '15px',
+  textShadow: '1px 1px 2px rgba(139, 111, 71, 0.3)',
+  letterSpacing: '2px',
+  fontWeight: '600',
 };
 
 const contentStyle = {
-  lineHeight: '1.8',
-  color: '#cbd5e1',  // 🎮 柔和的浅灰色文字
-  fontSize: '1.1rem',
+  lineHeight: '1.9',
+  color: '#3e2723',  // 📜 深棕色墨水
+  fontSize: '1.08rem',
+  textAlign: 'justify',  // 📜 两端对齐，更像信件
 };
 
 const bodyStyle = {
   whiteSpace: 'pre-wrap',
   marginBottom: '20px',
-  lineHeight: '1.8',
-  color: '#e2e8f0',
+  lineHeight: '1.9',
+  color: '#3e2723',
+  textShadow: '0.5px 0.5px 1px rgba(0, 0, 0, 0.08)',  // 📜 轻微墨迹感
 };
 
 const sectionStyle = {
@@ -646,23 +667,28 @@ const sectionStyle = {
 
 const summaryStyle = {
   fontStyle: 'italic',
-  fontSize: '1.05rem',
+  fontSize: '1.1rem',
   textAlign: 'center',
-  padding: '15px',
-  backgroundColor: 'rgba(102, 126, 234, 0.15)',  // 🎮 紫色背景
-  borderRadius: '12px',
-  border: '1px solid rgba(102, 126, 234, 0.3)',
-  color: '#e0e7ff',
+  padding: '20px',
+  backgroundColor: 'rgba(139, 111, 71, 0.08)',  // 📜 淡棕色背景
+  borderRadius: '6px',
+  border: '2px solid #c9a875',
+  borderStyle: 'solid',
+  color: '#4a3520',
+  boxShadow: 'inset 0 2px 8px rgba(139, 111, 71, 0.1)',
 };
 
 const sectionTitleStyle = {
-  color: '#a78bfa',  // 🎮 明亮的紫色
-  fontSize: '1.8rem',
-  marginBottom: '15px',
-  marginTop: '30px',
-  borderBottom: '2px solid rgba(167, 139, 250, 0.4)',
-  paddingBottom: '8px',
-  textShadow: '0 0 10px rgba(167, 139, 250, 0.3)',
+  color: '#6d4c3d',  // 📜 深棕色标题
+  fontSize: '1.9rem',
+  marginBottom: '18px',
+  marginTop: '35px',
+  borderBottom: '2px solid #8b6f47',
+  paddingBottom: '10px',
+  fontFamily: '"Cinzel", "Georgia", serif',
+  letterSpacing: '1px',
+  textTransform: 'uppercase',
+  fontWeight: '600',
 };
 
 const recipeContainerStyle = {
@@ -671,117 +697,158 @@ const recipeContainerStyle = {
 
 const recipeIntroStyle = {
   fontStyle: 'italic',
-  marginBottom: '20px',
-  fontSize: '1.05rem',
+  marginBottom: '25px',
+  fontSize: '1.08rem',
+  color: '#4a3520',
+  textAlign: 'center',
 };
 
 const dishStyle = {
-  backgroundColor: 'rgba(30, 41, 59, 0.6)',  // 🎮 深色半透明背景
+  backgroundColor: 'rgba(233, 216, 191, 0.4)',  // 📜 淡羊皮纸色
   padding: '25px',
-  borderRadius: '15px',
-  marginBottom: '20px',
-  borderLeft: '5px solid #8b5cf6',  // 🎮 紫色左边框
-  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(139, 92, 246, 0.3)',
+  borderRadius: '8px',
+  marginBottom: '22px',
+  borderLeft: '5px solid #8b6f47',  // 📜 古铜色左边框
+  borderRight: '5px solid #8b6f47',
+  boxShadow: `
+    inset 0 0 20px rgba(139, 111, 71, 0.08),
+    0 3px 12px rgba(92, 51, 23, 0.15)
+  `,
+  border: '1px solid #c9a875',
+  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23c9a875\' fill-opacity=\'0.05\' fill-rule=\'evenodd\'%3E%3Ccircle cx=\'3\' cy=\'3\' r=\'3\'/%3E%3Ccircle cx=\'13\' cy=\'13\' r=\'3\'/%3E%3C/g%3E%3C/svg%3E")',
 };
 
 const dishTitleStyle = {
-  color: '#c4b5fd',  // 🎮 亮紫色标题
-  fontSize: '1.3rem',
+  color: '#5c3317',  // 📜 深棕色标题
+  fontSize: '1.35rem',
   marginTop: 0,
-  marginBottom: '12px',
+  marginBottom: '15px',
+  fontFamily: '"Cinzel", "Georgia", serif',
+  borderBottom: '1px solid #c9a875',
+  paddingBottom: '8px',
+  fontWeight: '600',
 };
 
 const tipStyle = {
   fontStyle: 'italic',
-  color: '#fbbf24',  // 🎮 金色提示
-  marginTop: '10px',
-  fontSize: '0.95rem',
+  color: '#8b4513',  // 📜 棕色提示
+  marginTop: '12px',
+  fontSize: '0.98rem',
+  paddingLeft: '15px',
+  borderLeft: '3px solid #d4af37',  // 📜 金色竖线
+  backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  padding: '8px 8px 8px 15px',
+  borderRadius: '4px',
 };
 
 const healthBoxStyle = {
-  backgroundColor: 'rgba(5, 150, 105, 0.15)',  // 🎮 绿色半透明
-  padding: '25px',
-  borderRadius: '15px',
-  borderLeft: '5px solid #10b981',
+  backgroundColor: 'rgba(107, 142, 35, 0.08)',  // 📜 淡橄榄绿
+  padding: '28px',
+  borderRadius: '8px',
+  border: '2px solid #6b8e23',
   marginBottom: '30px',
-  border: '1px solid rgba(16, 185, 129, 0.3)',
-  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)',
+  boxShadow: `
+    inset 0 0 15px rgba(107, 142, 35, 0.08),
+    0 3px 12px rgba(92, 51, 23, 0.15)
+  `,
+  backgroundImage: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent)',
 };
 
 const letterBoxStyle = {
-  backgroundColor: 'rgba(59, 130, 246, 0.15)',  // 🎮 蓝色半透明
-  padding: '25px',
-  borderRadius: '15px',
-  borderLeft: '5px solid #3b82f6',
+  backgroundColor: 'rgba(205, 133, 63, 0.12)',  // 📜 古铜色调
+  padding: '30px',
+  borderRadius: '8px',
+  border: '3px double #8b6f47',  // 📜 双线边框
   marginBottom: '30px',
-  border: '1px solid rgba(59, 130, 246, 0.3)',
-  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.2)',
+  boxShadow: `
+    inset 0 0 25px rgba(139, 111, 71, 0.12),
+    0 5px 20px rgba(92, 51, 23, 0.2)
+  `,
+  position: 'relative',
+  backgroundImage: `
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.15), transparent),
+    url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 20 Q10 10, 20 20 T40 20' stroke='%23c9a875' stroke-width='0.5' fill='none' opacity='0.2'/%3E%3C/svg%3E")
+  `,
 };
 
 const wisdomBoxStyle = {
-  backgroundColor: 'rgba(245, 158, 11, 0.15)',  // 🎮 金色半透明
-  padding: '20px',
-  borderRadius: '12px',
-  borderLeft: '4px solid #f59e0b',
+  backgroundColor: 'rgba(218, 165, 32, 0.12)',  // 📜 金黄色
+  padding: '25px',
+  borderRadius: '8px',
+  border: '2px solid #d4af37',
   marginBottom: '30px',
   fontStyle: 'italic',
-  border: '1px solid rgba(245, 158, 11, 0.3)',
-  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)',
+  boxShadow: `
+    inset 0 0 20px rgba(212, 175, 55, 0.15),
+    0 4px 15px rgba(139, 111, 71, 0.2)
+  `,
+  textAlign: 'center',
+  backgroundImage: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.2), transparent)',
 };
 
 const signatureStyle = {
   textAlign: 'right',
-  fontSize: '1.3rem',
+  fontSize: '1.4rem',
   fontWeight: 'bold',
   marginTop: '40px',
+  color: '#5c3317',
+  fontFamily: '"Brush Script MT", cursive',  // 📜 草书签名
 };
 
 const footerStyle = {
   display: 'flex',
   justifyContent: 'center',
-  gap: '15px',
-  marginTop: '40px',
+  gap: '18px',
+  marginTop: '45px',
+  paddingTop: '30px',
+  borderTop: '2px solid #c9a875',
   flexWrap: 'wrap',
 };
 
 const btnBase = {
-  padding: '12px 24px',
-  borderRadius: '8px',
-  border: 'none',
+  padding: '14px 28px',
+  borderRadius: '6px',
+  border: '2px solid #8b6f47',
   cursor: 'pointer',
-  fontWeight: 'bold',
-  transition: 'all 0.2s',
+  fontWeight: '600',
+  transition: 'all 0.3s ease',
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
+  fontFamily: '"Georgia", serif',
+  fontSize: '1.05rem',
+  boxShadow: '0 3px 8px rgba(92, 51, 23, 0.2)',
+  textShadow: '0.5px 0.5px 1px rgba(0, 0, 0, 0.15)',
 };
 
 const btnPrimaryStyle = { 
   ...btnBase, 
-  backgroundColor: '#667eea',  // 🎮 紫蓝色
-  color: 'white',
-  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+  backgroundColor: '#8b6f47',  // 📜 古铜色
+  color: '#f4e8d0',
+  border: '2px solid #6d4c3d',
+  boxShadow: '0 4px 12px rgba(92, 51, 23, 0.3)',
 };
 
 const btnSecondaryStyle = { 
   ...btnBase, 
-  backgroundColor: '#374151',  // 🎮 深灰色
-  color: '#e2e8f0',
-  border: '1px solid rgba(102, 126, 234, 0.3)',
+  backgroundColor: '#c9a875',  // 📜 浅古铜色
+  color: '#3e2723',
+  border: '2px solid #8b6f47',
+  boxShadow: '0 3px 10px rgba(139, 111, 71, 0.25)',
 };
 
 const btnDangerStyle = { 
   ...btnBase, 
-  backgroundColor: '#764ba2',  // 🎮 深紫色
-  color: 'white',
-  boxShadow: '0 4px 15px rgba(118, 75, 162, 0.4)',
+  backgroundColor: '#6d4c3d',  // 📜 深棕色
+  color: '#f4e8d0',
+  border: '2px solid #5c3317',
+  boxShadow: '0 4px 12px rgba(92, 51, 23, 0.35)',
 };
 
 const loaderStyle = {
   textAlign: 'center',
-  color: 'white',
+  color: '#f4e8d0',
+  fontFamily: '"Georgia", serif',
 };
 
 export default FinalReport;

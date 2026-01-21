@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Final Report - 玩家 021 预览</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+      animation: slideIn 0.5s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      padding: 40px 30px;
+      text-align: center;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.95;
+    }
+
+    .content {
+      padding: 40px 30px;
+    }
+
+    .section {
+      margin-bottom: 40px;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+      color: #667eea;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #667eea;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-content {
+      line-height: 1.8;
+      color: #555;
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+    }
+
+    .recipe-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .recipe-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .recipe-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .recipe-card h3 {
+      font-size: 1.5rem;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .recipe-detail {
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .recipe-detail strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .letter {
+      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+      padding: 30px;
+      border-radius: 15px;
+      border: 3px solid #fdcb6e;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      font-style: italic;
+      color: #2d3436;
+      white-space: pre-line;
+      line-height: 1.8;
+      position: relative;
+      margin: 30px 0;
+    }
+
+    .letter::before {
+      content: "📜";
+      position: absolute;
+      top: -15px;
+      left: 20px;
+      font-size: 2rem;
+      background: white;
+      padding: 5px 10px;
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+
+    .wisdom {
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+      padding: 25px;
+      border-radius: 15px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #2d3436;
+      font-style: italic;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      margin-top: 30px;
+    }
+
+    .language-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 12px 24px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      font-weight: bold;
+      color: #667eea;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+
+    .language-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+
+    .intro {
+      background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+      padding: 25px;
+      border-radius: 15px;
+      margin-bottom: 30px;
+      color: #2d3436;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .recipe-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .language-toggle {
+        top: 10px;
+        right: 10px;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+      }
+
+      .content {
+        padding: 20px 15px;
+      }
+    }
+
+    .player-info {
+      background: #e8f4f8;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .info-item {
+      text-align: center;
+    }
+
+    .info-item strong {
+      display: block;
+      color: #667eea;
+      font-size: 1.5rem;
+      margin-bottom: 5px;
+    }
+
+    .info-item span {
+      color: #666;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="language-toggle" onclick="toggleLanguage()">
+    🌐 <span id="lang-text">Switch to English</span>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1 id="main-title">🍳 你的美食村专属食谱</h1>
+      <p id="subtitle">Your Personal Recipe from Gourmet Village</p>
+    </div>
+
+    <div class="content">
+      <!-- 玩家信息 -->
+      <div class="player-info">
+        <div class="info-item">
+          <strong>021</strong>
+          <span>玩家ID</span>
+        </div>
+        <div class="info-item">
+          <strong>4.95s</strong>
+          <span>生成时间</span>
+        </div>
+        <div class="info-item">
+          <strong>Groq AI</strong>
+          <span>AI 引擎</span>
+        </div>
+      </div>
+
+      <!-- 餐食总结 -->
+      <div class="section">
+        <h2 class="section-title">
+          <span>🍽️</span>
+          <span id="summary-title">7天餐食总结</span>
+        </h2>
+        <div class="section-content">
+          <p id="meal-summary" class="zh">
+            过去7天，你享用了多种菜肴，包括蒸饺、炸鸡翅和炒上海青。你的餐食常常以方便食品为主，如方便面和冷冻饺子，但你也自己做过一些从头开始的菜肴，如红烧鸡翅和蛋炒饭。
+          </p>
+          <p id="meal-summary-en" class="en" style="display:none;">
+            Over the past 7 days, you've enjoyed a variety of dishes including steamed dumplings, fried chicken wings, and stir-fried Shanghai greens. Your meals often featured convenience foods like instant noodles and frozen dumplings, but you also cooked meals from scratch like red-braised chicken wings and egg fried rice.
+          </p>
+        </div>
+      </div>
+
+      <!-- 定制食谱 -->
+      <div class="section">
+        <h2 class="section-title">
+          <span>🧑‍🍳</span>
+          <span id="recipe-title">你的专属食谱</span>
+        </h2>
+        
+        <div class="intro">
+          <p id="recipe-intro" class="zh">
+            根据你过去7天分享的餐食，这个食谱结合了你描述的食材、口味和烹饪风格。它被设计成一顿完整的餐食，你可以在家里做出来——这是一次在美食村的旅程的反映。
+          </p>
+          <p id="recipe-intro-en" class="en" style="display:none;">
+            Based on the meals you've shared over the last 7 days, this recipe combines the ingredients, flavors, and cooking styles you described. It's designed as a full meal you could actually make at home – a reflection of your journey in Gourmet Village.
+          </p>
+        </div>
+
+        <div class="recipe-grid">
+          <!-- 前菜 -->
+          <div class="recipe-card">
+            <h3 id="starter-name">🥟 蒸饺美味</h3>
+            <div class="recipe-detail">
+              <strong>食材</strong>
+              <span id="starter-ing">猪肉和虾肉饺子，蒸包</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>烹饪方法</strong>
+              <span id="starter-method">蒸</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>💡 小贴士</strong>
+              <span id="starter-tip">使用多种馅料来保持趣味</span>
+            </div>
+          </div>
+
+          <!-- 主菜 -->
+          <div class="recipe-card">
+            <h3 id="main-name">🍗 红烧鸡翅配饭</h3>
+            <div class="recipe-detail">
+              <strong>食材</strong>
+              <span id="main-ing">鸡翅，酱油，糖，米饭</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>烹饪方法</strong>
+              <span id="main-method">红烧</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>💡 小贴士</strong>
+              <span id="main-tip">让它慢炖以获得更浓郁的口味</span>
+            </div>
+          </div>
+
+          <!-- 配菜 -->
+          <div class="recipe-card">
+            <h3 id="side-name">🥬 炒上海青</h3>
+            <div class="recipe-detail">
+              <strong>食材</strong>
+              <span id="side-ing">上海青，蒜，姜</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>烹饪方法</strong>
+              <span id="side-method">炒</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>💡 小贴士</strong>
+              <span id="side-tip">添加香料以获得更深的口味</span>
+            </div>
+          </div>
+
+          <!-- 甜点 -->
+          <div class="recipe-card">
+            <h3 id="dessert-name">🍓 新鲜水果拼盘</h3>
+            <div class="recipe-detail">
+              <strong>食材</strong>
+              <span id="dessert-ing">各种水果</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>烹饪方法</strong>
+              <span id="dessert-method">摆放</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>💡 小贴士</strong>
+              <span id="dessert-tip">选择季节性的水果以获得最佳口味</span>
+            </div>
+          </div>
+
+          <!-- 饮品 -->
+          <div class="recipe-card">
+            <h3 id="drink-name">🍵 草本茶</h3>
+            <div class="recipe-detail">
+              <strong>食材</strong>
+              <span id="drink-ing">草本茶叶</span>
+            </div>
+            <div class="recipe-detail">
+              <strong>烹饪方法</strong>
+              <span id="drink-method">浸泡</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 健康分析 -->
+      <div class="section">
+        <h2 class="section-title">
+          <span>🏥</span>
+          <span id="health-title">健康分析</span>
+        </h2>
+        <div class="section-content">
+          <p id="health-analysis" class="zh">
+            你过去7天的饮食显示出蛋白质、碳水化合物和蔬菜的良好平衡。使用方便食品如方便面和冷冻饺子很方便，但也要平衡这些与完整的未加工食品。考虑在你的餐食中添加更多水果和蔬菜，并尝试限制你对含糖饮料和零食的摄入。炒上海青和红烧鸡翅是你可以在家做的健康、均衡的餐食的好例子。通过从头开始做饭并使用多种食材，你可以确保你获得身体所需的所有营养。
+          </p>
+          <p id="health-analysis-en" class="en" style="display:none;">
+            Your diet over the past 7 days has shown a good balance of protein, carbohydrates, and vegetables. The use of convenience foods like instant noodles and frozen dumplings is convenient, but it's also important to balance these with whole, unprocessed foods. Consider adding more fruits and vegetables to your meals, and try to limit your intake of sugary drinks and snacks. The stir-fried Shanghai greens and braised chicken wings are great examples of healthy, balanced meals that you can make at home. By cooking from scratch and using a variety of ingredients, you can ensure that you're getting all the nutrients your body needs.
+          </p>
+        </div>
+      </div>
+
+      <!-- 华师父的信 -->
+      <div class="section">
+        <h2 class="section-title">
+          <span>✉️</span>
+          <span id="letter-title">华师父的信</span>
+        </h2>
+        <div class="letter">
+          <p id="master-letter" class="zh">亲爱的徒弟，
+
+我就知道你会找到这里。根据你的旅程和你记录的餐食，我为你创造了一个专属的食谱。记住，获得健康和快乐生活的关键是饮食中的平衡和多样性。不要害怕尝试新的事物和用不同的口味和食材进行实验。
+
+——华主厨</p>
+          <p id="master-letter-en" class="en" style="display:none;">Dear Apprentice,
+
+I knew you'd find this place. Based on your journey and the meals you recorded, I've created a personalized recipe just for you. Remember, the key to a healthy and happy life is balance and variety in your diet. Don't be afraid to try new things and experiment with different flavors and ingredients.
+
+– Master Hua</p>
+        </div>
+      </div>
+
+      <!-- 智慧箴言 -->
+      <div class="wisdom">
+        <p id="wisdom" class="zh">
+          "真正的美味不在于稀有的食材，而在于关注你吃什么以及为何而吃。"
+        </p>
+        <p id="wisdom-en" class="en" style="display:none;">
+          "True flavor comes not from rare ingredients, but from paying attention to what you eat and why."
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentLang = 'zh';
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      const zhElements = document.querySelectorAll('.zh');
+      const enElements = document.querySelectorAll('.en');
+
+      if (currentLang === 'en') {
+        zhElements.forEach(el => el.style.display = 'none');
+        enElements.forEach(el => el.style.display = 'block');
+        document.getElementById('lang-text').textContent = '切换到中文';
+        
+        // 更新标题
+        document.getElementById('summary-title').textContent = '7-Day Meal Summary';
+        document.getElementById('recipe-title').textContent = 'Your Personal Recipe';
+        document.getElementById('health-title').textContent = 'Health Analysis';
+        document.getElementById('letter-title').textContent = 'Letter from Master Hua';
+        
+        // 更新食谱
+        document.getElementById('starter-name').textContent = '🥟 Steamed Dumpling Delight';
+        document.getElementById('starter-ing').textContent = 'Pork and shrimp dumplings, steamed buns';
+        document.getElementById('starter-method').textContent = 'Steaming';
+        document.getElementById('starter-tip').textContent = 'Use a variety of fillings to keep it interesting';
+        
+        document.getElementById('main-name').textContent = '🍗 Braised Chicken Wings with Rice';
+        document.getElementById('main-ing').textContent = 'Chicken wings, soy sauce, sugar, rice';
+        document.getElementById('main-method').textContent = 'Braising';
+        document.getElementById('main-tip').textContent = 'Let it simmer for a richer flavor';
+        
+        document.getElementById('side-name').textContent = '🥬 Stir-Fried Shanghai Greens';
+        document.getElementById('side-ing').textContent = 'Shanghai greens, garlic, ginger';
+        document.getElementById('side-method').textContent = 'Stir-frying';
+        document.getElementById('side-tip').textContent = 'Add aromatics for extra depth';
+        
+        document.getElementById('dessert-name').textContent = '🍓 Fresh Fruit Platter';
+        document.getElementById('dessert-ing').textContent = 'Assorted fruits';
+        document.getElementById('dessert-method').textContent = 'Arranging';
+        document.getElementById('dessert-tip').textContent = 'Choose seasonal fruits for the best taste';
+        
+        document.getElementById('drink-name').textContent = '🍵 Herbal Tea';
+        document.getElementById('drink-ing').textContent = 'Herbal tea leaves';
+        document.getElementById('drink-method').textContent = 'Steeping';
+        
+      } else {
+        zhElements.forEach(el => el.style.display = 'block');
+        enElements.forEach(el => el.style.display = 'none');
+        document.getElementById('lang-text').textContent = 'Switch to English';
+        
+        // 恢复中文标题
+        document.getElementById('summary-title').textContent = '7天餐食总结';
+        document.getElementById('recipe-title').textContent = '你的专属食谱';
+        document.getElementById('health-title').textContent = '健康分析';
+        document.getElementById('letter-title').textContent = '华师父的信';
+        
+        // 恢复中文食谱
+        document.getElementById('starter-name').textContent = '🥟 蒸饺美味';
+        document.getElementById('starter-ing').textContent = '猪肉和虾肉饺子，蒸包';
+        document.getElementById('starter-method').textContent = '蒸';
+        document.getElementById('starter-tip').textContent = '使用多种馅料来保持趣味';
+        
+        document.getElementById('main-name').textContent = '🍗 红烧鸡翅配饭';
+        document.getElementById('main-ing').textContent = '鸡翅，酱油，糖，米饭';
+        document.getElementById('main-method').textContent = '红烧';
+        document.getElementById('main-tip').textContent = '让它慢炖以获得更浓郁的口味';
+        
+        document.getElementById('side-name').textContent = '🥬 炒上海青';
+        document.getElementById('side-ing').textContent = '上海青，蒜，姜';
+        document.getElementById('side-method').textContent = '炒';
+        document.getElementById('side-tip').textContent = '添加香料以获得更深的口味';
+        
+        document.getElementById('dessert-name').textContent = '🍓 新鲜水果拼盘';
+        document.getElementById('dessert-ing').textContent = '各种水果';
+        document.getElementById('dessert-method').textContent = '摆放';
+        document.getElementById('dessert-tip').textContent = '选择季节性的水果以获得最佳口味';
+        
+        document.getElementById('drink-name').textContent = '🍵 草本茶';
+        document.getElementById('drink-ing').textContent = '草本茶叶';
+        document.getElementById('drink-method').textContent = '浸泡';
+      }
+    }
+  </script>
+</body>
+</html>
