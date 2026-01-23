@@ -136,9 +136,17 @@ ${report.wisdom[lang]}
     );
   }
 
+  // 🔧 在组件内部检测是否是移动设备
+  const isMobile = window.innerWidth <= 768 || window.innerHeight <= 500;
+  
+  // 🔧 根据设备类型选择样式
+  const currentOverlayStyle = isMobile ? overlayStyleMobile : overlayStyle;
+  const currentCardStyle = isMobile ? cardStyleMobile : cardStyle;
+  const currentTitleStyle = isMobile ? titleStyleMobile : titleStyle;
+
   return (
     <div 
-      style={overlayStyle}
+      style={currentOverlayStyle}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -159,7 +167,7 @@ ${report.wisdom[lang]}
       </div>
 
       <div 
-        style={cardStyle} 
+        style={currentCardStyle} 
         className="report-card"
         onClick={(e) => {
           e.stopPropagation();
@@ -176,7 +184,7 @@ ${report.wisdom[lang]}
           <span className="star">✨</span>
         </div>
         
-        <h1 style={titleStyle} className="title-rainbow">{report.title[lang]}</h1>
+        <h1 style={currentTitleStyle} className="title-rainbow">{report.title[lang]}</h1>
         
         <div style={contentStyle}>
           {/* Meal Summary */}
@@ -702,9 +710,6 @@ ${report.wisdom[lang]}
 };
 
 // Styles - 📜 古典卷轴风格
-// 🔧 检测是否是移动设备（必须在样式定义之前）
-const isMobile = window.innerWidth <= 768;
-
 const overlayStyle = {
   position: 'fixed',
   top: 0,
@@ -712,18 +717,27 @@ const overlayStyle = {
   width: '100vw',
   height: '100vh',
   backgroundColor: 'rgba(20, 15, 10, 0.92)',  // 📜 深棕色背景，营造古典氛围
-  backdropFilter: isMobile ? 'none' : 'blur(15px)',  // 🔧 移动端关闭blur以提高性能
-  WebkitBackdropFilter: isMobile ? 'none' : 'blur(15px)',  // 🔧 iOS支持
+  backdropFilter: 'blur(15px)',
+  WebkitBackdropFilter: 'blur(15px)',
   zIndex: 999999,
   display: 'flex',
   justifyContent: 'center',
-  alignItems: isMobile ? 'flex-start' : 'center',  // 🔧 移动端从顶部开始
-  padding: isMobile ? '10px' : '20px',
+  alignItems: 'center',
+  padding: '20px',
   fontFamily: '"Crimson Text", "Georgia", "Times New Roman", serif',  // 📜 古典字体
   pointerEvents: 'auto',
   isolation: 'isolate',
   overflowY: 'auto',  // 🔧 允许整个overlay滚动
   WebkitOverflowScrolling: 'touch',  // 🔧 iOS平滑滚动
+};
+
+// 🔧 移动端overlay样式覆盖
+const overlayStyleMobile = {
+  ...overlayStyle,
+  backdropFilter: 'none',  // 移动端关闭blur
+  WebkitBackdropFilter: 'none',
+  alignItems: 'flex-start',  // 从顶部开始
+  padding: '10px',
 };
 
 const cardStyle = {
@@ -733,20 +747,18 @@ const cardStyle = {
     url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a875' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")
   `,  // 📜 古典纹理
   width: '100%',
-  maxWidth: isMobile ? '100%' : '820px',
+  maxWidth: '820px',
   maxHeight: '88vh',
-  padding: isMobile ? '30px 20px' : '60px 50px',  // 🔧 移动端减少padding
+  padding: '60px 50px',
   borderRadius: '8px',  // 📜 轻微圆角
-  boxShadow: isMobile 
-    ? '0 10px 40px rgba(0, 0, 0, 0.5)'  // 🔧 移动端简化阴影，避免渲染问题
-    : `
-      0 0 0 8px #e6d2b4,
-      0 0 0 12px #d4b896,
-      0 0 0 16px #c9a875,
-      inset 0 0 80px rgba(193, 154, 107, 0.15),
-      0 30px 90px rgba(0, 0, 0, 0.5),
-      0 0 60px rgba(212, 184, 150, 0.3)
-    `,  // 📜 多层边框 + 内阴影营造卷轴感
+  boxShadow: `
+    0 0 0 8px #e6d2b4,
+    0 0 0 12px #d4b896,
+    0 0 0 16px #c9a875,
+    inset 0 0 80px rgba(193, 154, 107, 0.15),
+    0 30px 90px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(212, 184, 150, 0.3)
+  `,  // 📜 多层边框 + 内阴影营造卷轴感
   position: 'relative',
   overflowY: 'auto',
   overflowX: 'hidden',  // 🔧 防止横向滚动
@@ -756,6 +768,14 @@ const cardStyle = {
   color: '#2c1810',  // 📜 深棕色墨水文字
   backgroundBlendMode: 'multiply',
   WebkitOverflowScrolling: 'touch',  // 🔧 iOS平滑滚动
+};
+
+// 🔧 移动端card样式覆盖
+const cardStyleMobile = {
+  ...cardStyle,
+  maxWidth: '100%',
+  padding: '30px 20px',
+  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',  // 简化阴影
 };
 
 const sealStyle = {
@@ -787,15 +807,23 @@ const sealStyle = {
 const titleStyle = {
   textAlign: 'center',
   color: '#5c3317',  // 📜 深棕色标题
-  fontSize: isMobile ? '1.8rem' : '2.8rem',  // 🔧 移动端缩小字体
-  marginBottom: isMobile ? '20px' : '30px',
+  fontSize: '2.8rem',
+  marginBottom: '30px',
   fontFamily: '"Cinzel Decorative", "Georgia", serif',  // 📜 装饰性字体
   borderBottom: '3px double #8b6f47',  // 📜 双线边框
   paddingBottom: '15px',
   textShadow: '1px 1px 2px rgba(139, 111, 71, 0.3)',
-  letterSpacing: isMobile ? '1px' : '2px',  // 🔧 移动端减少字间距
+  letterSpacing: '2px',
   fontWeight: '600',
   wordBreak: 'break-word',  // 🔧 防止标题超出屏幕
+};
+
+// 🔧 移动端title样式覆盖
+const titleStyleMobile = {
+  ...titleStyle,
+  fontSize: '1.8rem',
+  marginBottom: '20px',
+  letterSpacing: '1px',
 };
 
 const contentStyle = {
