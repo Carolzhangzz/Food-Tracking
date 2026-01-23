@@ -702,6 +702,9 @@ ${report.wisdom[lang]}
 };
 
 // Styles - 📜 古典卷轴风格
+// 🔧 检测是否是移动设备（必须在样式定义之前）
+const isMobile = window.innerWidth <= 768;
+
 const overlayStyle = {
   position: 'fixed',
   top: 0,
@@ -722,9 +725,6 @@ const overlayStyle = {
   overflowY: 'auto',  // 🔧 允许整个overlay滚动
   WebkitOverflowScrolling: 'touch',  // 🔧 iOS平滑滚动
 };
-
-// 🔧 检测是否是移动设备
-const isMobile = window.innerWidth <= 768;
 
 const cardStyle = {
   backgroundColor: '#f4e8d0',  // 📜 羊皮纸米黄色
@@ -766,7 +766,6 @@ const sealStyle = {
   height: '70px',
   border: '4px solid #8b4513',  // 📜 深棕色蜡封边框
   borderRadius: '50%',
-  color: '#8b4513',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
