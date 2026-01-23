@@ -126,24 +126,37 @@ export default class MealRecordingHandler {
   // ⏰ 检查时间是否不寻常
   checkUnusualMealTime(answer, mealType) {
     const timeText = typeof answer === 'object' ? answer.text || answer.value : answer;
-    const options = ["Early morning (before 7AM)", "Morning (7–11AM)", "Midday (11AM–2PM)", "Afternoon (2–5PM)", "Evening (5–9PM)", "Night (after 9PM)"];
     
-    let index = options.findIndex(opt => timeText.toLowerCase().includes(opt.toLowerCase().split('(')[0].trim().toLowerCase()));
-    if (index === -1) return false; // 🔧 自定义时间不再视为不寻常（给玩家更多自由）
+    // 🔧 同时支持英文和中文选项匹配
+    const optionsEN = ["Early morning (before 7AM)", "Morning (7–11AM)", "Midday (11AM–2PM)", "Afternoon (2–5PM)", "Evening (5–9PM)", "Night (after 9PM)"];
+    const optionsZH = ["清晨（7点前）", "早上（7点-11点）", "中午（11点-14点）", "下午（14点-17点）", "傍晚（17点-21点）", "晚上（21点后）"];
+    
+    // 尝试匹配英文
+    let index = optionsEN.findIndex(opt => timeText.toLowerCase().includes(opt.toLowerCase().split('(')[0].trim().toLowerCase()));
+    
+    // 如果英文没匹配到，尝试匹配中文
+    if (index === -1) {
+      index = optionsZH.findIndex(opt => timeText.includes(opt.split('（')[0]));
+    }
+    
+    if (index === -1) {
+      console.log(`⚠️ [时间检查] 未匹配到选项: "${timeText}"`);
+      return false; // 🔧 无法匹配的时间不视为不寻常
+    }
 
-    // 🔧 优化：更宽松的时间判断，让大多数正常时间都不触发追问
-    // 只有明显异常的时间才追问（例如晚上吃早餐、清晨吃晚餐）
+    // 🔧 进一步放宽：绝大多数正常时间都不触发追问
+    // 只有**极端异常**的时间才追问（例如深夜吃早餐、清晨吃晚餐）
     if (mealType === "breakfast") {
-      // 早餐：只有晚上(5PM后)吃早餐才算异常
-      return index >= 4; // Evening (5-9PM) or Night (after 9PM)
+      // 早餐：只有晚上(9PM后)吃早餐才算异常
+      return index === 5; // Night (after 9PM)
     }
     if (mealType === "lunch") {
-      // 午餐：只有深夜(9PM后)或清晨(7AM前)吃午餐才算异常
-      return index === 0 || index === 5; // Early morning or Night
+      // 午餐：只有深夜(9PM后)吃午餐才算异常
+      return index === 5; // Night (after 9PM)
     }
     if (mealType === "dinner") {
-      // 晚餐：只有清晨(7AM前)或上午(7-11AM)吃晚餐才算异常
-      return index === 0 || index === 1; // Early morning or Morning
+      // 晚餐：只有清晨(7AM前)吃晚餐才算异常
+      return index === 0; // Early morning (before 7AM)
     }
     return false;
   }
