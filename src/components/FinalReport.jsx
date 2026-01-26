@@ -143,6 +143,9 @@ ${report.wisdom[lang]}
   const currentOverlayStyle = isMobile ? overlayStyleMobile : overlayStyle;
   const currentCardStyle = isMobile ? cardStyleMobile : cardStyle;
   const currentTitleStyle = isMobile ? titleStyleMobile : titleStyle;
+  const currentBtnBase = isMobile ? btnBaseMobile : btnBase;
+  const currentBtnPrimaryStyle = { ...currentBtnBase, ...btnPrimaryStyle };
+  const currentBtnSecondaryStyle = { ...currentBtnBase, ...btnSecondaryStyle };
 
   return (
     <div 
@@ -436,7 +439,7 @@ ${report.wisdom[lang]}
               e.stopPropagation();
               e.preventDefault();
             }}
-            style={btnSecondaryStyle} 
+            style={currentBtnSecondaryStyle} 
             className="btn-bounce"
           >
             🌐 {lang === 'zh' ? 'English' : '中文'}
@@ -451,7 +454,7 @@ ${report.wisdom[lang]}
               e.stopPropagation();
               e.preventDefault();
             }}
-            style={btnPrimaryStyle} 
+            style={currentBtnPrimaryStyle} 
             className="btn-bounce"
           >
             📂 {lang === 'zh' ? '下载完整报告' : 'Download Full Report'}
@@ -998,7 +1001,7 @@ const footerStyle = {
 };
 
 const btnBase = {
-  padding: isMobile ? '12px 20px' : '14px 28px',  // 🔧 移动端缩小按钮
+  padding: '14px 28px',
   borderRadius: '6px',
   border: '2px solid #8b6f47',
   cursor: 'pointer',
@@ -1009,12 +1012,20 @@ const btnBase = {
   justifyContent: 'center',  // 🔧 确保按钮内容居中
   gap: '8px',
   fontFamily: '"Georgia", serif',
-  fontSize: isMobile ? '0.95rem' : '1.05rem',  // 🔧 移动端缩小字体
+  fontSize: '1.05rem',
   boxShadow: '0 3px 8px rgba(92, 51, 23, 0.2)',
   textShadow: '0.5px 0.5px 1px rgba(0, 0, 0, 0.15)',
-  minWidth: isMobile ? '120px' : 'auto',  // 🔧 移动端最小宽度
+  minWidth: 'auto',
   touchAction: 'manipulation',  // 🔧 优化触摸响应
   WebkitTapHighlightColor: 'transparent',  // 🔧 移除iOS点击高亮
+};
+
+// 🔧 移动端按钮样式覆盖
+const btnBaseMobile = {
+  ...btnBase,
+  padding: '12px 20px',
+  fontSize: '0.95rem',
+  minWidth: '120px',
 };
 
 const btnPrimaryStyle = { 
