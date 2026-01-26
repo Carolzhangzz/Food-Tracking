@@ -14,6 +14,7 @@ function GameScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("正在初始化...");
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [showFinalReport, setShowFinalReport] = useState(false); // 🔧 控制 Final Report 显示
   const loadingTimeoutRef = useRef(null);
   const sceneCheckIntervalRef = useRef(null);
 
@@ -28,6 +29,13 @@ function GameScreen() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // 🔧 监听 showReportTrigger 变化，打开 Final Report
+  useEffect(() => {
+    if (playerData?.showReportTrigger) {
+      setShowFinalReport(true);
+    }
+  }, [playerData?.showReportTrigger]);
 
   // 玩家数据检查
   useEffect(() => {
@@ -276,12 +284,12 @@ function GameScreen() {
       {/* 🎮 只在游戏加载完成且不在过场动画时显示控制面板 */}
       {!isLoading && <Control />}
 
-      {/* 🔧 最终报告展示逻辑 */}
-      {playerData?.gameCompleted && (
+      {/* 🔧 最终报告展示逻辑 - 可重复打开 */}
+      {showFinalReport && (
         <FinalReport 
           onClose={() => {
-            // 结束后回到登录页或重置状态
-            window.location.reload(); 
+            // 🔧 只关闭报告，不刷新页面，允许玩家重新打开
+            setShowFinalReport(false);
           }} 
         />
       )}

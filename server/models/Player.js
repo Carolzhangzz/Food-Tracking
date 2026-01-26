@@ -28,6 +28,11 @@ const Player = sequelize.define('Player', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  showReportTrigger: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
   language: {
     type: DataTypes.STRING,
     defaultValue: 'en',
